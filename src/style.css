@@ -1,0 +1,331 @@
+/* ==========================================
+   即闪后台管理系统 - 奢华视觉设计样式系统
+   ========================================== */
+
+/* 1. 设计系统变量定义 */
+:root {
+  /* 基础品牌色彩 */
+  --primary: #5856d6;
+  --primary-glow: rgba(88, 86, 214, 0.4);
+  --secondary: #007aff;
+  --success: #34c759;
+  --warning: #ff9500;
+  --danger: #ff3b30;
+  
+  /* 优雅浅色模式主题变量 */
+  --bg-app: #f4f6fa;
+  --bg-panel: #ffffff;
+  --bg-sidebar: #0f172a; /* 深色侧边栏更具奢华仪式感 */
+  --bg-header: rgba(255, 255, 255, 0.85);
+  
+  --text-main: #1e293b;
+  --text-regular: #475569;
+  --text-muted: #64748b;
+  --text-light: #94a3b8;
+  --text-sidebar: #cbd5e1;
+  --text-sidebar-active: #ffffff;
+  
+  --border-color: #e2e8f0;
+  --border-glass: rgba(255, 255, 255, 0.4);
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 20px -2px rgba(148, 163, 184, 0.12), 0 2px 8px -1px rgba(148, 163, 184, 0.08);
+  --shadow-lg: 0 20px 25px -5px rgba(15, 23, 42, 0.08), 0 10px 10px -5px rgba(15, 23, 42, 0.04);
+  --shadow-premium: 0 10px 30px -10px rgba(88, 86, 214, 0.15);
+  
+  /* 高斯模糊参数 */
+  --blur-amount: 16px;
+  --glass-bg: rgba(255, 255, 255, 0.7);
+  --glass-border: rgba(226, 232, 240, 0.8);
+  
+  /* 字体系列 */
+  --font-sans: 'Outfit', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: 'Fira Code', 'Courier New', Courier, monospace;
+}
+
+/* 2. 基础重置与规范 */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--bg-app);
+  color: var(--text-main);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  line-height: 1.5;
+  overflow-x: hidden;
+}
+
+/* 3. 极其精美的自定义滚动条 */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--text-light);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+/* 4. 玻璃拟物化通用类 */
+.glass-effect {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--blur-amount));
+  -webkit-backdrop-filter: blur(var(--blur-amount));
+  border: 1px solid var(--glass-border);
+}
+
+/* 5. 磨砂玻璃登录背景样式 */
+.login-bg {
+  background: radial-gradient(circle at 10% 20%, rgba(88, 86, 214, 0.12) 0%, transparent 40%),
+              radial-gradient(circle at 90% 80%, rgba(0, 122, 255, 0.12) 0%, transparent 45%),
+              linear-gradient(135deg, #f4f6fa 0%, #e2e8f0 100%);
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.login-bg::before {
+  content: '';
+  position: absolute;
+  width: 300px;
+  height: 300px;
+  border-radius: 50%;
+  background: linear-gradient(45deg, var(--primary), var(--secondary));
+  top: -100px;
+  right: -50px;
+  opacity: 0.15;
+  filter: blur(60px);
+  animation: pulse-slow 8s infinite alternate;
+}
+
+.login-bg::after {
+  content: '';
+  position: absolute;
+  width: 250px;
+  height: 250px;
+  border-radius: 50%;
+  background: linear-gradient(45deg, #ff007f, var(--primary));
+  bottom: -50px;
+  left: -50px;
+  opacity: 0.12;
+  filter: blur(50px);
+  animation: pulse-slow 12s infinite alternate-reverse;
+}
+
+@keyframes pulse-slow {
+  0% { transform: scale(1); opacity: 0.12; }
+  100% { transform: scale(1.2); opacity: 0.2; }
+}
+
+/* 6. 高级卡片 & Hover 微交互动画 */
+.premium-card {
+  background: var(--bg-panel);
+  border-radius: 16px !important;
+  border: 1px solid var(--border-color) !important;
+  box-shadow: var(--shadow-md) !important;
+  transition: all 0.35s cubic-bezier(0.25, 0.8, 0.25, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.premium-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-lg), var(--shadow-premium) !important;
+  border-color: rgba(88, 86, 214, 0.2) !important;
+}
+
+/* 7. Element Plus 样式高级覆写 */
+
+/* Card Header */
+.el-card__header {
+  border-bottom: 1px solid var(--border-color) !important;
+  padding: 18px 24px !important;
+  font-weight: 600;
+  font-size: 16px;
+  color: var(--text-main);
+  background: linear-gradient(to right, rgba(248, 250, 252, 0.5), transparent);
+}
+
+.el-card__body {
+  padding: 24px !important;
+}
+
+/* 精美表格覆写 */
+.el-table {
+  --el-table-border-color: var(--border-color) !important;
+  --el-table-header-bg-color: #f8fafc !important;
+  border-radius: 12px !important;
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border-color);
+}
+
+.el-table th.el-table__cell {
+  color: var(--text-regular) !important;
+  font-weight: 600 !important;
+  font-size: 14px;
+  height: 52px;
+}
+
+.el-table .el-table__row {
+  transition: background-color 0.25s ease;
+}
+
+.el-table .el-table__row:hover > td.el-table__cell {
+  background-color: rgba(88, 86, 214, 0.03) !important;
+}
+
+/* 按钮微弹质感与渐变 */
+.el-button {
+  border-radius: 8px !important;
+  font-weight: 500 !important;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.el-button--primary {
+  background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%) !important;
+  border: none !important;
+  box-shadow: 0 4px 12px rgba(88, 86, 214, 0.2);
+}
+
+.el-button--primary:hover {
+  opacity: 0.93;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(88, 86, 214, 0.35);
+}
+
+.el-button--primary:active {
+  transform: translateY(1px);
+}
+
+/* 分页器精细化 */
+.el-pagination {
+  margin-top: 24px;
+  justify-content: flex-end;
+}
+
+.el-pagination.is-background .el-pager li:not(.is-active) {
+  background-color: var(--bg-panel) !important;
+  border: 1px solid var(--border-color);
+}
+
+.el-pagination.is-background .el-pager li.is-active {
+  background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%) !important;
+}
+
+/* 表单与输入框优化 */
+.el-input__wrapper, .el-select__wrapper, .el-textarea__inner {
+  border-radius: 8px !important;
+  box-shadow: 0 0 0 1px var(--border-color) inset !important;
+  transition: all 0.2s ease !important;
+  background-color: var(--bg-panel) !important;
+}
+
+.el-input__wrapper.is-focus, .el-select__wrapper.is-focus {
+  box-shadow: 0 0 0 1px var(--primary) inset, 0 0 0 3px rgba(88, 86, 214, 0.15) !important;
+}
+
+/* 面包屑导航样式 */
+.el-breadcrumb {
+  font-size: 14px !important;
+}
+
+.el-breadcrumb__inner.is-link {
+  font-weight: 500 !important;
+  color: var(--text-regular) !important;
+}
+
+.el-breadcrumb__inner {
+  color: var(--text-muted) !important;
+}
+
+/* 标签 Tags 样式 */
+.el-tag {
+  border-radius: 6px !important;
+  padding: 4px 8px !important;
+  font-weight: 500 !important;
+}
+
+.el-tag--success {
+  background-color: rgba(52, 199, 89, 0.1) !important;
+  border-color: rgba(52, 199, 89, 0.2) !important;
+  color: var(--success) !important;
+}
+
+.el-tag--danger {
+  background-color: rgba(255, 59, 48, 0.1) !important;
+  border-color: rgba(255, 59, 48, 0.2) !important;
+  color: var(--danger) !important;
+}
+
+.el-tag--info {
+  background-color: rgba(148, 163, 184, 0.1) !important;
+  border-color: rgba(148, 163, 184, 0.2) !important;
+  color: var(--text-muted) !important;
+}
+
+/* 遮罩/弹窗/抽屉磨砂感 */
+.el-dialog, .el-drawer {
+  border-radius: 16px !important;
+  box-shadow: var(--shadow-lg) !important;
+  backdrop-filter: blur(10px);
+}
+
+.el-drawer__header {
+  margin-bottom: 0 !important;
+  padding: 24px !important;
+  border-bottom: 1px solid var(--border-color);
+  font-weight: 600;
+  font-size: 18px;
+  color: var(--text-main);
+}
+
+.el-drawer__body {
+  padding: 24px !important;
+  background-color: #f8fafc;
+}
+
+/* 8. 渐变文本和动效 */
+.text-gradient {
+  background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* 9. 状态点 (Active Dots) */
+.status-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 6px;
+}
+
+.status-dot.active {
+  background-color: var(--success);
+  box-shadow: 0 0 8px var(--success);
+}
+
+.status-dot.inactive {
+  background-color: var(--text-light);
+}
+
+.status-dot.danger {
+  background-color: var(--danger);
+  box-shadow: 0 0 8px var(--danger);
+}
