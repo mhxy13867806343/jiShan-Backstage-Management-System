@@ -34,7 +34,44 @@
         <el-tab-pane label="全部内容" name="all" />
       </el-tabs>
 
-      <el-table :data="tableData" style="width: 100%">
+      <!-- Batch Action Bar -->
+      <div class="batch-action-bar" v-if="selectedIds.size > 0">
+        <el-icon><InfoFilled /></el-icon>
+        <span>已选 <b>{{ selectedIds.size }}</b> 条（支持跨页选择）</span>
+        <el-button
+          type="danger"
+          size="small"
+          icon="Delete"
+          @click="handleBatchDelete"
+        >
+          批量删除
+        </el-button>
+        <el-button size="small" @click="selectedIds.clear()">取消选择</el-button>
+      </div>
+
+      <el-table
+        :data="tableData"
+        style="width: 100%"
+        @selection-change="handleSelectionChange"
+        ref="tableRef"
+      >
+        <!-- 手动 checkbox 列，支持跨分页保留 -->
+        <el-table-column width="50" align="center">
+          <template #header>
+            <el-checkbox
+              :model-value="isCurrentPageAllSelected"
+              :indeterminate="isCurrentPageIndeterminate"
+              @change="handleSelectCurrentPage"
+            />
+          </template>
+          <template #default="{ row }">
+            <el-checkbox
+              :model-value="selectedIds.has(row.post_id)"
+              @change="(val: boolean) => toggleSelect(row.post_id, val)"
+            />
+          </template>
+        </el-table-column>
+
         <el-table-column prop="post_id" label="内容ID" width="100" align="center" />
         <el-table-column prop="user_id" label="发布人ID" width="95" align="center" />
         <el-table-column label="发布人信息" width="180" align="center">
@@ -43,9 +80,9 @@
               <div class="user-avatar-row">
                 <el-avatar :size="26" :src="row.avatar" style="margin-right: 6px;" />
                 <span class="user-nickname">{{ row.nickname }}</span>
-                <el-tag 
-                  size="small" 
-                  :type="getUserGender(row.user_id) === '男' ? 'primary' : 'danger'" 
+                <el-tag
+                  size="small"
+                  :type="getUserGender(row.user_id) === '男' ? 'primary' : 'danger'"
                   class="gender-badge"
                 >
                   {{ getUserGender(row.user_id) }}
@@ -55,17 +92,17 @@
             </div>
           </template>
         </el-table-column>
-        
+
         <el-table-column label="内容概要" min-width="200">
           <template #default="{ row }">
             <div class="content-snippet-container">
               <p class="content-snippet">{{ row.content }}</p>
               <div v-if="row.images && row.images.length" class="image-thumbnail-list">
-                <el-image 
-                  v-for="(img, idx) in row.images" 
+                <el-image
+                  v-for="(img, idx) in row.images"
                   :key="idx"
                   class="content-thumbnail"
-                  :src="img" 
+                  :src="img"
                   :preview-src-list="row.images"
                   :initial-index="idx"
                   fit="cover"
@@ -79,11 +116,11 @@
         <el-table-column label="关联话题" width="160" align="center">
           <template #default="{ row }">
             <div class="topic-list" v-if="parseTopics(row.content).length">
-              <el-tag 
-                v-for="topic in parseTopics(row.content)" 
-                :key="topic" 
-                size="small" 
-                type="info" 
+              <el-tag
+                v-for="topic in parseTopics(row.content)"
+                :key="topic"
+                size="small"
+                type="info"
                 class="topic-badge"
               >
                 {{ topic }}
@@ -96,7 +133,7 @@
         <el-table-column prop="likes" label="点赞数" width="90" align="center" sortable />
         <el-table-column prop="comments" label="评论数" width="90" align="center" sortable />
         <el-table-column prop="shares" label="分享数" width="90" align="center" sortable />
-        
+
         <el-table-column label="状态" width="100" align="center">
           <template #default="{ row }">
             <el-tag :type="row.status === 'online' ? 'success' : 'danger'">
@@ -107,32 +144,19 @@
 
         <el-table-column label="操作" width="220" align="center" fixed="right">
           <template #default="{ row }">
-            <el-button 
-              size="small" 
-              type="primary" 
-              plain 
-              icon="View" 
-              @click="handleViewDetail(row)"
-            >
+            <el-button size="small" type="primary" plain icon="View" @click="handleViewDetail(row)">
               详情
             </el-button>
-            
-            <el-button 
+            <el-button
               v-if="row.status === 'online'"
-              size="small" 
-              type="danger" 
-              plain 
-              icon="Compass" 
+              size="small" type="danger" plain icon="Compass"
               @click="handleOffline(row)"
             >
               下架
             </el-button>
-            <el-button 
+            <el-button
               v-else
-              size="small" 
-              type="success" 
-              plain 
-              icon="Refresh" 
+              size="small" type="success" plain icon="Refresh"
               @click="handleRestore(row)"
             >
               恢复上架
@@ -155,25 +179,15 @@
     </div>
 
     <!-- Content Detail Drawer -->
-    <el-drawer
-      v-model="detailDrawerVisible"
-      title="内容发布详情"
-      size="520px"
-      destroy-on-close
-    >
+    <el-drawer v-model="detailDrawerVisible" title="内容发布详情" size="520px" destroy-on-close>
       <div v-if="selectedPost" class="drawer-post-content">
-        <!-- Publisher Meta -->
         <div class="drawer-header-meta glass-effect">
           <div class="user-meta-info">
             <el-avatar :size="50" :src="selectedPost.avatar" />
             <div class="user-meta-text">
               <div class="meta-name-row">
                 <span class="user-meta-name">{{ selectedPost.nickname }}</span>
-                <el-tag 
-                  size="small" 
-                  :type="getUserGender(selectedPost.user_id) === '男' ? 'primary' : 'danger'" 
-                  style="margin-left: 6px;"
-                >
+                <el-tag size="small" :type="getUserGender(selectedPost.user_id) === '男' ? 'primary' : 'danger'" style="margin-left: 6px;">
                   {{ getUserGender(selectedPost.user_id) }}
                 </el-tag>
               </div>
@@ -186,77 +200,35 @@
           </el-tag>
         </div>
 
-        <!-- Full Text Content -->
         <div class="drawer-body-card premium-card">
           <div class="card-label-heading">内容正文</div>
           <p class="full-content-text">{{ selectedPost.content }}</p>
-          <div class="post-time-badge">
-            发布于: {{ selectedPost.pubTime }}
-          </div>
+          <div class="post-time-badge">发布于: {{ selectedPost.pubTime }}</div>
         </div>
 
-        <!-- Dynamic Carousel for images -->
         <div v-if="selectedPost.images && selectedPost.images.length" class="drawer-carousel-card premium-card">
           <div class="card-label-heading">附带图片 ({{ selectedPost.images.length }}张)</div>
           <el-carousel :interval="4000" type="card" height="180px" indicator-position="outside">
             <el-carousel-item v-for="(img, idx) in selectedPost.images" :key="idx">
-              <el-image 
-                class="carousel-image"
-                :src="img" 
-                :preview-src-list="selectedPost.images"
-                :initial-index="idx"
-                fit="cover"
-                preview-teleported
-              />
+              <el-image class="carousel-image" :src="img" :preview-src-list="selectedPost.images" :initial-index="idx" fit="cover" preview-teleported />
             </el-carousel-item>
           </el-carousel>
         </div>
 
-        <!-- Statistical indicators -->
         <div class="drawer-stats-row">
-          <div class="stats-item">
-            <span class="stats-label">点赞数</span>
-            <span class="stats-value font-mono">{{ selectedPost.likes }}</span>
-          </div>
-          <div class="stats-item">
-            <span class="stats-label">评论数</span>
-            <span class="stats-value font-mono">{{ selectedPost.comments }}</span>
-          </div>
-          <div class="stats-item">
-            <span class="stats-label">分享数</span>
-            <span class="stats-value font-mono">{{ selectedPost.shares }}</span>
-          </div>
+          <div class="stats-item"><span class="stats-label">点赞数</span><span class="stats-value font-mono">{{ selectedPost.likes }}</span></div>
+          <div class="stats-item"><span class="stats-label">评论数</span><span class="stats-value font-mono">{{ selectedPost.comments }}</span></div>
+          <div class="stats-item"><span class="stats-label">分享数</span><span class="stats-value font-mono">{{ selectedPost.shares }}</span></div>
         </div>
 
-        <!-- Module Bridge Action buttons -->
         <div class="drawer-actions-container">
-          <el-button 
-            type="primary" 
-            icon="ChatLineSquare" 
-            style="width: 100%; margin-bottom: 12px;" 
-            @click="gotoComments(selectedPost.post_id)"
-          >
+          <el-button type="primary" icon="ChatLineSquare" style="width: 100%; margin-bottom: 12px;" @click="gotoComments(selectedPost.post_id)">
             查看并监管本内容的全部评论
           </el-button>
-
-          <el-button 
-            v-if="selectedPost.status === 'online'" 
-            type="danger" 
-            plain
-            style="width: 100%; margin-left: 0;" 
-            icon="Compass" 
-            @click="handleOffline(selectedPost)"
-          >
+          <el-button v-if="selectedPost.status === 'online'" type="danger" plain style="width: 100%; margin-left: 0;" icon="Compass" @click="handleOffline(selectedPost)">
             下架本条不合规内容
           </el-button>
-          <el-button 
-            v-else 
-            type="success" 
-            plain
-            style="width: 100%; margin-left: 0;" 
-            icon="Refresh" 
-            @click="handleRestore(selectedPost)"
-          >
+          <el-button v-else type="success" plain style="width: 100%; margin-left: 0;" icon="Refresh" @click="handleRestore(selectedPost)">
             恢复本条内容上架显示
           </el-button>
         </div>
@@ -266,7 +238,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, watch } from 'vue'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useMockDataStore } from '@/store/mockData'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -290,6 +262,53 @@ const searchForm = reactive({
 const selectedPost = ref<any>(null)
 const detailDrawerVisible = ref(false)
 
+// ── Cross-page selection: use a Set of post_ids ──────────────────
+const selectedIds = reactive(new Set<string>())
+
+const isCurrentPageAllSelected = computed(() =>
+  tableData.value.length > 0 && tableData.value.every(r => selectedIds.has(r.post_id))
+)
+const isCurrentPageIndeterminate = computed(() =>
+  tableData.value.some(r => selectedIds.has(r.post_id)) && !isCurrentPageAllSelected.value
+)
+
+const toggleSelect = (id: string, val: boolean) => {
+  if (val) selectedIds.add(id)
+  else selectedIds.delete(id)
+}
+
+const handleSelectCurrentPage = (val: boolean) => {
+  tableData.value.forEach(r => {
+    if (val) selectedIds.add(r.post_id)
+    else selectedIds.delete(r.post_id)
+  })
+}
+
+// dummy — keep for el-table but we use our own checkbox
+const handleSelectionChange = () => {}
+
+// ── Batch Delete ─────────────────────────────────────────────────
+const handleBatchDelete = () => {
+  const count = selectedIds.size
+  ElMessageBox.confirm(
+    `确定要删除选中的 <b>${count}</b> 条内容吗？<br/>此操作<b>不可撤销</b>，删除后数据将永久移除。`,
+    '批量删除确认',
+    {
+      confirmButtonText: '确认删除',
+      cancelButtonText: '取消',
+      type: 'error',
+      dangerouslyUseHTMLString: true,
+      confirmButtonClass: 'el-button--danger',
+    }
+  ).then(() => {
+    const deleted = mockStore.deletePosts([...selectedIds])
+    selectedIds.clear()
+    fetchPosts()
+    ElMessage.success(`已成功删除 ${deleted} 条内容`)
+  }).catch(() => {})
+}
+
+// ── Helpers ──────────────────────────────────────────────────────
 const parseTopics = (content: string): string[] => {
   if (!content) return []
   const matches = content.match(/#[^\s#]+/g)
@@ -303,19 +322,13 @@ const getUserPhone = (userId: string) => {
 
 const getUserGender = (userId: string) => {
   const genderMap: Record<string, string> = {
-    '10001': '女',
-    '10002': '男',
-    '10003': '女',
-    '10004': '男',
-    '10005': '女',
-    '10006': '男',
-    '10007': '女',
-    '10008': '男',
-    '10009': '女'
+    '10001': '女', '10002': '男', '10003': '女', '10004': '男',
+    '10005': '女', '10006': '男', '10007': '女', '10008': '男', '10009': '女'
   }
   return genderMap[userId] || '男'
 }
 
+// ── Data Fetch ───────────────────────────────────────────────────
 const fetchPosts = () => {
   const res = mockStore.getPosts({
     user_id: searchForm.user_id || undefined,
@@ -325,7 +338,6 @@ const fetchPosts = () => {
     page: currentPage.value,
     limit: pageSize.value
   })
-  
   tableData.value = res.list
   totalCount.value = res.total
 }
@@ -375,21 +387,14 @@ const handleViewDetail = (row: any) => {
 
 const handleOffline = (row: any) => {
   ElMessageBox.confirm(
-    `确定要下架内容ID为 “${row.post_id}” 的发布内容吗？下架后前端将不再对用户展示该内容。`,
+    `确定要下架内容ID为 "${row.post_id}" 的发布内容吗？下架后前端将不再对用户展示该内容。`,
     '安全提示',
-    {
-      confirmButtonText: '确定下架',
-      cancelButtonText: '取消',
-      type: 'warning',
-      confirmButtonClass: 'el-button--danger'
-    }
+    { confirmButtonText: '确定下架', cancelButtonText: '取消', type: 'warning', confirmButtonClass: 'el-button--danger' }
   ).then(() => {
     const success = mockStore.setPostOffline(row.post_id)
     if (success) {
       ElMessage.success('该内容已被下架')
-      fetchPosts() // Refresh list
-      
-      // Update state in drawer if open
+      fetchPosts()
       if (detailDrawerVisible.value && selectedPost.value?.post_id === row.post_id) {
         selectedPost.value.status = 'offline'
       }
@@ -401,20 +406,14 @@ const handleOffline = (row: any) => {
 
 const handleRestore = (row: any) => {
   ElMessageBox.confirm(
-    `确定要恢复内容ID “${row.post_id}” 重新上架吗？`,
+    `确定要恢复内容ID "${row.post_id}" 重新上架吗？`,
     '提示',
-    {
-      confirmButtonText: '确定上架',
-      cancelButtonText: '取消',
-      type: 'success'
-    }
+    { confirmButtonText: '确定上架', cancelButtonText: '取消', type: 'success' }
   ).then(() => {
     const success = mockStore.setPostOnline(row.post_id)
     if (success) {
       ElMessage.success('内容已成功恢复上架')
       fetchPosts()
-      
-      // Update state in drawer if open
       if (detailDrawerVisible.value && selectedPost.value?.post_id === row.post_id) {
         selectedPost.value.status = 'online'
       }
@@ -424,7 +423,6 @@ const handleRestore = (row: any) => {
   }).catch(() => {})
 }
 
-// Redirect router to Comment page with query post_id
 const gotoComments = (post_id: string) => {
   detailDrawerVisible.value = false
   router.push({ path: '/comment', query: { post_id } })
@@ -477,10 +475,28 @@ watch(
   font-size: 14px;
 }
 
-.user-cell {
+/* ── Batch action bar ── */
+.batch-action-bar {
   display: flex;
   align-items: center;
-  justify-content: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: #fff7e6;
+  border: 1px solid #ffd591;
+  border-radius: 8px;
+  margin-bottom: 12px;
+  font-size: 13px;
+  color: #874d00;
+  animation: slideDown 0.2s ease;
+}
+
+.batch-action-bar b {
+  color: #d46b08;
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 .user-nickname {
@@ -521,11 +537,8 @@ watch(
   transition: all 0.2s ease;
 }
 
-.content-thumbnail:hover {
-  transform: scale(1.05);
-}
+.content-thumbnail:hover { transform: scale(1.05); }
 
-/* Drawer CSS details */
 .drawer-post-content {
   display: flex;
   flex-direction: column;
@@ -565,9 +578,7 @@ watch(
   margin-top: 2px;
 }
 
-.drawer-body-card {
-  padding: 20px;
-}
+.drawer-body-card { padding: 20px; }
 
 .card-label-heading {
   font-size: 13px;
@@ -594,9 +605,7 @@ watch(
   text-align: right;
 }
 
-.drawer-carousel-card {
-  padding: 20px;
-}
+.drawer-carousel-card { padding: 20px; }
 
 .carousel-image {
   width: 100%;
@@ -623,20 +632,10 @@ watch(
   box-shadow: var(--shadow-sm);
 }
 
-.stats-label {
-  font-size: 12px;
-  color: var(--text-light);
-}
+.stats-label { font-size: 12px; color: var(--text-light); }
+.stats-value { font-size: 18px; font-weight: 700; color: var(--text-main); }
 
-.stats-value {
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--text-main);
-}
-
-.drawer-actions-container {
-  padding: 10px 0;
-}
+.drawer-actions-container { padding: 10px 0; }
 
 .topic-list {
   display: flex;
@@ -645,14 +644,8 @@ watch(
   align-items: center;
 }
 
-.topic-badge {
-  font-weight: 500;
-  border-radius: 4px;
-}
-
-.empty-placeholder {
-  color: #c0c4cc;
-}
+.topic-badge { font-weight: 500; border-radius: 4px; }
+.empty-placeholder { color: #c0c4cc; }
 
 .user-info-cell {
   display: flex;
@@ -668,10 +661,7 @@ watch(
   justify-content: center;
 }
 
-.user-phone {
-  font-size: 11px;
-  color: var(--text-light);
-}
+.user-phone { font-size: 11px; color: var(--text-light); }
 
 .gender-badge {
   padding: 0 4px;

@@ -1,6 +1,6 @@
 <template>
   <div class="user-list-container">
-    <!-- Search Form Filter Panel -->
+    <!-- Search Filter Panel -->
     <div class="filter-panel premium-card">
       <el-form :inline="true" :model="searchForm" class="demo-form-inline">
         <el-form-item label="用户ID">
@@ -26,11 +26,60 @@
       </el-form>
     </div>
 
-    <!-- Data Table Card -->
+    <!-- Table Card -->
     <div class="table-card premium-card">
+
+      <!-- Toolbar -->
+      <div class="table-toolbar">
+        <div class="toolbar-left">
+          <el-button type="danger" plain icon="Lock" :disabled="selectedIds.size === 0" @click="handleBatchBan">
+            批量禁用 <span v-if="selectedIds.size > 0">({{ selectedIds.size }})</span>
+          </el-button>
+          <el-button type="success" plain icon="Unlock" :disabled="selectedIds.size === 0" @click="handleBatchUnban">
+            批量解禁 <span v-if="selectedIds.size > 0">({{ selectedIds.size }})</span>
+          </el-button>
+        </div>
+        <div class="toolbar-right">
+          <!-- Import -->
+          <el-upload
+            :show-file-list="false"
+            accept=".json"
+            :before-upload="handleImport"
+          >
+            <el-button icon="Upload">导入用户</el-button>
+          </el-upload>
+          <!-- Export -->
+          <el-button icon="Download" @click="handleExport">导出用户</el-button>
+        </div>
+      </div>
+
+      <!-- Batch Action Bar -->
+      <div class="batch-action-bar" v-if="selectedIds.size > 0">
+        <el-icon><InfoFilled /></el-icon>
+        <span>已选 <b>{{ selectedIds.size }}</b> 位用户（支持跨页保留选择）</span>
+        <el-button size="small" @click="selectedIds.clear()">清除选择</el-button>
+      </div>
+
       <el-table :data="tableData" style="width: 100%">
+        <!-- Cross-page checkbox column -->
+        <el-table-column width="50" align="center">
+          <template #header>
+            <el-checkbox
+              :model-value="isCurrentPageAllSelected"
+              :indeterminate="isCurrentPageIndeterminate"
+              @change="handleSelectCurrentPage"
+            />
+          </template>
+          <template #default="{ row }">
+            <el-checkbox
+              :model-value="selectedIds.has(row.user_id)"
+              @change="(val: boolean) => toggleSelect(row.user_id, val)"
+            />
+          </template>
+        </el-table-column>
+
         <el-table-column prop="user_id" label="用户ID" width="110" align="center" />
-        
+
         <el-table-column label="用户资料" min-width="180">
           <template #default="{ row }">
             <div class="user-profile-cell">
@@ -52,9 +101,9 @@
             <span v-else class="empty-placeholder">--</span>
           </template>
         </el-table-column>
-        
+
         <el-table-column prop="regTime" label="注册时间" width="180" align="center" />
-        
+
         <el-table-column label="账号状态" width="110" align="center">
           <template #default="{ row }">
             <el-tag :type="row.status === 'normal' ? 'success' : 'danger'">
@@ -66,36 +115,9 @@
 
         <el-table-column label="操作" width="220" align="center" fixed="right">
           <template #default="{ row }">
-            <el-button 
-              size="small" 
-              type="primary" 
-              plain 
-              icon="View" 
-              @click="handleViewDetail(row)"
-            >
-              详情
-            </el-button>
-            
-            <el-button 
-              v-if="row.status === 'normal'"
-              size="small" 
-              type="danger" 
-              plain 
-              icon="Lock" 
-              @click="handleToggleStatus(row, 'banned')"
-            >
-              禁用
-            </el-button>
-            <el-button 
-              v-else
-              size="small" 
-              type="success" 
-              plain 
-              icon="Unlock" 
-              @click="handleToggleStatus(row, 'normal')"
-            >
-              解禁
-            </el-button>
+            <el-button size="small" type="primary" plain icon="View" @click="handleViewDetail(row)">详情</el-button>
+            <el-button v-if="row.status === 'normal'" size="small" type="danger" plain icon="Lock" @click="handleToggleStatus(row, 'banned')">禁用</el-button>
+            <el-button v-else size="small" type="success" plain icon="Unlock" @click="handleToggleStatus(row, 'normal')">解禁</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -114,25 +136,17 @@
     </div>
 
     <!-- User Details Drawer -->
-    <el-drawer
-      v-model="detailDrawerVisible"
-      title="业务用户详细资料"
-      size="480px"
-      direction="rtl"
-      destroy-on-close
-    >
+    <el-drawer v-model="detailDrawerVisible" title="业务用户详细资料" size="480px" direction="rtl" destroy-on-close>
       <div v-if="selectedUser" class="drawer-user-content">
-        <!-- Top Profile card -->
         <div class="detail-header-card glass-effect">
           <el-avatar :size="80" :src="selectedUser.avatar" class="detail-avatar" />
           <h3 class="detail-nickname">{{ selectedUser.nickname }}</h3>
-          <p class="detail-bio">“ {{ selectedUser.bio || '暂无个人简介' }} ”</p>
+          <p class="detail-bio">" {{ selectedUser.bio || '暂无个人简介' }} "</p>
           <el-tag :type="selectedUser.status === 'normal' ? 'success' : 'danger'" class="status-badge">
             {{ selectedUser.status === 'normal' ? '账户正常' : '账户已禁用' }}
           </el-tag>
         </div>
 
-        <!-- Metric badges block -->
         <div class="metrics-summary-grid">
           <div class="detail-metric-item clickable-metric" title="点击查看该用户发布动态" @click="gotoUserPosts(selectedUser)">
             <span class="metric-num text-gradient">{{ selectedUser.postCount }}</span>
@@ -148,49 +162,17 @@
           </div>
         </div>
 
-        <!-- Info list -->
         <div class="detail-info-list premium-card">
           <div class="info-list-title">基本信息账号</div>
-          <div class="info-row">
-            <span class="info-label">业务用户ID</span>
-            <span class="info-val font-mono">{{ selectedUser.user_id }}</span>
-          </div>
-          <div class="info-row">
-            <span class="info-label">手机号码</span>
-            <span class="info-val">{{ selectedUser.phone }}</span>
-          </div>
-          <div class="info-row">
-            <span class="info-label">新手机号码</span>
-            <span class="info-val">{{ selectedUser.newPhone || '暂无' }}</span>
-          </div>
-          <div class="info-row">
-            <span class="info-label">注册时间</span>
-            <span class="info-val">{{ selectedUser.regTime }}</span>
-          </div>
+          <div class="info-row"><span class="info-label">业务用户ID</span><span class="info-val font-mono">{{ selectedUser.user_id }}</span></div>
+          <div class="info-row"><span class="info-label">手机号码</span><span class="info-val">{{ selectedUser.phone }}</span></div>
+          <div class="info-row"><span class="info-label">新手机号码</span><span class="info-val">{{ selectedUser.newPhone || '暂无' }}</span></div>
+          <div class="info-row"><span class="info-label">注册时间</span><span class="info-val">{{ selectedUser.regTime }}</span></div>
         </div>
 
-
-
-        <!-- Action Drawer Footer -->
         <div class="drawer-action-block">
-          <el-button 
-            v-if="selectedUser.status === 'normal'" 
-            type="danger" 
-            style="width: 100%;" 
-            icon="Lock" 
-            @click="handleToggleStatus(selectedUser, 'banned')"
-          >
-            禁用该用户账号
-          </el-button>
-          <el-button 
-            v-else 
-            type="success" 
-            style="width: 100%;" 
-            icon="Unlock" 
-            @click="handleToggleStatus(selectedUser, 'normal')"
-          >
-            解除禁用限制
-          </el-button>
+          <el-button v-if="selectedUser.status === 'normal'" type="danger" style="width: 100%;" icon="Lock" @click="handleToggleStatus(selectedUser, 'banned')">禁用该用户账号</el-button>
+          <el-button v-else type="success" style="width: 100%;" icon="Unlock" @click="handleToggleStatus(selectedUser, 'normal')">解除禁用限制</el-button>
         </div>
       </div>
     </el-drawer>
@@ -198,7 +180,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMockDataStore } from '@/store/mockData'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -220,8 +202,141 @@ const searchForm = reactive({
 const selectedUser = ref<any>(null)
 const detailDrawerVisible = ref(false)
 
+// ── Cross-page selection (reactive Set) ──────────────────────────
+const selectedIds = reactive(new Set<string>())
 
+const isCurrentPageAllSelected = computed(() =>
+  tableData.value.length > 0 && tableData.value.every(r => selectedIds.has(r.user_id))
+)
+const isCurrentPageIndeterminate = computed(() =>
+  tableData.value.some(r => selectedIds.has(r.user_id)) && !isCurrentPageAllSelected.value
+)
 
+const toggleSelect = (id: string, val: boolean) => {
+  if (val) selectedIds.add(id)
+  else selectedIds.delete(id)
+}
+
+const handleSelectCurrentPage = (val: boolean) => {
+  tableData.value.forEach(r => {
+    if (val) selectedIds.add(r.user_id)
+    else selectedIds.delete(r.user_id)
+  })
+}
+
+// ── Batch Ban / Unban ────────────────────────────────────────────
+const handleBatchBan = () => {
+  const ids = [...selectedIds]
+  ElMessageBox.confirm(
+    `确定要批量<b>禁用</b>选中的 <b>${ids.length}</b> 位用户吗？<br/>禁用后这些用户将无法登录和发布内容。`,
+    '批量禁用确认',
+    {
+      confirmButtonText: '确认禁用',
+      cancelButtonText: '取消',
+      type: 'warning',
+      dangerouslyUseHTMLString: true,
+      confirmButtonClass: 'el-button--danger',
+    }
+  ).then(() => {
+    const count = mockStore.batchUpdateUserStatus(ids, 'banned')
+    selectedIds.clear()
+    fetchUsers()
+    ElMessage.success(`已成功禁用 ${count} 位用户`)
+  }).catch(() => {})
+}
+
+const handleBatchUnban = () => {
+  const ids = [...selectedIds]
+  ElMessageBox.confirm(
+    `确定要批量<b>解禁</b>选中的 <b>${ids.length}</b> 位用户吗？`,
+    '批量解禁确认',
+    {
+      confirmButtonText: '确认解禁',
+      cancelButtonText: '取消',
+      type: 'success',
+      dangerouslyUseHTMLString: true,
+    }
+  ).then(() => {
+    const count = mockStore.batchUpdateUserStatus(ids, 'normal')
+    selectedIds.clear()
+    fetchUsers()
+    ElMessage.success(`已成功解禁 ${count} 位用户`)
+  }).catch(() => {})
+}
+
+// ── Export users as JSON ─────────────────────────────────────────
+const handleExport = () => {
+  const all = mockStore.getUsers({ page: 1, limit: 99999 })
+  const exportData = all.list.map(u => ({
+    user_id: u.user_id,
+    nickname: u.nickname,
+    phone: u.phone,
+    newPhone: u.newPhone || '',
+    status: u.status,
+    regTime: u.regTime,
+    postCount: u.postCount,
+    commentCount: u.commentCount,
+    likesReceived: u.likesReceived,
+    bio: u.bio,
+  }))
+  const blob = new Blob(
+    [JSON.stringify(exportData, null, 2)],
+    { type: 'application/json' }
+  )
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `users_export_${new Date().toISOString().slice(0, 10)}.json`
+  a.click()
+  URL.revokeObjectURL(url)
+  ElMessage.success(`已导出 ${exportData.length} 条用户数据`)
+}
+
+// ── Import users from JSON ───────────────────────────────────────
+const handleImport = (file: File) => {
+  const reader = new FileReader()
+  reader.onload = (e) => {
+    try {
+      const data = JSON.parse(e.target?.result as string)
+      if (!Array.isArray(data)) throw new Error('格式错误')
+
+      ElMessageBox.confirm(
+        `解析到 <b>${data.length}</b> 条用户数据，确认导入？<br/><span style="color:#909399;font-size:12px;">已存在的用户ID将跳过，仅新增不存在的用户。</span>`,
+        '导入确认',
+        { confirmButtonText: '确认导入', cancelButtonText: '取消', type: 'info', dangerouslyUseHTMLString: true }
+      ).then(() => {
+        let added = 0
+        const existingIds = new Set(mockStore.users.map(u => u.user_id))
+        for (const u of data) {
+          if (!existingIds.has(u.user_id) && u.user_id && u.nickname) {
+            mockStore.users.push({
+              user_id: u.user_id,
+              nickname: u.nickname,
+              avatar: u.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${u.nickname}`,
+              phone: u.phone || '--',
+              newPhone: u.newPhone || undefined,
+              status: u.status || 'normal',
+              regTime: u.regTime || new Date().toISOString().slice(0, 10),
+              postCount: u.postCount || 0,
+              commentCount: u.commentCount || 0,
+              likesReceived: u.likesReceived || 0,
+              bio: u.bio || '',
+            })
+            added++
+          }
+        }
+        fetchUsers()
+        ElMessage.success(`导入完成，新增 ${added} 位用户，跳过 ${data.length - added} 条重复数据`)
+      }).catch(() => {})
+    } catch {
+      ElMessage.error('文件格式错误，请上传正确的 JSON 文件')
+    }
+  }
+  reader.readAsText(file)
+  return false // 阻止自动上传
+}
+
+// ── Data Fetch ───────────────────────────────────────────────────
 const fetchUsers = () => {
   const res = mockStore.getUsers({
     user_id: searchForm.user_id || undefined,
@@ -231,16 +346,11 @@ const fetchUsers = () => {
     page: currentPage.value,
     limit: pageSize.value
   })
-  
   tableData.value = res.list
   totalCount.value = res.total
 }
 
-const handleSearch = () => {
-  currentPage.value = 1
-  fetchUsers()
-}
-
+const handleSearch = () => { currentPage.value = 1; fetchUsers() }
 const handleReset = () => {
   searchForm.user_id = ''
   searchForm.nickname = ''
@@ -249,47 +359,27 @@ const handleReset = () => {
   currentPage.value = 1
   fetchUsers()
 }
-
-const handleSizeChange = (val: number) => {
-  pageSize.value = val
-  currentPage.value = 1
-  fetchUsers()
-}
-
-const handleCurrentChange = (val: number) => {
-  currentPage.value = val
-  fetchUsers()
-}
+const handleSizeChange = (val: number) => { pageSize.value = val; currentPage.value = 1; fetchUsers() }
+const handleCurrentChange = (val: number) => { currentPage.value = val; fetchUsers() }
 
 const handleViewDetail = (row: any) => {
   const user = mockStore.getUserById(row.user_id)
-  if (user) {
-    selectedUser.value = user
-    detailDrawerVisible.value = true
-  } else {
-    ElMessage.error('用户不存在')
-  }
+  if (user) { selectedUser.value = user; detailDrawerVisible.value = true }
+  else ElMessage.error('用户不存在')
 }
 
 const handleToggleStatus = (row: any, newStatus: 'normal' | 'banned') => {
   const statusText = newStatus === 'normal' ? '解禁' : '封禁'
   const boxType = newStatus === 'normal' ? 'success' : 'warning'
-  
   ElMessageBox.confirm(
-    `确定要对用户 “${row.nickname}” 执行${statusText}操作吗？`,
+    `确定要对用户 "<b>${row.nickname}</b>" 执行${statusText}操作吗？`,
     '提示',
-    {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
-      type: boxType
-    }
+    { confirmButtonText: '确定', cancelButtonText: '取消', type: boxType, dangerouslyUseHTMLString: true }
   ).then(() => {
     const success = mockStore.updateUserStatus(row.user_id, newStatus)
     if (success) {
       ElMessage.success(`用户已成功${statusText}`)
-      fetchUsers() // Refresh list
-      
-      // If drawer is open, update selectedUser state
+      fetchUsers()
       if (detailDrawerVisible.value && selectedUser.value?.user_id === row.user_id) {
         selectedUser.value.status = newStatus
       }
@@ -299,14 +389,12 @@ const handleToggleStatus = (row: any, newStatus: 'normal' | 'banned') => {
   }).catch(() => {})
 }
 
-onMounted(() => {
-  fetchUsers()
-})
-
 const gotoUserPosts = (user: any) => {
   detailDrawerVisible.value = false
   router.push({ path: '/content', query: { user_id: user.user_id } })
 }
+
+onMounted(() => { fetchUsers() })
 </script>
 
 <style scoped>
@@ -324,6 +412,46 @@ const gotoUserPosts = (user: any) => {
   padding: 24px;
 }
 
+/* ── Toolbar ── */
+.table-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.toolbar-left,
+.toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* ── Batch action bar ── */
+.batch-action-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: #fff7e6;
+  border: 1px solid #ffd591;
+  border-radius: 8px;
+  margin-bottom: 12px;
+  font-size: 13px;
+  color: #874d00;
+  animation: slideDown 0.2s ease;
+}
+
+.batch-action-bar b { color: #d46b08; }
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Table ── */
 .user-profile-cell {
   display: flex;
   align-items: center;
@@ -352,7 +480,7 @@ const gotoUserPosts = (user: any) => {
   margin-top: 2px;
 }
 
-/* Drawer Detail Elements */
+/* ── Drawer ── */
 .drawer-user-content {
   display: flex;
   flex-direction: column;
@@ -388,9 +516,7 @@ const gotoUserPosts = (user: any) => {
   font-style: italic;
 }
 
-.status-badge {
-  font-size: 12px;
-}
+.status-badge { font-size: 12px; }
 
 .metrics-summary-grid {
   display: grid;
@@ -410,20 +536,10 @@ const gotoUserPosts = (user: any) => {
   box-shadow: var(--shadow-sm);
 }
 
-.metric-num {
-  font-size: 20px;
-  font-weight: 700;
-}
+.metric-num { font-size: 20px; font-weight: 700; }
+.metric-name { font-size: 11px; color: var(--text-light); font-weight: 500; }
 
-.metric-name {
-  font-size: 11px;
-  color: var(--text-light);
-  font-weight: 500;
-}
-
-.detail-info-list {
-  padding: 20px;
-}
+.detail-info-list { padding: 20px; }
 
 .info-list-title {
   font-size: 14px;
@@ -442,18 +558,9 @@ const gotoUserPosts = (user: any) => {
   border-bottom: 1px dashed var(--border-color);
 }
 
-.info-row:last-child {
-  border-bottom: none;
-}
-
-.info-label {
-  color: var(--text-muted);
-}
-
-.info-val {
-  color: var(--text-main);
-  font-weight: 500;
-}
+.info-row:last-child { border-bottom: none; }
+.info-label { color: var(--text-muted); }
+.info-val { color: var(--text-main); font-weight: 500; }
 
 .drawer-action-block {
   margin-top: 10px;
@@ -488,7 +595,5 @@ const gotoUserPosts = (user: any) => {
   text-decoration: underline;
 }
 
-.empty-placeholder {
-  color: #c0c4cc;
-}
+.empty-placeholder { color: #c0c4cc; }
 </style>

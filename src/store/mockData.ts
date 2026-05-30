@@ -692,6 +692,26 @@ export const useMockDataStore = defineStore('mockData', () => {
     return false
   }
 
+  // Batch delete posts by IDs
+  const deletePosts = (ids: string[]) => {
+    const idSet = new Set(ids)
+    const before = posts.value.length
+    posts.value = posts.value.filter(p => !idSet.has(p.post_id))
+    return before - posts.value.length
+  }
+
+  // Batch update user status
+  const batchUpdateUserStatus = (ids: string[], status: 'normal' | 'banned') => {
+    let count = 0
+    for (const u of users.value) {
+      if (ids.includes(u.user_id)) {
+        u.status = status
+        count++
+      }
+    }
+    return count
+  }
+
   // 3. Comment Management Actions
   const getComments = (params: { post_id?: string; user_id?: string; page?: number; limit?: number }) => {
     let result = [...comments.value]
@@ -1132,6 +1152,8 @@ export const useMockDataStore = defineStore('mockData', () => {
     getPostById,
     setPostOffline,
     setPostOnline,
+    deletePosts,
+    batchUpdateUserStatus,
     getComments,
     deleteComment,
     getAgreement,
