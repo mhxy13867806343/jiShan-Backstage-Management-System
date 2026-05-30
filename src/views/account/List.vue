@@ -202,6 +202,18 @@
 
         <!-- Permission Checkboxes -->
         <el-form-item label="权限模块" prop="permissions">
+          <!-- 全选控制行 -->
+          <div class="perm-select-all-bar">
+            <el-checkbox
+              v-model="isAllSelected"
+              :indeterminate="isIndeterminate"
+              :disabled="form.role === 'superadmin'"
+              @change="handleSelectAll"
+            >
+              {{ isAllSelected ? '取消全选' : '一键全选' }}
+            </el-checkbox>
+            <span class="perm-select-count">已选 {{ form.permissions.length }} / {{ allPermissions.length }} 项</span>
+          </div>
           <el-checkbox-group
             v-model="form.permissions"
             :disabled="form.role === 'superadmin'"
@@ -380,6 +392,14 @@ const formRules: FormRules = {
 
 const onRoleChange = (role: AdminRole) => {
   form.permissions = [...roleDefaultPerms[role]]
+}
+
+// ── Select-all logic ──────────────────────────────────────
+const allPermKeys = allPermissions.map(p => p.key)
+const isAllSelected = computed(() => form.permissions.length === allPermKeys.length)
+const isIndeterminate = computed(() => form.permissions.length > 0 && form.permissions.length < allPermKeys.length)
+const handleSelectAll = (val: boolean) => {
+  form.permissions = val ? [...allPermKeys] : []
 }
 
 const openAddDialog = () => {
@@ -602,6 +622,24 @@ const handleResetPwd = (row: AdminAccount) => {
 .perm-tag { cursor: default; }
 
 /* ── Dialog permission grid ── */
+.perm-select-all-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+  padding: 6px 10px;
+  background: #f8fafc;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+  width: 100%;
+}
+
+.perm-select-count {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-left: auto;
+}
+
 .permission-grid {
   display: grid !important;
   grid-template-columns: repeat(4, 1fr);
