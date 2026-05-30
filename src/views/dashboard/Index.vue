@@ -14,85 +14,85 @@
       </div>
     </div>
 
-    <!-- 4 Core Analysis Stat Cards (Standard AntD / Ele Admin Layout) -->
     <div class="analysis-stat-grid">
-      <!-- Card 1: Visits -->
+      <!-- Card 1: Total Users -->
       <el-card class="analysis-card" shadow="never">
         <template #header>
           <div class="card-header-flex">
-            <span>访问量</span>
-            <el-tag size="small" type="primary" effect="dark">日</el-tag>
+            <span>注册用户总量</span>
+            <el-tag size="small" type="primary" effect="dark">实时</el-tag>
           </div>
         </template>
-        <div class="stat-number">25,890</div>
+        <div class="stat-number">{{ metrics.totalUsers }} <span class="stat-unit">人</span></div>
         <div class="stat-trend-row">
-          <span>同周比 <b class="up-text">12.5% ↑</b></span>
-          <span>日环比 <b class="down-text">4.2% ↓</b></span>
+          <span>正常状态 <b class="up-text">{{ metrics.activeUsers }} 人</b></span>
+          <span>已封禁 <b class="down-text">{{ metrics.totalUsers - metrics.activeUsers }} 人</b></span>
         </div>
         <el-divider class="card-divider" />
         <div class="stat-footer-row">
-          <span>总访问量</span>
-          <span class="font-mono font-bold">1,024,550</span>
+          <span>正常账号占比</span>
+          <span class="font-mono font-bold">{{ Math.round((metrics.activeUsers / (metrics.totalUsers || 1)) * 100) }}%</span>
         </div>
       </el-card>
 
-      <!-- Card 2: Downloads / Posts -->
+      <!-- Card 2: Active Users -->
       <el-card class="analysis-card" shadow="never">
         <template #header>
           <div class="card-header-flex">
-            <span>发布内容量</span>
-            <el-tag size="small" type="success" effect="dark">周</el-tag>
+            <span>月度活跃用户数</span>
+            <el-tag size="small" type="success" effect="dark">周活跃</el-tag>
           </div>
         </template>
-        <div class="stat-number">{{ metrics.totalPosts }}</div>
+        <div class="stat-number">{{ metrics.activeUsers }} <span class="stat-unit">人</span></div>
+        <div class="stat-trend-row">
+          <div class="progress-bar-container">
+            <el-progress :percentage="Math.round((metrics.activeUsers / (metrics.totalUsers || 1)) * 100)" :show-text="false" status="success" />
+          </div>
+        </div>
+        <el-divider class="card-divider" />
+        <div class="stat-footer-row">
+          <span>活跃账号比例</span>
+          <span class="font-mono font-bold">{{ Math.round((metrics.activeUsers / (metrics.totalUsers || 1)) * 100) }}%</span>
+        </div>
+      </el-card>
+
+      <!-- Card 3: Downloads / Posts -->
+      <el-card class="analysis-card" shadow="never">
+        <template #header>
+          <div class="card-header-flex">
+            <span>发布内容总量</span>
+            <el-tag size="small" type="warning" effect="dark">累计</el-tag>
+          </div>
+        </template>
+        <div class="stat-number">{{ metrics.totalPosts }} <span class="stat-unit">篇</span></div>
         <div class="stat-trend-row">
           <span>已上架 <b class="up-text">{{ metrics.onlinePosts }} 篇</b></span>
           <span>已下架 <b class="down-text">{{ metrics.offlinePosts }} 篇</b></span>
         </div>
         <el-divider class="card-divider" />
         <div class="stat-footer-row">
-          <span>内容上架率</span>
+          <span>内容上架合规率</span>
           <span class="font-mono font-bold">{{ Math.round((metrics.onlinePosts / (metrics.totalPosts || 1)) * 100) }}%</span>
         </div>
       </el-card>
 
-      <!-- Card 3: Interactive comments -->
+      <!-- Card 4: Interactive stats -->
       <el-card class="analysis-card" shadow="never">
         <template #header>
           <div class="card-header-flex">
-            <span>互动评论数</span>
-            <el-tag size="small" type="warning" effect="dark">月</el-tag>
+            <span>平台互动总量</span>
+            <el-tag size="small" type="danger" effect="dark">累计</el-tag>
           </div>
         </template>
-        <div class="stat-number">{{ metrics.totalComments }}</div>
+        <div class="stat-number">{{ metrics.totalComments + metrics.totalLikes }} <span class="stat-unit">次</span></div>
         <div class="stat-trend-row">
-          <div class="progress-bar-container">
-            <el-progress :percentage="72" :show-text="false" status="warning" />
-          </div>
+          <span>点赞数 <b class="up-text">{{ metrics.totalLikes }} 次</b></span>
+          <span>评论数 <b class="up-text">{{ metrics.totalComments }} 次</b></span>
         </div>
         <el-divider class="card-divider" />
         <div class="stat-footer-row">
-          <span>评论活跃度</span>
-          <span class="font-bold">极高活跃</span>
-        </div>
-      </el-card>
-
-      <!-- Card 4: Likes -->
-      <el-card class="analysis-card" shadow="never">
-        <template #header>
-          <div class="card-header-flex">
-            <span>累计点赞量</span>
-            <el-tag size="small" type="danger" effect="dark">年</el-tag>
-          </div>
-        </template>
-        <div class="stat-number">{{ metrics.totalLikes }}</div>
-        <div class="stat-trend-row">
-          <span>同比上月 <b class="up-text">18.4% ↑</b></span>
-        </div>
-        <el-divider class="card-divider" />
-        <div class="stat-footer-row">
-          <span>总点赞数</span>
-          <span class="font-mono font-bold">{{ metrics.totalLikes }}</span>
+          <span>人均互动次数</span>
+          <span class="font-mono font-bold">{{ ((metrics.totalComments + metrics.totalLikes) / (metrics.totalUsers || 1)).toFixed(1) }} 次/人</span>
         </div>
       </el-card>
     </div>
@@ -100,25 +100,33 @@
     <!-- Big Trend Chart Panel (Data analysis diagram) -->
     <el-card class="chart-card" shadow="never">
       <template #header>
-        <div class="chart-header-flex">
-          <span class="chart-title">流量与内容发布趋势分析</span>
-          <el-radio-group v-model="chartTimeTab" size="small">
-            <el-radio-button value="today">今日</el-radio-button>
-            <el-radio-button value="week">本周</el-radio-button>
-            <el-radio-button value="month">本月</el-radio-button>
-          </el-radio-group>
+        <div class="chart-header-flex flex-wrap gap-y-3">
+          <div class="chart-title-left">
+            <span class="chart-title">{{ activeChartType === 'traffic' ? '流量与内容发布趋势分析' : '用户总量与周活跃度趋势分析' }}</span>
+          </div>
+          <div class="chart-controls-right">
+            <el-radio-group v-model="activeChartType" size="small" class="chart-type-selector">
+              <el-radio-button value="traffic">流量与内容</el-radio-button>
+              <el-radio-button value="users">用户活跃与增长</el-radio-button>
+            </el-radio-group>
+            <el-radio-group v-model="chartTimeTab" size="small" class="time-tab-selector">
+              <el-radio-button value="today">今日</el-radio-button>
+              <el-radio-button value="week">本周</el-radio-button>
+              <el-radio-button value="month">本月</el-radio-button>
+            </el-radio-group>
+          </div>
         </div>
       </template>
       
       <!-- Interactive SVG Line and Bar Chart representation -->
-      <div class="chart-viewport-box">
+      <div class="chart-viewport-box animate-chart">
         <div class="svg-chart-container">
           <svg viewBox="0 0 1000 280" class="svg-vector-graph">
             <!-- Grid Lines -->
-            <line x1="50" y1="30" x2="950" y2="30" stroke="#f0f0f0" stroke-dasharray="4" />
-            <line x1="50" y1="90" x2="950" y2="90" stroke="#f0f0f0" stroke-dasharray="4" />
-            <line x1="50" y1="150" x2="950" y2="150" stroke="#f0f0f0" stroke-dasharray="4" />
-            <line x1="50" y1="210" x2="950" y2="210" stroke="#f0f0f0" stroke-dasharray="4" />
+            <line x1="50" y1="30" x2="950" y2="30" stroke="#f5f5f5" stroke-dasharray="4" />
+            <line x1="50" y1="90" x2="950" y2="90" stroke="#f5f5f5" stroke-dasharray="4" />
+            <line x1="50" y1="150" x2="950" y2="150" stroke="#f5f5f5" stroke-dasharray="4" />
+            <line x1="50" y1="210" x2="950" y2="210" stroke="#f5f5f5" stroke-dasharray="4" />
             <line x1="50" y1="250" x2="950" y2="250" stroke="#e8e8e8" stroke-width="2" />
 
             <!-- X Axis Labels -->
@@ -130,45 +138,95 @@
             <text x="800" y="270" fill="#999" font-size="12" text-anchor="middle">22:00</text>
             <text x="950" y="270" fill="#999" font-size="12" text-anchor="middle">今日汇总</text>
 
-            <!-- Vector Line - active user visits (blue line) -->
-            <path 
-              d="M 50,220 C 150,180 200,90 350,110 C 500,130 550,50 650,70 C 750,90 800,180 950,120" 
-              fill="none" 
-              stroke="#1890ff" 
-              stroke-width="3.5" 
-              stroke-linecap="round"
-            />
-            
-            <!-- Area gradient under path -->
-            <path 
-              d="M 50,220 C 150,180 200,90 350,110 C 500,130 550,50 650,70 C 750,90 800,180 950,120 L 950,250 L 50,250 Z" 
-              fill="rgba(24, 144, 255, 0.08)"
-            />
+            <!-- Chart 1: Traffic & Content -->
+            <g v-if="activeChartType === 'traffic'">
+              <!-- Area gradient under path -->
+              <path 
+                d="M 50,220 C 150,180 200,90 350,110 C 500,130 550,50 650,70 C 750,90 800,180 950,120 L 950,250 L 50,250 Z" 
+                fill="rgba(24, 144, 255, 0.08)"
+              />
+              <!-- Vector Line - active user visits (blue line) -->
+              <path 
+                d="M 50,220 C 150,180 200,90 350,110 C 500,130 550,50 650,70 C 750,90 800,180 950,120" 
+                fill="none" 
+                stroke="#1890ff" 
+                stroke-width="3.5" 
+                stroke-linecap="round"
+              />
+              <!-- Dots on peaks -->
+              <circle cx="350" cy="110" r="5" fill="#ffffff" stroke="#1890ff" stroke-width="2" />
+              <circle cx="650" cy="70" r="5" fill="#ffffff" stroke="#1890ff" stroke-width="2" />
+              <circle cx="950" cy="120" r="5" fill="#ffffff" stroke="#1890ff" stroke-width="2" />
 
-            <!-- Dots on peaks -->
-            <circle cx="350" cy="110" r="5" fill="#ffffff" stroke="#1890ff" stroke-width="2" />
-            <circle cx="650" cy="70" r="5" fill="#ffffff" stroke="#1890ff" stroke-width="2" />
-            <circle cx="950" cy="120" r="5" fill="#ffffff" stroke="#1890ff" stroke-width="2" />
+              <!-- Vector Bar - content publishing count (green bars) -->
+              <rect x="185" y="160" width="30" height="90" fill="#2fc25b" rx="2" opacity="0.85" />
+              <rect x="335" y="120" width="30" height="130" fill="#2fc25b" rx="2" opacity="0.85" />
+              <rect x="485" y="190" width="30" height="60" fill="#2fc25b" rx="2" opacity="0.85" />
+              <rect x="635" y="80" width="30" height="170" fill="#2fc25b" rx="2" opacity="0.85" />
+              <rect x="785" y="150" width="30" height="100" fill="#2fc25b" rx="2" opacity="0.85" />
+            </g>
 
-            <!-- Vector Bar - content publishing count (green bars) -->
-            <rect x="185" y="160" width="30" height="90" fill="#2fc25b" rx="2" opacity="0.85" />
-            <rect x="335" y="120" width="30" height="130" fill="#2fc25b" rx="2" opacity="0.85" />
-            <rect x="485" y="190" width="30" height="60" fill="#2fc25b" rx="2" opacity="0.85" />
-            <rect x="635" y="80" width="30" height="170" fill="#2fc25b" rx="2" opacity="0.85" />
-            <rect x="785" y="150" width="30" height="100" fill="#2fc25b" rx="2" opacity="0.85" />
+            <!-- Chart 2: User Growth & Active -->
+            <g v-else>
+              <!-- Total registered users line (purple line) -->
+              <path 
+                d="M 50,200 C 150,190 200,160 350,140 C 500,120 550,100 650,80 C 750,70 800,60 950,45 L 950,250 L 50,250 Z" 
+                fill="rgba(114, 46, 209, 0.06)"
+              />
+              <path 
+                d="M 50,200 C 150,190 200,160 350,140 C 500,120 550,100 650,80 C 750,70 800,60 950,45" 
+                fill="none" 
+                stroke="#722ed1" 
+                stroke-width="3.5" 
+                stroke-linecap="round"
+              />
+              <!-- Dots on peaks -->
+              <circle cx="350" cy="140" r="5" fill="#ffffff" stroke="#722ed1" stroke-width="2" />
+              <circle cx="650" cy="80" r="5" fill="#ffffff" stroke="#722ed1" stroke-width="2" />
+              <circle cx="950" cy="45" r="5" fill="#ffffff" stroke="#722ed1" stroke-width="2" />
+
+              <!-- Active users line (orange/amber line) -->
+              <path 
+                d="M 50,210 C 150,160 200,200 350,170 C 500,180 550,130 650,150 C 750,160 800,200 950,165 L 950,250 L 50,250 Z" 
+                fill="rgba(250, 140, 22, 0.06)"
+              />
+              <path 
+                d="M 50,210 C 150,160 200,200 350,170 C 500,180 550,130 650,150 C 750,160 800,200 950,165" 
+                fill="none" 
+                stroke="#fa8c16" 
+                stroke-width="3.5" 
+                stroke-linecap="round"
+              />
+              <!-- Dots on peaks -->
+              <circle cx="350" cy="170" r="5" fill="#ffffff" stroke="#fa8c16" stroke-width="2" />
+              <circle cx="650" cy="150" r="5" fill="#ffffff" stroke="#fa8c16" stroke-width="2" />
+              <circle cx="950" cy="165" r="5" fill="#ffffff" stroke="#fa8c16" stroke-width="2" />
+            </g>
           </svg>
         </div>
 
         <!-- Chart Legend -->
         <div class="chart-legend-box">
-          <div class="legend-item">
-            <span class="legend-color-dot blue-dot"></span>
-            <span>活跃流量趋势 (Visits)</span>
-          </div>
-          <div class="legend-item">
-            <span class="legend-color-dot green-dot"></span>
-            <span>内容发布量统计 (Posts)</span>
-          </div>
+          <template v-if="activeChartType === 'traffic'">
+            <div class="legend-item">
+              <span class="legend-color-dot blue-dot"></span>
+              <span>活跃流量趋势 (Visits)</span>
+            </div>
+            <div class="legend-item">
+              <span class="legend-color-dot green-dot"></span>
+              <span>内容发布量统计 (Posts)</span>
+            </div>
+          </template>
+          <template v-else>
+            <div class="legend-item">
+              <span class="legend-color-dot purple-dot"></span>
+              <span>注册用户总量增长 (Total Users)</span>
+            </div>
+            <div class="legend-item">
+              <span class="legend-color-dot orange-dot"></span>
+              <span>周活跃人数统计 (Weekly Active)</span>
+            </div>
+          </template>
         </div>
       </div>
     </el-card>
@@ -248,6 +306,7 @@ import { Calendar } from '@element-plus/icons-vue'
 const router = useRouter()
 const mockStore = useMockDataStore()
 const chartTimeTab = ref('today')
+const activeChartType = ref('traffic')
 const currentTimeString = ref('')
 
 const metrics = computed(() => {
@@ -457,6 +516,35 @@ onMounted(() => {
 
 .blue-dot { background-color: #1890ff; }
 .green-dot { background-color: #2fc25b; }
+.purple-dot { background-color: #722ed1; }
+.orange-dot { background-color: #fa8c16; }
+
+/* Premium styling additions */
+.stat-unit {
+  font-size: 14px;
+  font-weight: normal;
+  color: rgba(0, 0, 0, 0.45);
+  margin-left: 4px;
+}
+
+.chart-controls-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.animate-chart {
+  transition: all 0.3s ease;
+}
+
+.flex-wrap {
+  flex-wrap: wrap;
+}
+
+.gap-y-3 {
+  row-gap: 12px;
+}
 
 /* Bottom table row */
 .bottom-tables-row {

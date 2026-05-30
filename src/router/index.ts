@@ -62,6 +62,12 @@ const routes: Array<RouteRecordRaw> = [
         meta: { title: '字典管理', icon: 'Memo', breadcrumbs: ['系统配置', '字典管理'] }
       },
       {
+        path: 'message',
+        name: 'SysMessage',
+        component: () => import('@/views/message/List.vue'),
+        meta: { title: '系统消息', icon: 'Message', breadcrumbs: ['系统配置', '系统消息'] }
+      },
+      {
         path: 'agreement/privacy',
         name: 'PrivacyAgreement',
         component: () => import('@/views/agreement/Privacy.vue'),

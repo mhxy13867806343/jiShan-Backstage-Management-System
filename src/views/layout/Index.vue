@@ -65,6 +65,10 @@
             <el-icon><Memo /></el-icon>
             <span>字典管理</span>
           </el-menu-item>
+          <el-menu-item index="/message">
+            <el-icon><Message /></el-icon>
+            <span>系统消息</span>
+          </el-menu-item>
           <el-menu-item index="/agreement/privacy">
             <el-icon><Lock /></el-icon>
             <span>隐私协议</span>

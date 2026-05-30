@@ -26,6 +26,16 @@ export interface DictItem {
   children?: DictItem[]
 }
 
+export interface MessageItem {
+  message_id: string
+  title: string
+  type: 'notification' | 'announcement' | 'alert' | 'antifraud'
+  content: string
+  target: 'all' | 'active' | 'new'
+  status: '0' | '1' // '0' for draft, '1' for sent
+  pubTime: string
+}
+
 export interface PostItem {
   post_id: string
   user_id: string
@@ -54,6 +64,37 @@ export interface CommentItem {
 }
 
 export const useMockDataStore = defineStore('mockData', () => {
+  // Initialize mock messages
+  const messages = ref<MessageItem[]>([
+    {
+      message_id: '90001',
+      title: '即闪 App 互助版块服务协议升级公告',
+      type: 'announcement',
+      content: '尊敬的用户，我们于今日升级了即闪互助版块的服务条款，进一步保障了广大用户的合法权益。详情请点击查阅最新版服务协议。',
+      target: 'all',
+      status: '1',
+      pubTime: '2026-05-28 10:00:00'
+    },
+    {
+      message_id: '90002',
+      title: '关于防范网络“虚假刷单”诈骗的安全预警',
+      type: 'antifraud',
+      content: '近期网络中刷单兼职类诈骗频繁出现，平台郑重提醒：任何要求先行垫付资金的兼职刷单均属于违法诈骗行为，请广大用户提高警惕，切勿上当受骗！',
+      target: 'all',
+      status: '1',
+      pubTime: '2026-05-29 14:30:00'
+    },
+    {
+      message_id: '90003',
+      title: '新用户注册福利与安全提示',
+      type: 'notification',
+      content: '欢迎来到即闪平台！我们致力于打造最纯粹的同城互助社交体验。请注意保管好您的个人账户安全，防范一切可疑的资金要求。',
+      target: 'new',
+      status: '1',
+      pubTime: '2026-05-30 09:00:00'
+    }
+  ])
+
   // Initialize mock users
   const users = ref<UserItem[]>([
     {
@@ -921,6 +962,39 @@ export const useMockDataStore = defineStore('mockData', () => {
     }
   }
 
+  const addMessage = (item: Partial<MessageItem>) => {
+    const code = String(Date.now()).substring(7)
+    const newItem: MessageItem = {
+      message_id: item.message_id || code,
+      title: item.title || '无标题消息',
+      type: item.type || 'notification',
+      content: item.content || '',
+      target: item.target || 'all',
+      status: item.status || '0',
+      pubTime: item.pubTime || new Date().toISOString().replace('T', ' ').substring(0, 19)
+    }
+    messages.value.unshift(newItem)
+    return true
+  }
+
+  const deleteMessage = (id: string) => {
+    const idx = messages.value.findIndex(m => m.message_id === id)
+    if (idx !== -1) {
+      messages.value.splice(idx, 1)
+      return true
+    }
+    return false
+  }
+
+  const updateMessage = (id: string, updatedFields: Partial<MessageItem>) => {
+    const item = messages.value.find(m => m.message_id === id)
+    if (item) {
+      Object.assign(item, updatedFields)
+      return true
+    }
+    return false
+  }
+
   return {
     users,
     posts,
@@ -928,6 +1002,7 @@ export const useMockDataStore = defineStore('mockData', () => {
     tags,
     regions,
     dicts,
+    messages,
     getUsers,
     getUserById,
     updateUserStatus,
@@ -951,6 +1026,9 @@ export const useMockDataStore = defineStore('mockData', () => {
     deleteRegion,
     addDictItem,
     deleteDictItem,
-    updateDictItem
+    updateDictItem,
+    addMessage,
+    deleteMessage,
+    updateMessage
   }
 })
