@@ -266,11 +266,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, reactive, onMounted, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useMockDataStore } from '@/store/mockData'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
+const route = useRoute()
 const router = useRouter()
 const mockStore = useMockDataStore()
 const tableData = ref<any[]>([])
@@ -430,8 +431,26 @@ const gotoComments = (post_id: string) => {
 }
 
 onMounted(() => {
+  if (route.query.user_id) {
+    searchForm.user_id = String(route.query.user_id)
+    activeTab.value = 'all'
+  }
   fetchPosts()
 })
+
+watch(
+  () => route.query.user_id,
+  (newUserId) => {
+    if (newUserId) {
+      searchForm.user_id = String(newUserId)
+      activeTab.value = 'all'
+    } else {
+      searchForm.user_id = ''
+    }
+    currentPage.value = 1
+    fetchPosts()
+  }
+)
 </script>
 
 <style scoped>

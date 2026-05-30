@@ -36,7 +36,9 @@
             <div class="user-profile-cell">
               <el-avatar :size="40" :src="row.avatar" />
               <div class="user-info-text">
-                <span class="user-nickname">{{ row.nickname }}</span>
+                <span class="user-nickname user-nickname-link" title="点击查看用户发布动态" @click="gotoUserPosts(row)">
+                  {{ row.nickname }}
+                </span>
                 <span class="user-bio-preview">{{ row.bio || '暂无个人简介' }}</span>
               </div>
             </div>
@@ -126,9 +128,9 @@
 
         <!-- Metric badges block -->
         <div class="metrics-summary-grid">
-          <div class="detail-metric-item">
+          <div class="detail-metric-item clickable-metric" title="点击查看该用户发布动态" @click="gotoUserPosts(selectedUser)">
             <span class="metric-num text-gradient">{{ selectedUser.postCount }}</span>
-            <span class="metric-name">发布内容数</span>
+            <span class="metric-name link-text-badge">发布内容数 ➔</span>
           </div>
           <div class="detail-metric-item">
             <span class="metric-num text-gradient">{{ selectedUser.commentCount }}</span>
@@ -191,9 +193,11 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { useMockDataStore } from '@/store/mockData'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
+const router = useRouter()
 const mockStore = useMockDataStore()
 const tableData = ref<any[]>([])
 const totalCount = ref(0)
@@ -292,6 +296,11 @@ const handleToggleStatus = (row: any, newStatus: 'normal' | 'banned') => {
 onMounted(() => {
   fetchUsers()
 })
+
+const gotoUserPosts = (user: any) => {
+  detailDrawerVisible.value = false
+  router.push({ path: '/content', query: { user_id: user.user_id } })
+}
 </script>
 
 <style scoped>
@@ -447,4 +456,29 @@ onMounted(() => {
   padding-bottom: 20px;
 }
 
+.user-nickname-link {
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.user-nickname-link:hover {
+  color: var(--primary, #1890ff);
+  text-decoration: underline;
+}
+
+.clickable-metric {
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.clickable-metric:hover {
+  border-color: var(--primary, #5856d6);
+  background-color: rgba(88, 86, 214, 0.04);
+}
+
+.link-text-badge {
+  color: var(--primary, #5856d6);
+  font-weight: 700;
+  text-decoration: underline;
+}
 </style>
