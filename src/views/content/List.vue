@@ -25,6 +25,12 @@
 
     <!-- Data Table Card -->
     <div class="table-card premium-card">
+      <el-tabs v-model="activeTab" @tab-change="handleTabChange" class="content-tabs">
+        <el-tab-pane label="全部内容" name="all" />
+        <el-tab-pane label="已发布" name="online" />
+        <el-tab-pane label="草稿" name="offline" />
+      </el-tabs>
+
       <el-table :data="tableData" style="width: 100%">
         <el-table-column prop="post_id" label="内容ID" width="100" align="center" />
         <el-table-column prop="user_id" label="发布人ID" width="100" align="center" />
@@ -231,6 +237,7 @@ const tableData = ref<any[]>([])
 const totalCount = ref(0)
 const currentPage = ref(1)
 const pageSize = ref(5)
+const activeTab = ref('all')
 
 const searchForm = reactive({
   user_id: '',
@@ -254,8 +261,15 @@ const fetchPosts = () => {
   totalCount.value = res.total
 }
 
+const handleTabChange = (name: any) => {
+  searchForm.status = name === 'all' ? '' : name
+  currentPage.value = 1
+  fetchPosts()
+}
+
 const handleSearch = () => {
   currentPage.value = 1
+  activeTab.value = searchForm.status || 'all'
   fetchPosts()
 }
 
@@ -263,6 +277,7 @@ const handleReset = () => {
   searchForm.user_id = ''
   searchForm.nickname = ''
   searchForm.status = ''
+  activeTab.value = 'all'
   currentPage.value = 1
   fetchPosts()
 }
@@ -363,6 +378,15 @@ onMounted(() => {
 
 .table-card {
   padding: 24px;
+}
+
+.content-tabs {
+  margin-bottom: 16px;
+}
+
+.content-tabs :deep(.el-tabs__item) {
+  font-weight: 600;
+  font-size: 14px;
 }
 
 .user-cell {
