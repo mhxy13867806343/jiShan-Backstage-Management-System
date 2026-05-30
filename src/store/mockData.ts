@@ -617,7 +617,7 @@ export const useMockDataStore = defineStore('mockData', () => {
   }
 
   // 2. Content Management Actions
-  const getPosts = (params: { nickname?: string; user_id?: string; status?: string; page?: number; limit?: number }) => {
+  const getPosts = (params: { nickname?: string; user_id?: string; status?: string; content?: string; page?: number; limit?: number }) => {
     let result = [...posts.value]
 
     if (params.nickname) {
@@ -628,6 +628,9 @@ export const useMockDataStore = defineStore('mockData', () => {
     }
     if (params.status) {
       result = result.filter(p => p.status === params.status)
+    }
+    if (params.content) {
+      result = result.filter(p => p.content.includes(params.content!))
     }
 
     // Sort by publication time descending

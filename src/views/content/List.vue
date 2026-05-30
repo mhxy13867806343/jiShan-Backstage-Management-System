@@ -9,6 +9,9 @@
         <el-form-item label="发布人昵称">
           <el-input v-model="searchForm.nickname" placeholder="输入昵称搜索" clearable />
         </el-form-item>
+        <el-form-item label="内容关键字">
+          <el-input v-model="searchForm.content" placeholder="输入关键字搜索内容" clearable />
+        </el-form-item>
         <el-form-item label="上架状态">
           <el-select v-model="searchForm.status" placeholder="选择状态" clearable style="width: 130px;">
             <el-option label="全部" value="" />
@@ -242,7 +245,8 @@ const activeTab = ref('all')
 const searchForm = reactive({
   user_id: '',
   nickname: '',
-  status: ''
+  status: '',
+  content: ''
 })
 
 const selectedPost = ref<any>(null)
@@ -253,6 +257,7 @@ const fetchPosts = () => {
     user_id: searchForm.user_id || undefined,
     nickname: searchForm.nickname || undefined,
     status: searchForm.status || undefined,
+    content: searchForm.content || undefined,
     page: currentPage.value,
     limit: pageSize.value
   })
@@ -277,6 +282,7 @@ const handleReset = () => {
   searchForm.user_id = ''
   searchForm.nickname = ''
   searchForm.status = ''
+  searchForm.content = ''
   activeTab.value = 'all'
   currentPage.value = 1
   fetchPosts()
