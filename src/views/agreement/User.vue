@@ -1,57 +1,58 @@
 <template>
   <div class="agreement-container">
-    <!-- Top Action Info bar -->
+    <!-- Header Bar -->
     <div class="header-action-bar premium-card">
       <div class="header-text-info">
         <h2>用户服务协议配置</h2>
-        <p>配置即闪前台App用户的服务使用协议条款，支持HTML富文本格式，修改保存后即时生效。</p>
+        <p>使用富文本编辑器编写即闪 App 的用户服务协议条款，右侧实时预览手机端效果，保存后即时生效。</p>
       </div>
-
       <div class="action-buttons">
-        <el-button 
-          v-if="!isEdit" 
-          type="primary" 
-          icon="Edit" 
-          @click="isEdit = true"
-        >
-          编辑协议内容
+        <el-button icon="RefreshLeft" @click="handleCancel" :disabled="saveLoading">重置内容</el-button>
+        <el-button type="success" icon="Check" :loading="saveLoading" @click="handleSave">
+          保存并发布
         </el-button>
-        <template v-else>
-          <el-button icon="Close" @click="handleCancel">取消</el-button>
-          <el-button type="success" icon="Check" :loading="saveLoading" @click="handleSave">
-            保存修改
-          </el-button>
-        </template>
       </div>
     </div>
 
-    <!-- Main Workspace Splitter -->
-    <div class="workspace-grid" :class="{ 'edit-mode': isEdit }">
-      <!-- Editor Column (only visible in edit mode) -->
-      <div v-if="isEdit" class="editor-column premium-card">
+    <!-- Two-column layout: Editor + Preview -->
+    <div class="workspace-grid">
+      <!-- Left: Rich Text Editor -->
+      <div class="editor-column premium-card">
         <div class="column-title">
           <el-icon><EditPen /></el-icon>
-          <span>HTML 源代码编辑区</span>
+          <span>富文本编辑器</span>
+          <el-tag size="small" type="success" class="ml-auto">实时同步预览</el-tag>
         </div>
-        <el-input
-          v-model="editContent"
-          type="textarea"
-          :rows="22"
-          placeholder="请输入用户协议的HTML内容..."
-          class="html-textarea font-mono"
-        />
-        <div class="editor-tips">
-          提示：支持使用标准 HTML 标签，如 <code>&lt;h3&gt;</code>、<code>&lt;p&gt;</code>、<code>&lt;ul&gt;</code> 等来进行排版。
+        <div class="wang-editor-wrap">
+          <Toolbar
+            :editor="editorRef"
+            :defaultConfig="toolbarConfig"
+            mode="default"
+            class="wang-toolbar"
+          />
+          <Editor
+            v-model="editContent"
+            :defaultConfig="editorConfig"
+            mode="default"
+            class="wang-editor-body"
+            @onCreated="handleCreated"
+          />
+        </div>
+        <!-- Bottom action bar -->
+        <div class="editor-footer-bar">
+          <el-button icon="RefreshLeft" @click="handleCancel" :disabled="saveLoading">重置内容</el-button>
+          <el-button type="success" icon="Check" :loading="saveLoading" @click="handleSave">
+            保存并发布
+          </el-button>
         </div>
       </div>
 
-      <!-- Preview Column -->
+      <!-- Right: Phone Preview -->
       <div class="preview-column premium-card">
         <div class="column-title">
           <el-icon><View /></el-icon>
           <span>前台实时效果预览</span>
         </div>
-        
         <div class="preview-viewport-scroll">
           <div class="mobile-phone-frame">
             <div class="phone-status-bar">
@@ -61,9 +62,9 @@
                 <el-icon><BatteryFull /></el-icon>
               </div>
             </div>
-            <div class="phone-header">服务协议</div>
+            <div class="phone-header">用户协议</div>
             <div class="phone-content-body">
-              <div class="agreement-html-renderer" v-html="previewContent"></div>
+              <div class="agreement-html-renderer" v-html="editContent"></div>
             </div>
           </div>
         </div>
@@ -73,20 +74,32 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, shallowRef, onMounted, onBeforeUnmount } from 'vue'
 import { useMockDataStore } from '@/store/mockData'
 import { ElMessage } from 'element-plus'
+import { Editor, Toolbar } from '@wangeditor/editor-for-vue'
+import type { IDomEditor, IEditorConfig, IToolbarConfig } from '@wangeditor/editor'
 
 const mockStore = useMockDataStore()
 const saveLoading = ref(false)
-const isEdit = ref(false)
-const originalContent = ref('')
 const editContent = ref('')
+const originalContent = ref('')
 
-// Compute content for preview: if editing, show editContent, otherwise originalContent
-const previewContent = computed(() => {
-  return isEdit.value ? editContent.value : originalContent.value
-})
+// WangEditor instance — must use shallowRef
+const editorRef = shallowRef<IDomEditor>()
+
+const toolbarConfig: Partial<IToolbarConfig> = {
+  excludeKeys: ['uploadVideo', 'insertVideo', 'group-video']
+}
+
+const editorConfig: Partial<IEditorConfig> = {
+  placeholder: '请在此输入用户服务协议内容...',
+  autoFocus: false,
+}
+
+const handleCreated = (editor: IDomEditor) => {
+  editorRef.value = editor
+}
 
 const fetchAgreement = () => {
   const data = mockStore.getAgreement('user')
@@ -96,29 +109,55 @@ const fetchAgreement = () => {
 
 const handleCancel = () => {
   editContent.value = originalContent.value
-  isEdit.value = false
-  ElMessage.info('已取消编辑')
+  ElMessage.info('已重置为上次保存的内容')
 }
 
 const handleSave = () => {
   saveLoading.value = true
-  
-  // Simulate local save
   setTimeout(() => {
     mockStore.updateAgreement('user', editContent.value)
     originalContent.value = editContent.value
-    isEdit.value = false
     ElMessage.success('用户协议已成功更新并发布！')
     saveLoading.value = false
-  }, 200)
+  }, 300)
 }
 
 onMounted(() => {
   fetchAgreement()
 })
+
+// IMPORTANT: destroy editor on unmount to avoid memory leaks
+onBeforeUnmount(() => {
+  const editor = editorRef.value
+  if (editor == null) return
+  editor.destroy()
+})
 </script>
 
+<style>
+/* WangEditor global styles (cannot be scoped) */
+.wang-toolbar {
+  border-bottom: 1px solid #e2e8f0 !important;
+  background: #f8fafc !important;
+  border-radius: 0 !important;
+  flex-shrink: 0;
+}
+
+.wang-editor-body {
+  flex: 1;
+  overflow-y: auto;
+  font-size: 14px;
+  line-height: 1.7;
+  min-height: 400px;
+}
+
+.w-e-text-container [data-slate-editor] {
+  padding: 20px 24px !important;
+}
+</style>
+
 <style scoped>
+
 .agreement-container {
   display: flex;
   flex-direction: column;
@@ -152,26 +191,28 @@ onMounted(() => {
   gap: 10px;
 }
 
-/* Workspace Splitter */
+.ml-auto {
+  margin-left: auto;
+}
+
+/* Two-column workspace */
 .workspace-grid {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: 1.15fr 0.85fr;
   gap: 20px;
-  transition: all 0.35s cubic-bezier(0.25, 0.8, 0.25, 1);
+  flex: 1;
+  min-height: 0;
 }
 
-.workspace-grid.edit-mode {
-  grid-template-columns: 1.1fr 0.9fr;
-}
-
-@media (max-width: 900px) {
-  .workspace-grid.edit-mode {
+@media (max-width: 1024px) {
+  .workspace-grid {
     grid-template-columns: 1fr;
   }
 }
 
+/* Column title bar */
 .column-title {
-  padding: 16px 20px;
+  padding: 14px 20px;
   border-bottom: 1px solid var(--border-color);
   font-weight: 600;
   font-size: 14px;
@@ -180,38 +221,38 @@ onMounted(() => {
   align-items: center;
   gap: 8px;
   background-color: #f8fafc;
+  border-radius: 16px 16px 0 0;
 }
 
+/* Editor column */
 .editor-column {
   padding: 0 !important;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
+  min-height: 600px;
 }
 
-.html-textarea {
-  padding: 16px;
-  flex-grow: 1;
+.wang-editor-wrap {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
 }
 
-.html-textarea :deep(.el-textarea__inner) {
-  border: none !important;
-  box-shadow: none !important;
-  resize: none;
-  font-family: var(--font-mono);
-  font-size: 13px;
-  line-height: 1.6;
-}
-
-.editor-tips {
-  padding: 12px 20px;
-  background-color: #f1f5f9;
-  font-size: 11px;
-  color: var(--text-muted);
+.editor-footer-bar {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 20px;
   border-top: 1px solid var(--border-color);
-  border-bottom-left-radius: 16px;
-  border-bottom-right-radius: 16px;
+  background-color: #f8fafc;
+  border-radius: 0 0 16px 16px;
+  flex-shrink: 0;
 }
 
+/* Preview column */
 .preview-column {
   padding: 0 !important;
   display: flex;
@@ -220,22 +261,26 @@ onMounted(() => {
 
 .preview-viewport-scroll {
   padding: 24px;
-  background-color: #e2e8f0;
+  background: linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%);
   flex-grow: 1;
   display: flex;
   justify-content: center;
-  align-items: center;
+  align-items: flex-start;
+  padding-top: 30px;
+  border-radius: 0 0 16px 16px;
   min-height: 500px;
 }
 
-/* Simulated Mobile Phone Frame for elegant UX */
+/* Mobile Phone Frame */
 .mobile-phone-frame {
-  width: 360px;
-  height: 580px;
+  width: 320px;
+  max-height: 560px;
   border-radius: 36px;
   background-color: white;
   border: 10px solid #1e293b;
-  box-shadow: var(--shadow-lg), 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  box-shadow:
+    0 25px 50px -12px rgba(0, 0, 0, 0.35),
+    0 0 0 2px rgba(255,255,255,0.1) inset;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -252,6 +297,7 @@ onMounted(() => {
   font-size: 11px;
   font-weight: 600;
   color: #1e293b;
+  flex-shrink: 0;
 }
 
 .phone-icons {
@@ -270,6 +316,7 @@ onMounted(() => {
   font-size: 15px;
   color: var(--text-main);
   background-color: white;
+  flex-shrink: 0;
 }
 
 .phone-content-body {
@@ -279,18 +326,19 @@ onMounted(() => {
   background-color: white;
 }
 
-/* Style the HTML output inside renderer to make it extremely beautiful */
+/* Styles for rendered HTML in the phone preview */
+.agreement-html-renderer :deep(h1),
 .agreement-html-renderer :deep(h2) {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 700;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
   color: #0f172a;
 }
 
 .agreement-html-renderer :deep(h3) {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
-  margin: 15px 0 8px 0;
+  margin: 12px 0 6px 0;
   color: #1e293b;
 }
 
@@ -298,18 +346,29 @@ onMounted(() => {
   font-size: 12px;
   color: #475569;
   line-height: 1.6;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
 
-.agreement-html-renderer :deep(ul), .agreement-html-renderer :deep(ol) {
-  padding-left: 20px;
-  margin-bottom: 10px;
+.agreement-html-renderer :deep(ul),
+.agreement-html-renderer :deep(ol) {
+  padding-left: 18px;
+  margin-bottom: 8px;
 }
 
 .agreement-html-renderer :deep(li) {
   font-size: 12px;
   color: #475569;
   line-height: 1.6;
-  margin-bottom: 4px;
+  margin-bottom: 3px;
+}
+
+.agreement-html-renderer :deep(strong) {
+  font-weight: 600;
+  color: #334155;
+}
+
+.agreement-html-renderer :deep(a) {
+  color: #6366f1;
+  text-decoration: underline;
 }
 </style>
