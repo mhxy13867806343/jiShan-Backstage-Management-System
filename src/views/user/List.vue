@@ -152,10 +152,16 @@
             <span class="info-val">{{ selectedUser.phone }}</span>
           </div>
           <div class="info-row">
+            <span class="info-label">新手机号码</span>
+            <span class="info-val">{{ selectedUser.newPhone || '暂无' }}</span>
+          </div>
+          <div class="info-row">
             <span class="info-label">注册时间</span>
             <span class="info-val">{{ selectedUser.regTime }}</span>
           </div>
         </div>
+
+
 
         <!-- Action Drawer Footer -->
         <div class="drawer-action-block">
@@ -203,6 +209,8 @@ const searchForm = reactive({
 
 const selectedUser = ref<any>(null)
 const detailDrawerVisible = ref(false)
+
+
 
 const fetchUsers = () => {
   const res = mockStore.getUsers({
@@ -334,7 +342,6 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 20px;
-  height: 100%;
 }
 
 .detail-header-card {
@@ -434,7 +441,10 @@ onMounted(() => {
 }
 
 .drawer-action-block {
-  margin-top: auto;
+  margin-top: 10px;
   padding-top: 20px;
+  border-top: 1px solid var(--border-color);
+  padding-bottom: 20px;
 }
+
 </style>

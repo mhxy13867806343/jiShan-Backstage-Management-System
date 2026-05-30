@@ -6,12 +6,24 @@ export interface UserItem {
   nickname: string
   avatar: string
   phone: string
+  newPhone?: string
   status: 'normal' | 'banned'
   regTime: string
   postCount: number
   commentCount: number
   likesReceived: number
   bio: string
+}
+
+export interface DictItem {
+  value: string
+  label: string
+  dictCode?: number
+  dictSort?: number
+  status?: '0' | '1' // '0' for normal, '1' for disabled
+  remark?: string
+  createTime?: string
+  children?: DictItem[]
 }
 
 export interface PostItem {
@@ -49,6 +61,7 @@ export const useMockDataStore = defineStore('mockData', () => {
       nickname: '极光漫步者',
       avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
       phone: '13812345678',
+      newPhone: '13912345678',
       status: 'normal',
       regTime: '2026-01-15 10:23:45',
       postCount: 12,
@@ -139,6 +152,18 @@ export const useMockDataStore = defineStore('mockData', () => {
       commentCount: 15,
       likesReceived: 38,
       bio: '大梦谁先觉，平生我自知。随缘记录生活点滴。'
+    },
+    {
+      user_id: '10009',
+      nickname: '阿岛',
+      avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&auto=format&fit=crop&q=80',
+      phone: '13811228000',
+      status: 'normal',
+      regTime: '2026-05-10 14:20:00',
+      postCount: 15,
+      commentCount: 96,
+      likesReceived: 1890,
+      bio: '寻味人间，热爱美食与生活记录。分享最真实的城市探店日常。'
     }
   ])
 
@@ -244,6 +269,24 @@ export const useMockDataStore = defineStore('mockData', () => {
       shares: 45,
       status: 'online',
       pubTime: '2026-05-26 21:30:00'
+    },
+    {
+      post_id: '20008',
+      user_id: '10009',
+      nickname: '阿岛',
+      avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&auto=format&fit=crop&q=80',
+      content: '新开的一家面包店真的很能打，黄油碱水和开心果可颂都在线。已经替你们试过了，不踩雷，周末想去拍照打卡的可以直接收藏。#探店 #面包脑袋 #周末去哪',
+      images: [
+        'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=600&auto=format&fit=crop&q=80',
+        'https://images.unsplash.com/photo-1549931319-a545dcf3bc73?w=600&auto=format&fit=crop&q=80',
+        'https://images.unsplash.com/photo-1555507036-ab1f4038808a?w=600&auto=format&fit=crop&q=80',
+        'https://images.unsplash.com/photo-1589367920969-ab8e050bbb0e?w=600&auto=format&fit=crop&q=80'
+      ],
+      likes: 356,
+      comments: 67,
+      shares: 45,
+      status: 'online',
+      pubTime: '2026-05-30 07:15:00'
     }
   ])
 
@@ -344,6 +387,30 @@ export const useMockDataStore = defineStore('mockData', () => {
       reply_to_user_id: '10003',
       reply_to_nickname: '元气少女陈陈',
       pubTime: '2026-05-26 22:00:33'
+    },
+    {
+      comment_id: '30009',
+      post_id: '20008',
+      user_id: '10003',
+      nickname: '元气少女陈陈',
+      avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80',
+      content: '这家面包店看起来好日系好温暖，可颂看起来太诱人了！周末必须去拔草！',
+      parent_id: null,
+      reply_to_user_id: null,
+      reply_to_nickname: null,
+      pubTime: '2026-05-30 07:45:00'
+    },
+    {
+      comment_id: '30010',
+      post_id: '20008',
+      user_id: '10009',
+      nickname: '阿岛',
+      avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&auto=format&fit=crop&q=80',
+      content: '开心果可颂真的是必点，而且他们家咖啡也很不赖，去的时候尽量选上午，下午人会有点多。',
+      parent_id: '30009',
+      reply_to_user_id: '10003',
+      reply_to_nickname: '元气少女陈陈',
+      pubTime: '2026-05-30 08:00:00'
     }
   ])
 
@@ -392,6 +459,76 @@ export const useMockDataStore = defineStore('mockData', () => {
 <p>1. 如果管理员违反本协议的任何条款，平台有权根据违规情节的严重程度，采取警告、限制系统操作权限、封锁系统账户、直至解除劳动关系或追究其法律责任等处罚措施。</p>
 <p>2. 在法律允许的范围内，本系统按“现状”和“可获得性”状态提供。由于断电、网络黑客攻击、不可抗力、服务器维护等原因导致系统临时无法访问、数据丢失或延迟的，运营方不承担由此引起的任何直接或间接损失。</p>
 <p>本协议的成立、生效、履行、解释及争议解决均适用中华人民共和国法律。若发生任何争议，双方应首先友好协商解决；协商不成的，应提交平台运营方所在地有管辖权的人民法院诉讼解决。</p>`
+  })
+
+  // System Configurations
+  const tags = ref<string[]>([
+    '夜市',
+    '同城发现',
+    'citywalk',
+    '探店',
+    '面包脑袋',
+    '周末去哪',
+    '美食收集'
+  ])
+
+  const regions = ref<string[]>([
+    '杭州·滨江天街',
+    '广州·天河',
+    '上海·静安寺',
+    '北京·三里屯',
+    '深圳·万象天地'
+  ])
+
+  const dicts = ref<Record<string, DictItem[]>>({
+    user_status: [
+      { 
+        value: 'normal', 
+        label: '正常', 
+        dictCode: 1, 
+        dictSort: 1, 
+        status: '0', 
+        remark: '用户正常状态账号', 
+        createTime: '2025-05-26 11:04:08',
+        children: [
+          { value: 'normal_active', label: '活跃用户', dictCode: 11, dictSort: 1, status: '0', remark: '账号正常且近期活跃', createTime: '2025-05-26 11:04:08' },
+          { value: 'normal_silent', label: '静默用户', dictCode: 12, dictSort: 2, status: '0', remark: '账号正常但长期静默', createTime: '2025-05-26 11:04:08' }
+        ]
+      },
+      { 
+        value: 'banned', 
+        label: '已禁用', 
+        dictCode: 2, 
+        dictSort: 2, 
+        status: '0', 
+        remark: '被管理员禁用的限制账号', 
+        createTime: '2025-05-26 11:04:08',
+        children: [
+          { value: 'banned_temp', label: '临时封禁', dictCode: 21, dictSort: 1, status: '0', remark: '违规警告临时限流封禁', createTime: '2025-05-26 11:04:08' },
+          { value: 'banned_forever', label: '永久封禁', dictCode: 22, dictSort: 2, status: '0', remark: '严重违规永久限制登入', createTime: '2025-05-26 11:04:08' }
+        ]
+      }
+    ],
+    post_status: [
+      { 
+        value: 'online', 
+        label: '已上架', 
+        dictCode: 3, 
+        dictSort: 1, 
+        status: '0', 
+        remark: '审核通过且上架展示的动态', 
+        createTime: '2025-05-26 11:04:08',
+        children: [
+          { value: 'online_featured', label: '精选动态', dictCode: 31, dictSort: 1, status: '0', remark: '获得官方推荐的优质动态', createTime: '2025-05-26 11:04:08' },
+          { value: 'online_normal', label: '普通动态', dictCode: 32, dictSort: 2, status: '0', remark: '正常流分发的动态', createTime: '2025-05-26 11:04:08' }
+        ]
+      },
+      { value: 'offline', label: '已下架', dictCode: 4, dictSort: 2, status: '0', remark: '违规下架或归档不予展示的动态', createTime: '2025-05-26 11:04:08' }
+    ],
+    post_visibility: [
+      { value: 'public', label: '公开', dictCode: 5, dictSort: 1, status: '0', remark: '广场所有网民以及游客均可见', createTime: '2025-05-26 11:04:08' },
+      { value: 'private', label: '私密', dictCode: 6, dictSort: 2, status: '0', remark: '仅发布者本人在其个人中心可见', createTime: '2025-05-26 11:04:08' }
+    ]
   })
 
   // --- ACTIONS ---
@@ -541,6 +678,226 @@ export const useMockDataStore = defineStore('mockData', () => {
     return true
   }
 
+  const updateUserPhone = (user_id: string, newPhone: string) => {
+    const user = users.value.find(u => u.user_id === user_id)
+    if (user) {
+      user.phone = newPhone
+      user.newPhone = newPhone
+      return true
+    }
+    return false
+  }
+
+  const addPost = (post: { user_id: string; nickname: string; avatar: string; content: string; images: string[] }) => {
+    const newPostId = String(20000 + posts.value.length + 1)
+    const newPost: PostItem = {
+      post_id: newPostId,
+      user_id: post.user_id,
+      nickname: post.nickname,
+      avatar: post.avatar,
+      content: post.content,
+      images: post.images,
+      likes: 0,
+      comments: 0,
+      shares: 0,
+      status: 'online',
+      pubTime: new Date().toISOString().replace('T', ' ').substring(0, 19)
+    }
+    posts.value.unshift(newPost) // Put newest post first
+
+    // Increment postCount for the user
+    const user = users.value.find(u => u.user_id === post.user_id)
+    if (user) {
+      user.postCount++
+    }
+    return newPost
+  }
+
+  const addComment = (comment: { post_id: string; user_id: string; nickname: string; avatar: string; content: string; reply_to_nickname?: string | null }) => {
+    const newCommentId = String(30000 + comments.value.length + 1)
+    const newComment: CommentItem = {
+      comment_id: newCommentId,
+      post_id: comment.post_id,
+      user_id: comment.user_id,
+      nickname: comment.nickname,
+      avatar: comment.avatar,
+      content: comment.content,
+      parent_id: comment.reply_to_nickname ? String(Number(newCommentId) - 1) : null,
+      reply_to_user_id: comment.reply_to_nickname ? '10003' : null,
+      reply_to_nickname: comment.reply_to_nickname || null,
+      pubTime: new Date().toISOString().replace('T', ' ').substring(0, 19)
+    }
+    comments.value.push(newComment)
+
+    // Increment comments for the post
+    const post = posts.value.find(p => p.post_id === comment.post_id)
+    if (post) {
+      post.comments++
+    }
+
+    // Increment commentCount for the user
+    const user = users.value.find(u => u.user_id === comment.user_id)
+    if (user) {
+      user.commentCount++
+    }
+    return newComment
+  }
+
+  const incrementLikes = (post_id: string) => {
+    const post = posts.value.find(p => p.post_id === post_id)
+    if (post) {
+      post.likes++
+      // Also increment user's likesReceived
+      const user = users.value.find(u => u.user_id === post.user_id)
+      if (user) {
+        user.likesReceived++
+      }
+      return true
+    }
+    return false
+  }
+
+  const incrementShares = (post_id: string) => {
+    const post = posts.value.find(p => p.post_id === post_id)
+    if (post) {
+      post.shares++
+      return true
+    }
+    return false
+  }
+
+  // Helper metrics for dashboard
+  // 5. System Configurations Actions
+  const addTag = (tag: string) => {
+    if (tag && !tags.value.includes(tag)) {
+      tags.value.push(tag)
+      return true
+    }
+    return false
+  }
+
+  const deleteTag = (tag: string) => {
+    const idx = tags.value.indexOf(tag)
+    if (idx !== -1) {
+      tags.value.splice(idx, 1)
+      return true
+    }
+    return false
+  }
+
+  const addRegion = (region: string) => {
+    if (region && !regions.value.includes(region)) {
+      regions.value.push(region)
+      return true
+    }
+    return false
+  }
+
+  const deleteRegion = (region: string) => {
+    const idx = regions.value.indexOf(region)
+    if (idx !== -1) {
+      regions.value.splice(idx, 1)
+      return true
+    }
+    return false
+  }
+
+  const addDictItem = (dictKey: string, item: DictItem, parentValue?: string) => {
+    if (!dicts.value[dictKey]) {
+      dicts.value[dictKey] = []
+    }
+    
+    const findItemByValue = (list: DictItem[], val: string): DictItem | null => {
+      for (const d of list) {
+        if (d.value === val) return d
+        if (d.children && d.children.length) {
+          const found = findItemByValue(d.children, val)
+          if (found) return found
+        }
+      }
+      return null
+    }
+
+    const exists = findItemByValue(dicts.value[dictKey], item.value)
+    if (exists) return false
+
+    let maxCode = 0
+    const scanMaxCode = (list: DictItem[]) => {
+      list.forEach(d => {
+        if (d.dictCode && d.dictCode > maxCode) {
+          maxCode = d.dictCode
+        }
+        if (d.children && d.children.length) {
+          scanMaxCode(d.children)
+        }
+      })
+    }
+    scanMaxCode(dicts.value[dictKey])
+    item.dictCode = maxCode + 1
+    item.createTime = item.createTime || new Date().toISOString().replace('T', ' ').substring(0, 19)
+    item.children = item.children || []
+
+    if (parentValue) {
+      const parent = findItemByValue(dicts.value[dictKey], parentValue)
+      if (parent) {
+        parent.children = parent.children || []
+        parent.children.push(item)
+        return true
+      }
+      return false
+    } else {
+      dicts.value[dictKey].push(item)
+      return true
+    }
+  }
+
+  const deleteDictItem = (dictKey: string, value: string) => {
+    if (!dicts.value[dictKey]) return false
+
+    const removeItemFromList = (list: DictItem[], val: string): boolean => {
+      const idx = list.findIndex(i => i.value === val)
+      if (idx !== -1) {
+        list.splice(idx, 1)
+        return true
+      }
+      for (const d of list) {
+        if (d.children && d.children.length) {
+          const success = removeItemFromList(d.children, val)
+          if (success) return true
+        }
+      }
+      return false
+    }
+
+    return removeItemFromList(dicts.value[dictKey], value)
+  }
+
+  const updateDictItem = (dictKey: string, value: string, updatedFields: string | Partial<DictItem>) => {
+    if (!dicts.value[dictKey]) return false
+
+    const findItemByValue = (list: DictItem[], val: string): DictItem | null => {
+      for (const d of list) {
+        if (d.value === val) return d
+        if (d.children && d.children.length) {
+          const found = findItemByValue(d.children, val)
+          if (found) return found
+        }
+      }
+      return null
+    }
+
+    const item = findItemByValue(dicts.value[dictKey], value)
+    if (item) {
+      if (typeof updatedFields === 'string') {
+        item.label = updatedFields
+      } else {
+        Object.assign(item, updatedFields)
+      }
+      return true
+    }
+    return false
+  }
+
   // Helper metrics for dashboard
   const getDashboardMetrics = () => {
     const totalUsers = users.value.length
@@ -568,6 +925,9 @@ export const useMockDataStore = defineStore('mockData', () => {
     users,
     posts,
     comments,
+    tags,
+    regions,
+    dicts,
     getUsers,
     getUserById,
     updateUserStatus,
@@ -579,6 +939,18 @@ export const useMockDataStore = defineStore('mockData', () => {
     deleteComment,
     getAgreement,
     updateAgreement,
-    getDashboardMetrics
+    getDashboardMetrics,
+    updateUserPhone,
+    addPost,
+    addComment,
+    incrementLikes,
+    incrementShares,
+    addTag,
+    deleteTag,
+    addRegion,
+    deleteRegion,
+    addDictItem,
+    deleteDictItem,
+    updateDictItem
   }
 })

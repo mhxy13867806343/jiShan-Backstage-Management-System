@@ -38,6 +38,30 @@ const routes: Array<RouteRecordRaw> = [
         meta: { title: '评论管理', icon: 'MessageSquare', breadcrumbs: ['内容监管', '评论列表'] }
       },
       {
+        path: 'simulator',
+        name: 'AppSimulator',
+        component: () => import('@/views/simulator/Index.vue'),
+        meta: { title: 'App 仿真模拟', icon: 'Smartphone', breadcrumbs: ['运营管理', 'App 仿真模拟'] }
+      },
+      {
+        path: 'tag',
+        name: 'TagList',
+        component: () => import('@/views/tag/List.vue'),
+        meta: { title: '标签管理', icon: 'PriceTag', breadcrumbs: ['系统配置', '标签管理'] }
+      },
+      {
+        path: 'region',
+        name: 'RegionList',
+        component: () => import('@/views/region/List.vue'),
+        meta: { title: '地区管理', icon: 'Location', breadcrumbs: ['系统配置', '地区管理'] }
+      },
+      {
+        path: 'dict',
+        name: 'DictList',
+        component: () => import('@/views/dict/List.vue'),
+        meta: { title: '字典管理', icon: 'Memo', breadcrumbs: ['系统配置', '字典管理'] }
+      },
+      {
         path: 'agreement/privacy',
         name: 'PrivacyAgreement',
         component: () => import('@/views/agreement/Privacy.vue'),

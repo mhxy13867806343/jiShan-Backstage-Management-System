@@ -41,12 +41,30 @@
           <template #title>评论管理</template>
         </el-menu-item>
 
-        <!-- Agreement Management -->
-        <el-sub-menu index="/agreement">
+        <!-- App Simulator -->
+        <el-menu-item index="/simulator">
+          <el-icon><Smartphone /></el-icon>
+          <template #title>App 仿真模拟</template>
+        </el-menu-item>
+
+        <!-- System Configurations Submenu -->
+        <el-sub-menu index="/system">
           <template #title>
-            <el-icon><Reading /></el-icon>
-            <span>协议管理</span>
+            <el-icon><Setting /></el-icon>
+            <span>系统配置</span>
           </template>
+          <el-menu-item index="/tag">
+            <el-icon><PriceTag /></el-icon>
+            <span>标签管理</span>
+          </el-menu-item>
+          <el-menu-item index="/region">
+            <el-icon><Location /></el-icon>
+            <span>地区管理</span>
+          </el-menu-item>
+          <el-menu-item index="/dict">
+            <el-icon><Memo /></el-icon>
+            <span>字典管理</span>
+          </el-menu-item>
           <el-menu-item index="/agreement/privacy">
             <el-icon><Lock /></el-icon>
             <span>隐私协议</span>
