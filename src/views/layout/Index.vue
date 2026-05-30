@@ -47,6 +47,12 @@
           <template #title>App 仿真模拟</template>
         </el-menu-item>
 
+        <!-- Account Management -->
+        <el-menu-item index="/account">
+          <el-icon><UserFilled /></el-icon>
+          <template #title>账号管理</template>
+        </el-menu-item>
+
         <!-- System Configurations Submenu -->
         <el-sub-menu index="/system">
           <template #title>

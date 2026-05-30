@@ -1,6 +1,28 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 
+export type AdminRole = 'superadmin' | 'admin' | 'operator' | 'viewer'
+
+export interface AdminPermission {
+  key: string
+  label: string
+}
+
+export interface AdminAccount {
+  account_id: string
+  username: string
+  nickname: string
+  avatar: string
+  role: AdminRole
+  permissions: string[]
+  status: 'active' | 'disabled'
+  email: string
+  phone: string
+  createTime: string
+  lastLogin: string
+  remark: string
+}
+
 export interface UserItem {
   user_id: string
   nickname: string
@@ -998,6 +1020,103 @@ export const useMockDataStore = defineStore('mockData', () => {
     return false
   }
 
+  // ── Admin Accounts ─────────────────────────────────────────────
+  const adminAccounts = ref<AdminAccount[]>([
+    {
+      account_id: 'A001',
+      username: 'superadmin',
+      nickname: '超级管理员',
+      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=superadmin',
+      role: 'superadmin',
+      permissions: ['user', 'content', 'comment', 'tag', 'region', 'dict', 'message', 'agreement', 'account', 'dashboard'],
+      status: 'active',
+      email: 'super@jishanapp.com',
+      phone: '13800000001',
+      createTime: '2024-01-01 00:00:00',
+      lastLogin: '2026-05-31 08:00:00',
+      remark: '系统超级管理员，拥有所有权限'
+    },
+    {
+      account_id: 'A002',
+      username: 'admin_wang',
+      nickname: '王管理',
+      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=admin_wang',
+      role: 'admin',
+      permissions: ['user', 'content', 'comment', 'tag', 'region', 'message', 'dashboard'],
+      status: 'active',
+      email: 'wang@jishanapp.com',
+      phone: '13800000002',
+      createTime: '2025-03-10 09:00:00',
+      lastLogin: '2026-05-30 17:32:00',
+      remark: '负责内容与用户日常管理'
+    },
+    {
+      account_id: 'A003',
+      username: 'operator_li',
+      nickname: '李运营',
+      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=operator_li',
+      role: 'operator',
+      permissions: ['content', 'comment', 'tag', 'dashboard'],
+      status: 'active',
+      email: 'li@jishanapp.com',
+      phone: '13800000003',
+      createTime: '2025-06-15 10:00:00',
+      lastLogin: '2026-05-29 14:20:00',
+      remark: '负责内容运营与审核'
+    },
+    {
+      account_id: 'A004',
+      username: 'viewer_chen',
+      nickname: '陈数据',
+      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=viewer_chen',
+      role: 'viewer',
+      permissions: ['dashboard'],
+      status: 'disabled',
+      email: 'chen@jishanapp.com',
+      phone: '13800000004',
+      createTime: '2025-09-01 09:00:00',
+      lastLogin: '2026-04-10 09:15:00',
+      remark: '仅查看数据看板'
+    }
+  ])
+
+  const getAdminAccounts = () => adminAccounts.value
+
+  const addAdminAccount = (item: Omit<AdminAccount, 'account_id' | 'createTime' | 'lastLogin'>) => {
+    const newAccount: AdminAccount = {
+      ...item,
+      account_id: 'A' + (Date.now() % 100000).toString().padStart(5, '0'),
+      createTime: new Date().toISOString().replace('T', ' ').substring(0, 19),
+      lastLogin: '--'
+    }
+    adminAccounts.value.unshift(newAccount)
+    return true
+  }
+
+  const updateAdminAccount = (id: string, updatedFields: Partial<AdminAccount>) => {
+    const item = adminAccounts.value.find(a => a.account_id === id)
+    if (item) {
+      Object.assign(item, updatedFields)
+      return true
+    }
+    return false
+  }
+
+  const deleteAdminAccount = (id: string) => {
+    const idx = adminAccounts.value.findIndex(a => a.account_id === id)
+    if (idx !== -1) {
+      adminAccounts.value.splice(idx, 1)
+      return true
+    }
+    return false
+  }
+
+  const resetAdminPassword = (id: string) => {
+    // Mock: just returns true
+    const item = adminAccounts.value.find(a => a.account_id === id)
+    return !!item
+  }
+
   return {
     users,
     posts,
@@ -1032,6 +1151,12 @@ export const useMockDataStore = defineStore('mockData', () => {
     updateDictItem,
     addMessage,
     deleteMessage,
-    updateMessage
+    updateMessage,
+    adminAccounts,
+    getAdminAccounts,
+    addAdminAccount,
+    updateAdminAccount,
+    deleteAdminAccount,
+    resetAdminPassword
   }
 })

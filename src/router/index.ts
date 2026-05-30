@@ -44,6 +44,12 @@ const routes: Array<RouteRecordRaw> = [
         meta: { title: 'App 仿真模拟', icon: 'Smartphone', breadcrumbs: ['运营管理', 'App 仿真模拟'] }
       },
       {
+        path: 'account',
+        name: 'AccountList',
+        component: () => import('@/views/account/List.vue'),
+        meta: { title: '账号管理', icon: 'UserFilled', breadcrumbs: ['系统管理', '账号权限管理'] }
+      },
+      {
         path: 'tag',
         name: 'TagList',
         component: () => import('@/views/tag/List.vue'),
