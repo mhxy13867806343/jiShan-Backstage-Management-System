@@ -202,19 +202,21 @@
 
         <!-- Permission Checkboxes -->
         <el-form-item label="权限模块" prop="permissions">
-          <div class="permission-grid">
+          <el-checkbox-group
+            v-model="form.permissions"
+            :disabled="form.role === 'superadmin'"
+            class="permission-grid"
+          >
             <el-checkbox
               v-for="p in allPermissions"
               :key="p.key"
-              v-model="form.permissions"
-              :label="p.key"
-              :disabled="form.role === 'superadmin'"
+              :value="p.key"
               border
               size="small"
             >
               {{ p.label }}
             </el-checkbox>
-          </div>
+          </el-checkbox-group>
           <div class="perm-tip" v-if="form.role === 'superadmin'">
             超级管理员自动拥有全部权限
           </div>
@@ -601,9 +603,10 @@ const handleResetPwd = (row: AdminAccount) => {
 
 /* ── Dialog permission grid ── */
 .permission-grid {
-  display: grid;
+  display: grid !important;
   grid-template-columns: repeat(4, 1fr);
   gap: 8px;
+  width: 100%;
 }
 
 .perm-tip {
