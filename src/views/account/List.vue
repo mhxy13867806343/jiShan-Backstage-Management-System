@@ -54,9 +54,12 @@
     <div class="table-card premium-card">
       <el-table :data="filteredAccounts" stripe style="width: 100%">
 
+        <!-- 本地字母头像，无网络请求 -->
         <el-table-column width="60" align="center">
           <template #default="{ row }">
-            <el-avatar :size="36" :src="row.avatar" />
+            <div class="letter-avatar" :style="{ background: avatarColor(row.username) }">
+              {{ row.nickname.charAt(0) }}
+            </div>
           </template>
         </el-table-column>
 
@@ -88,7 +91,7 @@
                 effect="plain"
                 class="perm-tag"
               >
-                {{ permLabel(p) }}
+                {{ permLabelMap[p] || p }}
               </el-tag>
               <el-tag v-if="row.permissions.length > 5" size="small" type="info" effect="plain">
                 +{{ row.permissions.length - 5 }}
@@ -106,17 +109,12 @@
         </el-table-column>
 
         <el-table-column label="邮箱" min-width="180" prop="email" />
-
         <el-table-column label="最后登录" width="160" prop="lastLogin" />
 
         <el-table-column label="操作" width="220" align="center" fixed="right">
           <template #default="{ row }">
             <el-button size="small" icon="Edit" @click="openEditDialog(row)">编辑</el-button>
-            <el-button
-              size="small"
-              icon="Key"
-              @click="handleResetPwd(row)"
-            >重置密码</el-button>
+            <el-button size="small" icon="Key" @click="handleResetPwd(row)">重置密码</el-button>
             <el-popconfirm
               title="确认删除该账号？"
               confirm-button-type="danger"
@@ -188,13 +186,13 @@
         <el-form-item label="角色" prop="role">
           <el-radio-group v-model="form.role" @change="onRoleChange">
             <el-radio-button value="superadmin">
-              <el-icon><Crown /></el-icon> 超级管理员
+              <el-icon><StarFilled /></el-icon> 超级管理员
             </el-radio-button>
             <el-radio-button value="admin">
               <el-icon><UserFilled /></el-icon> 管理员
             </el-radio-button>
             <el-radio-button value="operator">
-              <el-icon><Tools /></el-icon> 运营员
+              <el-icon><Setting /></el-icon> 运营员
             </el-radio-button>
             <el-radio-button value="viewer">
               <el-icon><View /></el-icon> 观察员
@@ -223,11 +221,7 @@
         </el-form-item>
 
         <el-form-item label="状态">
-          <el-switch
-            v-model="form.statusActive"
-            active-text="正常"
-            inactive-text="禁用"
-          />
+          <el-switch v-model="form.statusActive" active-text="正常" inactive-text="禁用" />
         </el-form-item>
 
         <el-form-item label="备注">
@@ -269,6 +263,11 @@ const allPermissions = [
   { key: 'account', label: '账号管理' },
 ]
 
+// Pre-built Map for O(1) lookup — avoids Array.find() on every cell render
+const permLabelMap: Record<string, string> = Object.fromEntries(
+  allPermissions.map(p => [p.key, p.label])
+)
+
 // Default permissions per role
 const roleDefaultPerms: Record<AdminRole, string[]> = {
   superadmin: allPermissions.map(p => p.key),
@@ -277,17 +276,30 @@ const roleDefaultPerms: Record<AdminRole, string[]> = {
   viewer: ['dashboard'],
 }
 
+// ── Letter-avatar color (deterministic, no network request) ──────
+const AVATAR_COLORS = [
+  '#5b6af0', '#f0855b', '#52c41a', '#faad14',
+  '#13c2c2', '#722ed1', '#eb2f96', '#fa541c',
+]
+const avatarColor = (username: string) => {
+  let hash = 0
+  for (let i = 0; i < username.length; i++) hash = username.charCodeAt(i) + ((hash << 5) - hash)
+  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length]
+}
+
 // ── Filters ──────────────────────────────────────────────────────
 const searchKw = ref('')
 const filterRole = ref('')
 const filterStatus = ref('')
 
 const filteredAccounts = computed(() => {
-  return mockStore.getAdminAccounts().filter(a => {
-    const kw = searchKw.value.toLowerCase()
+  const kw = searchKw.value.toLowerCase()
+  const role = filterRole.value
+  const status = filterStatus.value
+  return mockStore.adminAccounts.filter(a => {
     const matchKw = !kw || a.username.includes(kw) || a.nickname.includes(kw) || a.email.includes(kw)
-    const matchRole = !filterRole.value || a.role === filterRole.value
-    const matchStatus = !filterStatus.value || a.status === filterStatus.value
+    const matchRole = !role || a.role === role
+    const matchStatus = !status || a.status === status
     return matchKw && matchRole && matchStatus
   })
 })
@@ -298,29 +310,22 @@ const resetFilters = () => {
   filterStatus.value = ''
 }
 
-// ── Role stats cards ─────────────────────────────────────────────
+// ── Role stats cards (use reactive ref directly) ──────────────────
 const roleStats = computed(() => {
-  const all = mockStore.getAdminAccounts()
+  const all = mockStore.adminAccounts
   return [
-    { key: 'superadmin', label: '超级管理员', icon: 'Crown', count: all.filter(a => a.role === 'superadmin').length },
-    { key: 'admin', label: '管理员', icon: 'UserFilled', count: all.filter(a => a.role === 'admin').length },
-    { key: 'operator', label: '运营员', icon: 'Tools', count: all.filter(a => a.role === 'operator').length },
-    { key: 'viewer', label: '观察员', icon: 'View', count: all.filter(a => a.role === 'viewer').length },
+    { key: 'superadmin', label: '超级管理员', icon: 'StarFilled', count: all.filter(a => a.role === 'superadmin').length },
+    { key: 'admin',      label: '管理员',     icon: 'UserFilled', count: all.filter(a => a.role === 'admin').length },
+    { key: 'operator',   label: '运营员',     icon: 'Setting',    count: all.filter(a => a.role === 'operator').length },
+    { key: 'viewer',     label: '观察员',     icon: 'View',       count: all.filter(a => a.role === 'viewer').length },
   ]
 })
 
 // ── Helpers ──────────────────────────────────────────────────────
-const roleLabel = (role: AdminRole) => {
-  const map: Record<AdminRole, string> = { superadmin: '超级管理员', admin: '管理员', operator: '运营员', viewer: '观察员' }
-  return map[role]
-}
-const roleTagType = (role: AdminRole) => {
-  const map: Record<AdminRole, string> = { superadmin: 'danger', admin: 'warning', operator: '', viewer: 'info' }
-  return map[role]
-}
-const permLabel = (key: string) => {
-  return allPermissions.find(p => p.key === key)?.label || key
-}
+const ROLE_LABEL: Record<AdminRole, string> = { superadmin: '超级管理员', admin: '管理员', operator: '运营员', viewer: '观察员' }
+const ROLE_TAG:   Record<AdminRole, string> = { superadmin: 'danger', admin: 'warning', operator: '', viewer: 'info' }
+const roleLabel   = (role: AdminRole) => ROLE_LABEL[role]
+const roleTagType = (role: AdminRole) => ROLE_TAG[role]
 
 // ── Dialog state ─────────────────────────────────────────────────
 const dialogVisible = ref(false)
@@ -371,7 +376,6 @@ const formRules: FormRules = {
   permissions: [{ required: true, type: 'array', min: 1, message: '请至少选择一个权限模块', trigger: 'change' }],
 }
 
-// When role changes, auto-fill default permissions
 const onRoleChange = (role: AdminRole) => {
   form.permissions = [...roleDefaultPerms[role]]
 }
@@ -407,13 +411,14 @@ const handleSubmit = async () => {
 
   submitLoading.value = true
   setTimeout(() => {
+    const perms = form.role === 'superadmin' ? allPermissions.map(p => p.key) : [...form.permissions]
     if (isEdit.value) {
       mockStore.updateAdminAccount(editingId.value, {
         nickname: form.nickname,
         email: form.email,
         phone: form.phone,
         role: form.role,
-        permissions: form.role === 'superadmin' ? allPermissions.map(p => p.key) : [...form.permissions],
+        permissions: perms,
         status: form.statusActive ? 'active' : 'disabled',
         remark: form.remark,
       })
@@ -422,9 +427,9 @@ const handleSubmit = async () => {
       mockStore.addAdminAccount({
         username: form.username,
         nickname: form.nickname,
-        avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${form.username}`,
+        avatar: '',
         role: form.role,
-        permissions: form.role === 'superadmin' ? allPermissions.map(p => p.key) : [...form.permissions],
+        permissions: perms,
         status: form.statusActive ? 'active' : 'disabled',
         email: form.email,
         phone: form.phone,
@@ -481,6 +486,22 @@ const handleResetPwd = (row: AdminAccount) => {
   color: var(--text-muted);
 }
 
+/* ── Letter Avatar ── */
+.letter-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  font-weight: 700;
+  color: #fff;
+  margin: 0 auto;
+  flex-shrink: 0;
+  user-select: none;
+}
+
 /* ── Role stat cards ── */
 .role-stats-grid {
   display: grid;
@@ -497,9 +518,7 @@ const handleResetPwd = (row: AdminAccount) => {
   transition: transform 0.2s;
 }
 
-.role-stat-card:hover {
-  transform: translateY(-2px);
-}
+.role-stat-card:hover { transform: translateY(-2px); }
 
 .role-superadmin { border-left-color: #f56c6c; }
 .role-admin      { border-left-color: #e6a23c; }
@@ -515,14 +534,12 @@ const handleResetPwd = (row: AdminAccount) => {
   justify-content: center;
 }
 
-.role-superadmin .role-icon-wrap { background: rgba(245, 108, 108, 0.12); }
-.role-admin      .role-icon-wrap { background: rgba(230, 162, 60, 0.12); }
-.role-operator   .role-icon-wrap { background: rgba(64, 158, 255, 0.12); }
-.role-viewer     .role-icon-wrap { background: rgba(144, 147, 153, 0.12); }
+.role-superadmin .role-icon-wrap { background: rgba(245,108,108,0.12); }
+.role-admin      .role-icon-wrap { background: rgba(230,162,60,0.12); }
+.role-operator   .role-icon-wrap { background: rgba(64,158,255,0.12); }
+.role-viewer     .role-icon-wrap { background: rgba(144,147,153,0.12); }
 
-.role-big-icon {
-  font-size: 24px;
-}
+.role-big-icon { font-size: 24px; }
 
 .role-superadmin .role-big-icon { color: #f56c6c; }
 .role-admin      .role-big-icon { color: #e6a23c; }
@@ -580,9 +597,7 @@ const handleResetPwd = (row: AdminAccount) => {
   gap: 4px;
 }
 
-.perm-tag {
-  cursor: default;
-}
+.perm-tag { cursor: default; }
 
 /* ── Dialog permission grid ── */
 .permission-grid {
