@@ -66,6 +66,23 @@
           </template>
         </el-table-column>
 
+        <el-table-column label="关联话题" width="160" align="center">
+          <template #default="{ row }">
+            <div class="topic-list" v-if="parseTopics(row.content).length">
+              <el-tag 
+                v-for="topic in parseTopics(row.content)" 
+                :key="topic" 
+                size="small" 
+                type="info" 
+                class="topic-badge"
+              >
+                {{ topic }}
+              </el-tag>
+            </div>
+            <span v-else class="empty-placeholder">--</span>
+          </template>
+        </el-table-column>
+
         <el-table-column prop="likes" label="点赞数" width="90" align="center" sortable />
         <el-table-column prop="comments" label="评论数" width="90" align="center" sortable />
         <el-table-column prop="shares" label="分享数" width="90" align="center" sortable />
@@ -251,6 +268,12 @@ const searchForm = reactive({
 
 const selectedPost = ref<any>(null)
 const detailDrawerVisible = ref(false)
+
+const parseTopics = (content: string): string[] => {
+  if (!content) return []
+  const matches = content.match(/#[^\s#]+/g)
+  return matches ? matches.map(tag => tag.trim()) : []
+}
 
 const fetchPosts = () => {
   const res = mockStore.getPosts({
@@ -554,5 +577,21 @@ onMounted(() => {
 
 .drawer-actions-container {
   padding: 10px 0;
+}
+
+.topic-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: center;
+}
+
+.topic-badge {
+  font-weight: 500;
+  border-radius: 4px;
+}
+
+.empty-placeholder {
+  color: #c0c4cc;
 }
 </style>
