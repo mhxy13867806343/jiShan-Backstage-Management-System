@@ -36,12 +36,22 @@
 
       <el-table :data="tableData" style="width: 100%">
         <el-table-column prop="post_id" label="内容ID" width="100" align="center" />
-        <el-table-column prop="user_id" label="发布人ID" width="100" align="center" />
-        <el-table-column prop="nickname" label="发布人昵称" width="130" align="center">
+        <el-table-column prop="user_id" label="发布人ID" width="95" align="center" />
+        <el-table-column label="发布人信息" width="180" align="center">
           <template #default="{ row }">
-            <div class="user-cell">
-              <el-avatar :size="24" :src="row.avatar" style="margin-right: 6px;" />
-              <span class="user-nickname">{{ row.nickname }}</span>
+            <div class="user-info-cell">
+              <div class="user-avatar-row">
+                <el-avatar :size="26" :src="row.avatar" style="margin-right: 6px;" />
+                <span class="user-nickname">{{ row.nickname }}</span>
+                <el-tag 
+                  size="small" 
+                  :type="getUserGender(row.user_id) === '男' ? 'primary' : 'danger'" 
+                  class="gender-badge"
+                >
+                  {{ getUserGender(row.user_id) }}
+                </el-tag>
+              </div>
+              <div class="user-phone font-mono">{{ getUserPhone(row.user_id) }}</div>
             </div>
           </template>
         </el-table-column>
@@ -157,8 +167,18 @@
           <div class="user-meta-info">
             <el-avatar :size="50" :src="selectedPost.avatar" />
             <div class="user-meta-text">
-              <span class="user-meta-name">{{ selectedPost.nickname }}</span>
+              <div class="meta-name-row">
+                <span class="user-meta-name">{{ selectedPost.nickname }}</span>
+                <el-tag 
+                  size="small" 
+                  :type="getUserGender(selectedPost.user_id) === '男' ? 'primary' : 'danger'" 
+                  style="margin-left: 6px;"
+                >
+                  {{ getUserGender(selectedPost.user_id) }}
+                </el-tag>
+              </div>
               <span class="user-meta-id font-mono">发布人ID: {{ selectedPost.user_id }}</span>
+              <span class="user-meta-phone font-mono">手机号: {{ getUserPhone(selectedPost.user_id) }}</span>
             </div>
           </div>
           <el-tag :type="selectedPost.status === 'online' ? 'success' : 'danger'">
@@ -273,6 +293,26 @@ const parseTopics = (content: string): string[] => {
   if (!content) return []
   const matches = content.match(/#[^\s#]+/g)
   return matches ? matches.map(tag => tag.trim()) : []
+}
+
+const getUserPhone = (userId: string) => {
+  const user = mockStore.users.find(u => u.user_id === userId)
+  return user ? user.phone : '--'
+}
+
+const getUserGender = (userId: string) => {
+  const genderMap: Record<string, string> = {
+    '10001': '女',
+    '10002': '男',
+    '10003': '女',
+    '10004': '男',
+    '10005': '女',
+    '10006': '男',
+    '10007': '女',
+    '10008': '男',
+    '10009': '女'
+  }
+  return genderMap[userId] || '男'
 }
 
 const fetchPosts = () => {
@@ -593,5 +633,49 @@ onMounted(() => {
 
 .empty-placeholder {
   color: #c0c4cc;
+}
+
+.user-info-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.user-avatar-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  justify-content: center;
+}
+
+.user-phone {
+  font-size: 11px;
+  color: var(--text-light);
+}
+
+.gender-badge {
+  padding: 0 4px;
+  height: 16px;
+  line-height: 14px;
+  font-size: 10px;
+  border-radius: 3px;
+}
+
+.drawer-header-meta :deep(.user-meta-text) {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.drawer-header-meta :deep(.meta-name-row) {
+  display: flex;
+  align-items: center;
+}
+
+.drawer-header-meta :deep(.user-meta-phone) {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 1px;
 }
 </style>
