@@ -46,6 +46,12 @@
         </el-table-column>
 
         <el-table-column prop="phone" label="手机号码" width="130" align="center" />
+        <el-table-column label="新手机号" width="130" align="center">
+          <template #default="{ row }">
+            <span v-if="row.newPhone" class="font-mono">{{ row.newPhone }}</span>
+            <span v-else class="empty-placeholder">--</span>
+          </template>
+        </el-table-column>
         
         <el-table-column prop="regTime" label="注册时间" width="180" align="center" />
         
@@ -480,5 +486,9 @@ const gotoUserPosts = (user: any) => {
   color: var(--primary, #5856d6);
   font-weight: 700;
   text-decoration: underline;
+}
+
+.empty-placeholder {
+  color: #c0c4cc;
 }
 </style>
