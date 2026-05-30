@@ -26,9 +26,9 @@
     <!-- Data Table Card -->
     <div class="table-card premium-card">
       <el-tabs v-model="activeTab" @tab-change="handleTabChange" class="content-tabs">
-        <el-tab-pane label="全部内容" name="all" />
         <el-tab-pane label="已发布" name="online" />
         <el-tab-pane label="草稿" name="offline" />
+        <el-tab-pane label="全部内容" name="all" />
       </el-tabs>
 
       <el-table :data="tableData" style="width: 100%">
