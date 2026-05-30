@@ -160,12 +160,12 @@
         <el-row :gutter="20" v-if="!isEdit">
           <el-col :span="12">
             <el-form-item label="初始密码" prop="password">
-              <el-input v-model="form.password" type="password" show-password placeholder="至少6位" />
+              <el-input v-model="form.password" type="password" show-password placeholder="默认 123456" />
             </el-form-item>
           </el-col>
           <el-col :span="12">
             <el-form-item label="确认密码" prop="confirmPassword">
-              <el-input v-model="form.confirmPassword" type="password" show-password placeholder="再次输入" />
+              <el-input v-model="form.confirmPassword" type="password" show-password placeholder="默认 123456" />
             </el-form-item>
           </el-col>
         </el-row>
@@ -351,8 +351,8 @@ const editingId = ref('')
 const blankForm = () => ({
   username: '',
   nickname: '',
-  password: '',
-  confirmPassword: '',
+  password: '123456',
+  confirmPassword: '123456',
   email: '',
   phone: '',
   role: 'admin' as AdminRole,
