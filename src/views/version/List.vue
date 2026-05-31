@@ -72,7 +72,7 @@
       <div class="batch-action-bar" v-if="selectedIds.length > 0">
         <el-icon><InfoFilled /></el-icon>
         <span>已选 <b>{{ selectedIds.length }}</b> 个版本记录（支持跨页保留选择）</span>
-        <el-button size="small" @click="selectedIds = []">清除选择</el-button>
+        <el-button size="small" @click="clearSelection">清除选择</el-button>
       </div>
 
       <!-- Table with Cross-page selection column -->
@@ -197,7 +197,7 @@
         <el-pagination
           v-model:current-page="currentPage"
           v-model:page-size="pageSize"
-          :page-sizes="[5, 10, 20, 50]"
+          :page-sizes="[10, 20, 50, 100, 200, 300]"
           layout="total, sizes, prev, pager, next, jumper"
           :total="totalCount"
           background
@@ -317,6 +317,8 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance } from 'element-plus'
 import { Editor, Toolbar } from '@wangeditor/editor-for-vue'
 import type { IDomEditor, IEditorConfig, IToolbarConfig } from '@wangeditor/editor'
+import { usePagination } from '@/hooks/usePagination'
+import { useTableSelection } from '@/hooks/useTableSelection'
 
 interface VersionItem {
   id: string
@@ -403,60 +405,36 @@ const resetFilters = () => {
   currentPage.value = 1
 }
 
-// ── Pagination ───────────────────────────────────────────────────
-const currentPage = ref(1)
-const pageSize = ref(5) // default 5 for gorgeous pagination display since we have 9 items
+// ── Shared Composable hooks: Pagination ───────────────────────────
+const {
+  currentPage,
+  pageSize,
+  handleSizeChange,
+  handleCurrentChange,
+  getPaginatedList
+} = usePagination(10) // default 10 per page
 
 const totalCount = computed(() => filteredList.value.length)
 
-const paginatedList = computed(() => {
-  const start = (currentPage.value - 1) * pageSize.value
-  return filteredList.value.slice(start, start + pageSize.value)
-})
+const paginatedList = computed(() => getPaginatedList(filteredList.value))
 
-const handleSizeChange = (val: number) => {
-  pageSize.value = val
-  currentPage.value = 1
-}
+// ── Shared Composable hooks: Table Selection ─────────────────────
+const {
+  selectedIds,
+  toggleSelect,
+  clearSelection,
+  getSelectionHandlers
+} = useTableSelection<VersionItem>((row) => row.id)
 
-const handleCurrentChange = (val: number) => {
-  currentPage.value = val
-}
-
-// ── Checkboxes & Selection Logic ─────────────────────────────────
-const selectedIds = ref<string[]>([])
-
-const isCurrentPageAllSelected = computed(() => {
-  return paginatedList.value.length > 0 && paginatedList.value.every(r => selectedIds.value.includes(r.id))
-})
-
-const isCurrentPageIndeterminate = computed(() => {
-  return paginatedList.value.some(r => selectedIds.value.includes(r.id)) && !isCurrentPageAllSelected.value
-})
-
-const toggleSelect = (id: string, val: boolean) => {
-  if (val) {
-    if (!selectedIds.value.includes(id)) {
-      selectedIds.value = [...selectedIds.value, id]
-    }
-  } else {
-    selectedIds.value = selectedIds.value.filter(x => x !== id)
-  }
-}
-
-const handleSelectCurrentPage = (val: boolean) => {
-  const pageIds = paginatedList.value.map(r => r.id)
-  if (val) {
-    const merged = new Set([...selectedIds.value, ...pageIds])
-    selectedIds.value = [...merged]
-  } else {
-    selectedIds.value = selectedIds.value.filter(id => !pageIds.includes(id))
-  }
-}
+const {
+  isCurrentPageAllSelected,
+  isCurrentPageIndeterminate,
+  handleSelectCurrentPage
+} = getSelectionHandlers(paginatedList) // Pass ComputedRef directly for perfect reactivity!
 
 // Watch filters to clear selections
 watch([filterPlatform, filterStatus, filterForce], () => {
-  selectedIds.value = []
+  clearSelection()
 })
 
 // ── Bulk Actions ──────────────────────────────────────────────────
@@ -472,7 +450,7 @@ const handleBatchDeprecate = () => {
       }
     })
     ElMessage.success('批量下线成功')
-    selectedIds.value = []
+    clearSelection()
   }).catch(() => {})
 }
 
@@ -484,7 +462,7 @@ const handleBatchDelete = () => {
   ).then(() => {
     list.value = list.value.filter(item => !selectedIds.value.includes(item.id))
     ElMessage.success('批量删除成功')
-    selectedIds.value = []
+    clearSelection()
     currentPage.value = 1
   }).catch(() => {})
 }

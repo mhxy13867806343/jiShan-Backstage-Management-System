@@ -47,7 +47,7 @@
       <div class="batch-action-bar" v-if="selectedIds.length > 0">
         <el-icon><InfoFilled /></el-icon>
         <span>已选 <b>{{ selectedIds.length }}</b> 个公告（支持跨页保留选择）</span>
-        <el-button size="small" @click="selectedIds = []">清除选择</el-button>
+        <el-button size="small" @click="clearSelection">清除选择</el-button>
       </div>
 
       <!-- Table with Cross-page selection column -->
@@ -132,7 +132,7 @@
         <el-pagination
           v-model:current-page="currentPage"
           v-model:page-size="pageSize"
-          :page-sizes="[5, 10, 20, 50]"
+          :page-sizes="[10, 20, 50, 100, 200, 300]"
           layout="total, sizes, prev, pager, next, jumper"
           :total="totalCount"
           background
@@ -232,6 +232,8 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance } from 'element-plus'
 import { Editor, Toolbar } from '@wangeditor/editor-for-vue'
 import type { IDomEditor, IEditorConfig, IToolbarConfig } from '@wangeditor/editor'
+import { usePagination } from '@/hooks/usePagination'
+import { useTableSelection } from '@/hooks/useTableSelection'
 
 // ── Types ────────────────────────────────────────────────────────
 interface AnnItem {
@@ -311,7 +313,7 @@ const list = ref<AnnItem[]>([
     id: 'N005',
     title: '【重要声明】防范网络理财诈骗风险',
     type: 'danger',
-    content: '<p>即闪平台从未设立任何“投资群”或“代客理财”服务。请广大用户提高警惕，切勿向陌生账户转账。</p>',
+    content: '<p>即闪平台从未设立任何“投资群” or “代客理财”服务。请广大用户提高警惕，切勿向陌生账户转账。</p>',
     link: '',
     pinned: false,
     startTime: '2026-05-10 08:00',
@@ -354,60 +356,36 @@ const resetFilters = () => {
   currentPage.value = 1
 }
 
-// ── Pagination ───────────────────────────────────────────────────
-const currentPage = ref(1)
-const pageSize = ref(5) // default 5 for gorgeous pagination display since we have 6 items
+// ── Shared Composable hooks: Pagination ───────────────────────────
+const {
+  currentPage,
+  pageSize,
+  handleSizeChange,
+  handleCurrentChange,
+  getPaginatedList
+} = usePagination(10) // default 10 per page
 
 const totalCount = computed(() => filteredList.value.length)
 
-const paginatedList = computed(() => {
-  const start = (currentPage.value - 1) * pageSize.value
-  return filteredList.value.slice(start, start + pageSize.value)
-})
+const paginatedList = computed(() => getPaginatedList(filteredList.value))
 
-const handleSizeChange = (val: number) => {
-  pageSize.value = val
-  currentPage.value = 1
-}
+// ── Shared Composable hooks: Table Selection ─────────────────────
+const {
+  selectedIds,
+  toggleSelect,
+  clearSelection,
+  getSelectionHandlers
+} = useTableSelection<AnnItem>((row) => row.id)
 
-const handleCurrentChange = (val: number) => {
-  currentPage.value = val
-}
+const {
+  isCurrentPageAllSelected,
+  isCurrentPageIndeterminate,
+  handleSelectCurrentPage
+} = getSelectionHandlers(paginatedList) // Pass ComputedRef directly for perfect reactivity!
 
-// ── Checkboxes & Selection Logic ─────────────────────────────────
-const selectedIds = ref<string[]>([])
-
-const isCurrentPageAllSelected = computed(() => {
-  return paginatedList.value.length > 0 && paginatedList.value.every(r => selectedIds.value.includes(r.id))
-})
-
-const isCurrentPageIndeterminate = computed(() => {
-  return paginatedList.value.some(r => selectedIds.value.includes(r.id)) && !isCurrentPageAllSelected.value
-})
-
-const toggleSelect = (id: string, val: boolean) => {
-  if (val) {
-    if (!selectedIds.value.includes(id)) {
-      selectedIds.value = [...selectedIds.value, id]
-    }
-  } else {
-    selectedIds.value = selectedIds.value.filter(x => x !== id)
-  }
-}
-
-const handleSelectCurrentPage = (val: boolean) => {
-  const pageIds = paginatedList.value.map(r => r.id)
-  if (val) {
-    const merged = new Set([...selectedIds.value, ...pageIds])
-    selectedIds.value = [...merged]
-  } else {
-    selectedIds.value = selectedIds.value.filter(id => !pageIds.includes(id))
-  }
-}
-
-// Watch filters to clear selections that are filtered out
+// Watch filters to clear selections
 watch([searchKw, filterType, filterStatus], () => {
-  selectedIds.value = []
+  clearSelection()
 })
 
 // ── Bulk Actions ──────────────────────────────────────────────────
@@ -415,7 +393,7 @@ const handleBatchPublish = () => {
   ElMessageBox.confirm(
     `确定要批量发布选中的 ${selectedIds.value.length} 个公告吗？`,
     '系统提示',
-    { confirmButtonText: '确定', cancelButtonText: '取消', type: 'success' }
+    { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' }
   ).then(() => {
     list.value.forEach(item => {
       if (selectedIds.value.includes(item.id)) {
@@ -423,7 +401,7 @@ const handleBatchPublish = () => {
       }
     })
     ElMessage.success('批量发布成功')
-    selectedIds.value = []
+    clearSelection()
   }).catch(() => {})
 }
 
@@ -439,7 +417,7 @@ const handleBatchDisable = () => {
       }
     })
     ElMessage.success('批量停用成功')
-    selectedIds.value = []
+    clearSelection()
   }).catch(() => {})
 }
 
@@ -451,7 +429,7 @@ const handleBatchDelete = () => {
   ).then(() => {
     list.value = list.value.filter(item => !selectedIds.value.includes(item.id))
     ElMessage.success('批量删除成功')
-    selectedIds.value = []
+    clearSelection()
     currentPage.value = 1
   }).catch(() => {})
 }
