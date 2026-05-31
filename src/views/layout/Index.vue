@@ -135,13 +135,45 @@
 
         <div class="header-right">
           <!-- Notification -->
-          <el-tooltip content="消息通知" placement="bottom">
-            <div class="action-item">
-              <el-badge :value="3" class="badge-item" type="danger">
-                <el-icon class="action-icon"><Bell /></el-icon>
-              </el-badge>
+          <el-popover
+            placement="bottom-end"
+            :width="320"
+            trigger="click"
+            popper-class="notification-popover"
+          >
+            <template #reference>
+              <div class="action-item">
+                <el-badge :value="unreadCount" :hidden="unreadCount === 0" class="badge-item" type="danger">
+                  <el-icon class="action-icon"><Bell /></el-icon>
+                </el-badge>
+              </div>
+            </template>
+            <div class="notification-box">
+              <div class="notification-title">
+                <span>消息通知</span>
+                <el-tag size="small" :type="unreadCount > 0 ? 'danger' : 'info'">
+                  {{ unreadCount > 0 ? `${unreadCount} 条未读` : '已读完' }}
+                </el-tag>
+              </div>
+              <div class="notification-list">
+                <div 
+                  class="notification-item" 
+                  v-for="item in notifications" 
+                  :key="item.id" 
+                  @click="handleNotificationClick(item)"
+                >
+                  <div class="notification-dot" :class="{ 'unread': item.unread }"></div>
+                  <div class="notification-content">
+                    <div class="notification-text">{{ item.title }}</div>
+                    <div class="notification-time">{{ item.time }}</div>
+                  </div>
+                </div>
+              </div>
+              <div class="notification-footer">
+                <el-button type="primary" link @click="gotoMessageCenter">查看全部消息</el-button>
+              </div>
             </div>
-          </el-tooltip>
+          </el-popover>
 
           <!-- Fullscreen toggle -->
           <el-tooltip content="全屏切换" placement="bottom">
@@ -314,6 +346,24 @@ const toggleFullScreen = () => {
   } else {
     document.exitFullscreen()
   }
+}
+
+// ── Notifications ────────────────────────────────────────────────
+const notifications = ref([
+  { id: 1, title: '新用户注册通知: 今天已有24名新用户加入即闪', time: '5分钟前', unread: true },
+  { id: 2, title: '系统日志警告: 服务器CPU使用率达到82%', time: '2小时前', unread: true },
+  { id: 3, title: '意见反馈: 收到用户【即闪003】的举报反馈', time: '5小时前', unread: true },
+])
+
+const unreadCount = computed(() => notifications.value.filter(n => n.unread).length)
+
+const handleNotificationClick = (item: any) => {
+  item.unread = false
+  ElMessage.info(`已标记为已读`)
+}
+
+const gotoMessageCenter = () => {
+  router.push('/message')
 }
 </script>
 
@@ -584,5 +634,94 @@ const toggleFullScreen = () => {
 .fade-transform-leave-to {
   opacity: 0;
   transform: translateX(30px);
+}
+
+/* ── Notification Popover styles ── */
+.notification-box {
+  display: flex;
+  flex-direction: column;
+}
+
+.notification-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 4px 12px;
+  border-bottom: 1px solid #f0f0f0;
+  font-weight: 600;
+  color: var(--text-main, #303133);
+}
+
+.notification-list {
+  display: flex;
+  flex-direction: column;
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.notification-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 6px;
+  cursor: pointer;
+  border-bottom: 1px solid #f9f9f9;
+  transition: background 0.2s;
+}
+
+.notification-item:hover {
+  background-color: #f5f7fa;
+}
+
+.notification-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: transparent;
+  flex-shrink: 0;
+  margin-top: 6px;
+}
+
+.notification-dot.unread {
+  background-color: #ff4d4f;
+}
+
+.notification-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.notification-text {
+  font-size: 13px;
+  line-height: 1.4;
+  color: #606266;
+}
+
+.notification-item:hover .notification-text {
+  color: var(--primary, #5856d6);
+}
+
+.notification-time {
+  font-size: 11px;
+  color: #c0c4cc;
+}
+
+.notification-footer {
+  display: flex;
+  justify-content: center;
+  padding-top: 10px;
+  border-top: 1px solid #f0f0f0;
+  margin-top: 4px;
+}
+</style>
+
+<style>
+/* Unscoped Popover styles for notifications */
+.el-popover.notification-popover {
+  padding: 12px !important;
+  border-radius: 12px !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1) !important;
 }
 </style>
