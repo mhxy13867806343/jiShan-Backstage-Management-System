@@ -729,19 +729,41 @@ export const adminApi = {
     return request.put<any>(`/api/admin/notifications/${messageId}/read`)
   },
 
+  async getNotificationDetail(messageId: string) {
+    const res = await request.get<any>(`/api/admin/notifications/${messageId}`)
+    const item = res.data || {}
+    return {
+      id: item.messageId || item.id || '',
+      title: item.title || '',
+      type: item.type || 'notification',
+      content: item.content || '',
+      isRead: Boolean(item.isRead),
+      time: item.createdAt || item.updatedAt || item.time || '',
+      pubTime: item.createdAt ? item.createdAt.replace('T', ' ').substring(0, 19) : '--'
+    }
+  },
+
   markAllNotificationsRead() {
     return request.put<any>('/api/admin/notifications/read-all')
   },
 
   async getNotifications() {
     const res = await request.get<any>('/api/admin/notifications')
-    const list = res.data || []
-    return list.map((item: any) => ({
-      id: item.messageId || item.id || '',
-      title: item.title || '',
-      unread: item.unread !== undefined ? item.unread : true,
-      time: item.createdAt || item.pubTime || item.time || ''
-    }))
+    const payload = res.data || {}
+    const list = Array.isArray(payload) ? payload : (payload.list || [])
+    return {
+      unreadCount: Number(payload.unreadCount || 0),
+      list: list.map((item: any) => ({
+        id: item.messageId || item.id || '',
+        title: item.title || '',
+        type: item.type || 'notification',
+        content: item.content || '',
+        isRead: Boolean(item.isRead),
+        unread: item.isRead !== undefined ? !item.isRead : Boolean(item.unread),
+        time: item.createdAt || item.pubTime || item.time || '',
+        status: item.status || 'published'
+      }))
+    }
   },
 
   // ── Admin Accounts ──

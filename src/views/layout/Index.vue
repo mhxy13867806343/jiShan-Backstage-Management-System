@@ -389,13 +389,21 @@ const toggleFullScreen = () => {
 
 // ── Notifications ────────────────────────────────────────────────
 const notifications = ref<any[]>([])
+const unreadCount = ref(0)
 
 const fetchNotifications = async () => {
   try {
-    const list = await adminApi.getNotifications()
+    const result = await adminApi.getNotifications()
+    const list = result.list || []
     
-    // 只获取前 3 条数据，其他的数据直接跳过/忽略
-    const topList = (list || []).slice(0, 3)
+    // 过滤掉草稿状态的消息，只展示和计算已发布的消息
+    const nonDraftList = list.filter((item: any) => item.status !== 'draft' && item.status !== '0')
+    
+    // 重新计算未读的已发布消息数
+    unreadCount.value = nonDraftList.filter((item: any) => item.unread).length
+    
+    // 只获取前 3 条非草稿数据，其他的数据直接跳过/忽略
+    const topList = nonDraftList.slice(0, 3)
     
     notifications.value = topList.map((item: any) => {
       let timeStr = item.time
@@ -427,6 +435,8 @@ const fetchNotifications = async () => {
       return {
         id: item.id,
         title: item.title,
+        type: item.type,
+        content: item.content,
         time: timeStr,
         unread: item.unread
       }
@@ -439,8 +449,6 @@ const fetchNotifications = async () => {
 onMounted(() => {
   fetchNotifications()
 })
-
-const unreadCount = computed(() => notifications.value.filter(n => n.unread).length)
 
 const msgDialogVisible = ref(false)
 const selectedMsg = ref<any>({
@@ -471,18 +479,15 @@ const getTypeTag = (type: string) => {
 }
 
 const handleNotificationClick = async (item: any) => {
-  item.unread = false
+  const wasUnread = item.unread
   
   try {
-    // 调用后端标记已读接口
-    await adminApi.markNotificationRead(item.id)
-  } catch (err) {
-    console.error('标记已读失败', err)
-  }
-  
-  try {
-    // 获取单条详情弹窗
-    const detail = await adminApi.getMessageById(item.id)
+    // 获取通知详情，并由后端按当前 admin 标记为已读
+    const detail = await adminApi.getNotificationDetail(item.id)
+    item.unread = false
+    if (wasUnread) {
+      unreadCount.value = Math.max(0, unreadCount.value - 1)
+    }
     selectedMsg.value = {
       title: detail.title,
       type: detail.type,
@@ -509,6 +514,7 @@ const handleMarkAllRead = async () => {
     notifications.value.forEach(n => {
       n.unread = false
     })
+    unreadCount.value = 0
     ElMessage.success('已全部标记为已读')
   } catch (err) {
     console.error('标记全部已读失败', err)
