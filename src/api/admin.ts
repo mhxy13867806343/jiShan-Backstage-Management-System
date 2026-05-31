@@ -711,6 +711,20 @@ export const adminApi = {
     return request.delete<any>(`/api/admin/system-messages/${id}`)
   },
 
+  async getMessageById(id: string) {
+    const res = await request.get<any>(`/api/admin/system-messages/${id}`)
+    const item = res.data
+    return {
+      message_id: item.messageId,
+      title: item.title,
+      type: item.type,
+      content: item.content,
+      target: item.target,
+      status: item.status === 'published' ? '1' : '0',
+      pubTime: item.createdAt ? item.createdAt.replace('T', ' ').substring(0, 19) : '--'
+    } as ApiSysMessage
+  },
+
   // ── Admin Accounts ──
   async getAdminAccounts() {
     const res = await request.get<ApiAdminAccount[]>('/api/admin/accounts')

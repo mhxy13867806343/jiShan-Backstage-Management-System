@@ -240,6 +240,32 @@
         </router-view>
       </el-main>
     </el-container>
+    
+    <!-- System Message Detail Dialog -->
+    <el-dialog
+      v-model="msgDialogVisible"
+      title="系统消息详情"
+      width="500px"
+      destroy-on-close
+      class="msg-detail-dialog"
+    >
+      <div class="msg-detail-body">
+        <div class="msg-detail-header">
+          <el-tag :type="getTypeTag(selectedMsg.type)" effect="light" class="msg-type-tag">
+            {{ getTypeLabel(selectedMsg.type) }}
+          </el-tag>
+          <span class="msg-time">{{ selectedMsg.pubTime }}</span>
+        </div>
+        <h3 class="msg-title">{{ selectedMsg.title }}</h3>
+        <el-divider style="margin: 12px 0;" />
+        <div class="msg-content">{{ selectedMsg.content }}</div>
+      </div>
+      <template #footer>
+        <div class="dialog-footer">
+          <el-button type="primary" @click="msgDialogVisible = false">确定</el-button>
+        </div>
+      </template>
+    </el-dialog>
   </el-container>
 </template>
 
@@ -411,10 +437,58 @@ onMounted(() => {
 
 const unreadCount = computed(() => notifications.value.filter(n => n.unread).length)
 
-const handleNotificationClick = (item: any) => {
+const msgDialogVisible = ref(false)
+const selectedMsg = ref<any>({
+  title: '',
+  type: '',
+  content: '',
+  pubTime: ''
+})
+
+const getTypeLabel = (type: string) => {
+  const map: Record<string, string> = {
+    notification: '系统通知',
+    announcement: '平台公告',
+    alert: '安全警示',
+    antifraud: '防骗预警'
+  }
+  return map[type] || type
+}
+
+const getTypeTag = (type: string) => {
+  const map: Record<string, string> = {
+    notification: 'info',
+    announcement: 'success',
+    alert: 'warning',
+    antifraud: 'danger'
+  }
+  return map[type] || 'info'
+}
+
+const handleNotificationClick = async (item: any) => {
   item.unread = false
   localStorage.setItem(`read_msg_${item.id}`, 'true')
-  ElMessage.info(`已标记为已读`)
+  
+  try {
+    const detail = await adminApi.getMessageById(item.id)
+    selectedMsg.value = {
+      title: detail.title,
+      type: detail.type,
+      content: detail.content,
+      pubTime: detail.pubTime
+    }
+    msgDialogVisible.value = true
+  } catch (err) {
+    console.error('获取系统消息详情失败', err)
+    // Fallback
+    selectedMsg.value = {
+      title: item.title,
+      type: 'notification',
+      content: '获取具体内容失败，请稍后前往系统消息中心查看。',
+      pubTime: item.time
+    }
+    msgDialogVisible.value = true
+  }
 }
 
 const gotoMessageCenter = () => {
@@ -770,6 +844,53 @@ const gotoMessageCenter = () => {
   border-top: 1px solid #f0f0f0;
   margin-top: 4px;
 }
+
+/* Msg Detail Dialog Styles */
+.msg-detail-body {
+  padding: 8px 4px;
+}
+
+.msg-detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.msg-type-tag {
+  font-weight: 600;
+  border-radius: 4px;
+}
+
+.msg-time {
+  font-size: 12px;
+  color: #909399;
+}
+
+.msg-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #303133;
+  margin: 12px 0 8px;
+  line-height: 1.5;
+}
+
+.msg-content {
+  font-size: 14px;
+  color: #606266;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  margin-top: 16px;
+  background-color: #f8f9fa;
+  padding: 14px;
+  border-radius: 8px;
+  border: 1px solid #f1f3f5;
+}
+
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+}
 </style>
 
 <style>
@@ -778,5 +899,33 @@ const gotoMessageCenter = () => {
   padding: 12px !important;
   border-radius: 12px !important;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Unscoped Msg Detail Dialog Styles */
+.el-dialog.msg-detail-dialog {
+  border-radius: 12px !important;
+  overflow: hidden;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12) !important;
+}
+
+.el-dialog.msg-detail-dialog .el-dialog__header {
+  padding: 16px 20px 12px !important;
+  border-bottom: 1px solid #f0f0f0 !important;
+  margin-right: 0 !important;
+}
+
+.el-dialog.msg-detail-dialog .el-dialog__title {
+  font-size: 16px !important;
+  font-weight: 700 !important;
+  color: #303133 !important;
+}
+
+.el-dialog.msg-detail-dialog .el-dialog__body {
+  padding: 20px !important;
+}
+
+.el-dialog.msg-detail-dialog .el-dialog__footer {
+  padding: 12px 20px 16px !important;
+  border-top: 1px solid #f0f0f0 !important;
 }
 </style>
