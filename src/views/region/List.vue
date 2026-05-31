@@ -363,6 +363,8 @@ const fetchAddressTree = async () => {
 watch(activeTab, (newTab) => {
   if (newTab === 'nationwide_cascader') {
     fetchAddressTree()
+  } else if (newTab === 'active_regions') {
+    fetchRegions()
   }
 })
 
