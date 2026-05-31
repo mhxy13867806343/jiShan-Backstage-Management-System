@@ -35,18 +35,13 @@
       </el-tabs>
 
       <!-- Batch Action Bar -->
-      <div class="batch-action-bar" v-if="selectedIds.size > 0">
+      <div class="batch-action-bar" v-if="selectedIds.length > 0">
         <el-icon><InfoFilled /></el-icon>
-        <span>已选 <b>{{ selectedIds.size }}</b> 条（支持跨页选择）</span>
-        <el-button
-          type="danger"
-          size="small"
-          icon="Delete"
-          @click="handleBatchDelete"
-        >
+        <span>已选 <b>{{ selectedIds.length }}</b> 条（支持跨页选择）</span>
+        <el-button type="danger" size="small" icon="Delete" @click="handleBatchDelete">
           批量删除
         </el-button>
-        <el-button size="small" @click="selectedIds.clear()">取消选择</el-button>
+        <el-button size="small" @click="selectedIds = []">取消选择</el-button>
       </div>
 
       <el-table
@@ -66,7 +61,7 @@
           </template>
           <template #default="{ row }">
             <el-checkbox
-              :model-value="selectedIds.has(row.post_id)"
+              :model-value="selectedIds.includes(row.post_id)"
               @change="(val: boolean) => toggleSelect(row.post_id, val)"
             />
           </template>
@@ -262,26 +257,32 @@ const searchForm = reactive({
 const selectedPost = ref<any>(null)
 const detailDrawerVisible = ref(false)
 
-// ── Cross-page selection: use a Set of post_ids ──────────────────
-const selectedIds = reactive(new Set<string>())
+// ── Cross-page selection (ref array — reliable reactivity) ─────────────────────
+const selectedIds = ref<string[]>([])
 
 const isCurrentPageAllSelected = computed(() =>
-  tableData.value.length > 0 && tableData.value.every(r => selectedIds.has(r.post_id))
+  tableData.value.length > 0 && tableData.value.every(r => selectedIds.value.includes(r.post_id))
 )
 const isCurrentPageIndeterminate = computed(() =>
-  tableData.value.some(r => selectedIds.has(r.post_id)) && !isCurrentPageAllSelected.value
+  tableData.value.some(r => selectedIds.value.includes(r.post_id)) && !isCurrentPageAllSelected.value
 )
 
 const toggleSelect = (id: string, val: boolean) => {
-  if (val) selectedIds.add(id)
-  else selectedIds.delete(id)
+  if (val && !selectedIds.value.includes(id)) {
+    selectedIds.value = [...selectedIds.value, id]
+  } else if (!val) {
+    selectedIds.value = selectedIds.value.filter(x => x !== id)
+  }
 }
 
 const handleSelectCurrentPage = (val: boolean) => {
-  tableData.value.forEach(r => {
-    if (val) selectedIds.add(r.post_id)
-    else selectedIds.delete(r.post_id)
-  })
+  const pageIds = tableData.value.map(r => r.post_id)
+  if (val) {
+    const merged = new Set([...selectedIds.value, ...pageIds])
+    selectedIds.value = [...merged]
+  } else {
+    selectedIds.value = selectedIds.value.filter(id => !pageIds.includes(id))
+  }
 }
 
 // dummy — keep for el-table but we use our own checkbox
@@ -289,20 +290,14 @@ const handleSelectionChange = () => {}
 
 // ── Batch Delete ─────────────────────────────────────────────────
 const handleBatchDelete = () => {
-  const count = selectedIds.size
+  const count = selectedIds.value.length
   ElMessageBox.confirm(
     `确定要删除选中的 <b>${count}</b> 条内容吗？<br/>此操作<b>不可撤销</b>，删除后数据将永久移除。`,
     '批量删除确认',
-    {
-      confirmButtonText: '确认删除',
-      cancelButtonText: '取消',
-      type: 'error',
-      dangerouslyUseHTMLString: true,
-      confirmButtonClass: 'el-button--danger',
-    }
+    { confirmButtonText: '确认删除', cancelButtonText: '取消', type: 'error', dangerouslyUseHTMLString: true, confirmButtonClass: 'el-button--danger' }
   ).then(() => {
-    const deleted = mockStore.deletePosts([...selectedIds])
-    selectedIds.clear()
+    const deleted = mockStore.deletePosts([...selectedIds.value])
+    selectedIds.value = []
     fetchPosts()
     ElMessage.success(`已成功删除 ${deleted} 条内容`)
   }).catch(() => {})

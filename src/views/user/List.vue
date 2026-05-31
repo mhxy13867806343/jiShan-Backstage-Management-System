@@ -32,11 +32,11 @@
       <!-- Toolbar -->
       <div class="table-toolbar">
         <div class="toolbar-left">
-          <el-button type="danger" plain icon="Lock" :disabled="selectedIds.size === 0" @click="handleBatchBan">
-            批量禁用 <span v-if="selectedIds.size > 0">({{ selectedIds.size }})</span>
+          <el-button type="danger" plain icon="Lock" :disabled="selectedIds.length === 0" @click="handleBatchBan">
+            批量禁用 <span v-if="selectedIds.length > 0">({{ selectedIds.length }})</span>
           </el-button>
-          <el-button type="success" plain icon="Unlock" :disabled="selectedIds.size === 0" @click="handleBatchUnban">
-            批量解禁 <span v-if="selectedIds.size > 0">({{ selectedIds.size }})</span>
+          <el-button type="success" plain icon="Unlock" :disabled="selectedIds.length === 0" @click="handleBatchUnban">
+            批量解禁 <span v-if="selectedIds.length > 0">({{ selectedIds.length }})</span>
           </el-button>
         </div>
         <div class="toolbar-right">
@@ -54,10 +54,10 @@
       </div>
 
       <!-- Batch Action Bar -->
-      <div class="batch-action-bar" v-if="selectedIds.size > 0">
+      <div class="batch-action-bar" v-if="selectedIds.length > 0">
         <el-icon><InfoFilled /></el-icon>
-        <span>已选 <b>{{ selectedIds.size }}</b> 位用户（支持跨页保留选择）</span>
-        <el-button size="small" @click="selectedIds.clear()">清除选择</el-button>
+        <span>已选 <b>{{ selectedIds.length }}</b> 位用户（支持跨页保留选择）</span>
+        <el-button size="small" @click="selectedIds = []">清除选择</el-button>
       </div>
 
       <el-table :data="tableData" style="width: 100%">
@@ -72,7 +72,7 @@
           </template>
           <template #default="{ row }">
             <el-checkbox
-              :model-value="selectedIds.has(row.user_id)"
+              :model-value="selectedIds.includes(row.user_id)"
               @change="(val: boolean) => toggleSelect(row.user_id, val)"
             />
           </template>
@@ -202,63 +202,58 @@ const searchForm = reactive({
 const selectedUser = ref<any>(null)
 const detailDrawerVisible = ref(false)
 
-// ── Cross-page selection (reactive Set) ──────────────────────────
-const selectedIds = reactive(new Set<string>())
+// ── Cross-page selection (ref array — more reliable reactivity than reactive Set) ──
+const selectedIds = ref<string[]>([])
 
 const isCurrentPageAllSelected = computed(() =>
-  tableData.value.length > 0 && tableData.value.every(r => selectedIds.has(r.user_id))
+  tableData.value.length > 0 && tableData.value.every(r => selectedIds.value.includes(r.user_id))
 )
 const isCurrentPageIndeterminate = computed(() =>
-  tableData.value.some(r => selectedIds.has(r.user_id)) && !isCurrentPageAllSelected.value
+  tableData.value.some(r => selectedIds.value.includes(r.user_id)) && !isCurrentPageAllSelected.value
 )
 
 const toggleSelect = (id: string, val: boolean) => {
-  if (val) selectedIds.add(id)
-  else selectedIds.delete(id)
+  if (val && !selectedIds.value.includes(id)) {
+    selectedIds.value = [...selectedIds.value, id]
+  } else if (!val) {
+    selectedIds.value = selectedIds.value.filter(x => x !== id)
+  }
 }
 
 const handleSelectCurrentPage = (val: boolean) => {
-  tableData.value.forEach(r => {
-    if (val) selectedIds.add(r.user_id)
-    else selectedIds.delete(r.user_id)
-  })
+  const pageIds = tableData.value.map(r => r.user_id)
+  if (val) {
+    const merged = new Set([...selectedIds.value, ...pageIds])
+    selectedIds.value = [...merged]
+  } else {
+    selectedIds.value = selectedIds.value.filter(id => !pageIds.includes(id))
+  }
 }
 
 // ── Batch Ban / Unban ────────────────────────────────────────────
 const handleBatchBan = () => {
-  const ids = [...selectedIds]
+  const ids = [...selectedIds.value]
   ElMessageBox.confirm(
     `确定要批量<b>禁用</b>选中的 <b>${ids.length}</b> 位用户吗？<br/>禁用后这些用户将无法登录和发布内容。`,
     '批量禁用确认',
-    {
-      confirmButtonText: '确认禁用',
-      cancelButtonText: '取消',
-      type: 'warning',
-      dangerouslyUseHTMLString: true,
-      confirmButtonClass: 'el-button--danger',
-    }
+    { confirmButtonText: '确认禁用', cancelButtonText: '取消', type: 'warning', dangerouslyUseHTMLString: true, confirmButtonClass: 'el-button--danger' }
   ).then(() => {
     const count = mockStore.batchUpdateUserStatus(ids, 'banned')
-    selectedIds.clear()
+    selectedIds.value = []
     fetchUsers()
     ElMessage.success(`已成功禁用 ${count} 位用户`)
   }).catch(() => {})
 }
 
 const handleBatchUnban = () => {
-  const ids = [...selectedIds]
+  const ids = [...selectedIds.value]
   ElMessageBox.confirm(
     `确定要批量<b>解禁</b>选中的 <b>${ids.length}</b> 位用户吗？`,
     '批量解禁确认',
-    {
-      confirmButtonText: '确认解禁',
-      cancelButtonText: '取消',
-      type: 'success',
-      dangerouslyUseHTMLString: true,
-    }
+    { confirmButtonText: '确认解禁', cancelButtonText: '取消', type: 'success', dangerouslyUseHTMLString: true }
   ).then(() => {
     const count = mockStore.batchUpdateUserStatus(ids, 'normal')
-    selectedIds.clear()
+    selectedIds.value = []
     fetchUsers()
     ElMessage.success(`已成功解禁 ${count} 位用户`)
   }).catch(() => {})
