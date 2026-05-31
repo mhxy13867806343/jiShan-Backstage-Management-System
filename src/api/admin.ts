@@ -725,6 +725,25 @@ export const adminApi = {
     } as ApiSysMessage
   },
 
+  markNotificationRead(messageId: string) {
+    return request.put<any>(`/api/admin/notifications/${messageId}/read`)
+  },
+
+  markAllNotificationsRead() {
+    return request.put<any>('/api/admin/notifications/read-all')
+  },
+
+  async getNotifications() {
+    const res = await request.get<any>('/api/admin/notifications')
+    const list = res.data || []
+    return list.map((item: any) => ({
+      id: item.messageId || item.id || '',
+      title: item.title || '',
+      unread: item.unread !== undefined ? item.unread : true,
+      time: item.createdAt || item.pubTime || item.time || ''
+    }))
+  },
+
   // ── Admin Accounts ──
   async getAdminAccounts() {
     const res = await request.get<ApiAdminAccount[]>('/api/admin/accounts')

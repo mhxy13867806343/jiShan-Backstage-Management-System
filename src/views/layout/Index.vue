@@ -151,9 +151,21 @@
             <div class="notification-box">
               <div class="notification-title">
                 <span>消息通知</span>
-                <el-tag size="small" :type="unreadCount > 0 ? 'danger' : 'info'">
-                  {{ unreadCount > 0 ? `${unreadCount} 条未读` : '已读完' }}
-                </el-tag>
+                <div class="title-right" style="display: flex; align-items: center; gap: 8px;">
+                  <el-button 
+                    v-if="unreadCount > 0" 
+                    type="primary" 
+                    link 
+                    size="small" 
+                    @click.stop="handleMarkAllRead"
+                    style="font-size: 12px; font-weight: 500;"
+                  >
+                    全部已读
+                  </el-button>
+                  <el-tag size="small" :type="unreadCount > 0 ? 'danger' : 'info'">
+                    {{ unreadCount > 0 ? `${unreadCount} 条未读` : '已读完' }}
+                  </el-tag>
+                </div>
               </div>
               <div class="notification-list">
                 <div 
@@ -380,21 +392,17 @@ const notifications = ref<any[]>([])
 
 const fetchNotifications = async () => {
   try {
-    const res = await adminApi.getMessages({
-      status: '1', // 只获取已推送的消息
-      page: 1,
-      limit: 10
-    })
+    const list = await adminApi.getNotifications()
     
     // 只获取前 3 条数据，其他的数据直接跳过/忽略
-    const list = (res.list || []).slice(0, 3)
+    const topList = (list || []).slice(0, 3)
     
-    notifications.value = list.map((item: any) => {
-      let timeStr = item.pubTime
+    notifications.value = topList.map((item: any) => {
+      let timeStr = item.time
       if (timeStr && timeStr !== '--') {
         try {
           const now = new Date()
-          const pubDate = new Date(timeStr.replace(/-/g, '/'))
+          const pubDate = new Date(timeStr.replace(/-/g, '/').replace('T', ' '))
           const diffMs = now.getTime() - pubDate.getTime()
           const diffMins = Math.floor(diffMs / (1000 * 60))
           const diffHours = Math.floor(diffMs / (1000 * 60 * 60))
@@ -416,18 +424,15 @@ const fetchNotifications = async () => {
         timeStr = '刚刚'
       }
 
-      const readKey = `read_msg_${item.message_id}`
-      const isRead = localStorage.getItem(readKey) === 'true'
-
       return {
-        id: item.message_id,
+        id: item.id,
         title: item.title,
         time: timeStr,
-        unread: !isRead
+        unread: item.unread
       }
     })
   } catch (err) {
-    console.error('获取系统消息失败', err)
+    console.error('获取系统消息通知失败', err)
   }
 }
 
@@ -467,9 +472,16 @@ const getTypeTag = (type: string) => {
 
 const handleNotificationClick = async (item: any) => {
   item.unread = false
-  localStorage.setItem(`read_msg_${item.id}`, 'true')
   
   try {
+    // 调用后端标记已读接口
+    await adminApi.markNotificationRead(item.id)
+  } catch (err) {
+    console.error('标记已读失败', err)
+  }
+  
+  try {
+    // 获取单条详情弹窗
     const detail = await adminApi.getMessageById(item.id)
     selectedMsg.value = {
       title: detail.title,
@@ -488,6 +500,18 @@ const handleNotificationClick = async (item: any) => {
       pubTime: item.time
     }
     msgDialogVisible.value = true
+  }
+}
+
+const handleMarkAllRead = async () => {
+  try {
+    await adminApi.markAllNotificationsRead()
+    notifications.value.forEach(n => {
+      n.unread = false
+    })
+    ElMessage.success('已全部标记为已读')
+  } catch (err) {
+    console.error('标记全部已读失败', err)
   }
 }
 
