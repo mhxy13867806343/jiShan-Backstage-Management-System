@@ -473,32 +473,43 @@ export const adminApi = {
     return request.get<any>(`/api/admin/dictionaries/${dictId}`)
   },
 
-  async getDicts() {
-    let res = await request.get<any>('/api/admin/dictionaries', { limit: 100 })
+  async getDicts(params?: { type?: string; label?: string; status?: string }) {
+    const queryParams: any = { limit: 100 }
+    if (params?.type) queryParams.type = params.type
+    if (params?.label) queryParams.label = params.label
+    if (params?.status) {
+      queryParams.status = params.status === '0' ? 'enabled' : (params.status === '1' ? 'disabled' : params.status)
+    }
+
+    let res = await request.get<any>('/api/admin/dictionaries', queryParams)
     const rawList = res.data?.list || []
     
-    if (rawList.length === 0) {
-      const defaultDicts = [
-        // user_status
-        { type: 'user_status', label: '正常', value: 'normal', sort: 1, status: 'enabled', remark: '' },
-        { type: 'user_status', label: '活跃用户', value: 'normal_active', sort: 1, status: 'enabled', remark: 'parent:normal|' },
-        { type: 'user_status', label: '静默用户', value: 'normal_silent', sort: 2, status: 'enabled', remark: 'parent:normal|' },
-        { type: 'user_status', label: '已禁用', value: 'banned', sort: 2, status: 'enabled', remark: '' },
-        { type: 'user_status', label: '临时封禁', value: 'banned_temp', sort: 1, status: 'enabled', remark: 'parent:banned|' },
-        { type: 'user_status', label: '永久封禁', value: 'banned_forever', sort: 2, status: 'enabled', remark: 'parent:banned|' },
-        // post_status
-        { type: 'post_status', label: '已上架', value: 'online', sort: 1, status: 'enabled', remark: '' },
-        { type: 'post_status', label: '精选动态', value: 'online_featured', sort: 1, status: 'enabled', remark: 'parent:online|' },
-        { type: 'post_status', label: '普通动态', value: 'online_normal', sort: 2, status: 'enabled', remark: 'parent:online|' },
-        { type: 'post_status', label: '已下架', value: 'offline', sort: 2, status: 'enabled', remark: '' },
-        // post_visibility
-        { type: 'post_visibility', label: '公开', value: 'public', sort: 1, status: 'enabled', remark: '' },
-        { type: 'post_visibility', label: '私密', value: 'private', sort: 2, status: 'enabled', remark: '' }
-      ]
-      for (const d of defaultDicts) {
-        await request.post('/api/admin/dictionaries', d)
+    if (rawList.length === 0 && !params?.label && !params?.status) {
+      const checkRes = await request.get<any>('/api/admin/dictionaries', { limit: 1 })
+      const checkList = checkRes.data?.list || []
+      if (checkList.length === 0) {
+        const defaultDicts = [
+          // user_status
+          { type: 'user_status', label: '正常', value: 'normal', sort: 1, status: 'enabled', remark: '' },
+          { type: 'user_status', label: '活跃用户', value: 'normal_active', sort: 1, status: 'enabled', remark: 'parent:normal|' },
+          { type: 'user_status', label: '静默用户', value: 'normal_silent', sort: 2, status: 'enabled', remark: 'parent:normal|' },
+          { type: 'user_status', label: '已禁用', value: 'banned', sort: 2, status: 'enabled', remark: '' },
+          { type: 'user_status', label: '临时封禁', value: 'banned_temp', sort: 1, status: 'enabled', remark: 'parent:banned|' },
+          { type: 'user_status', label: '永久封禁', value: 'banned_forever', sort: 2, status: 'enabled', remark: 'parent:banned|' },
+          // post_status
+          { type: 'post_status', label: '已上架', value: 'online', sort: 1, status: 'enabled', remark: '' },
+          { type: 'post_status', label: '精选动态', value: 'online_featured', sort: 1, status: 'enabled', remark: 'parent:online|' },
+          { type: 'post_status', label: '普通动态', value: 'online_normal', sort: 2, status: 'enabled', remark: 'parent:online|' },
+          { type: 'post_status', label: '已下架', value: 'offline', sort: 2, status: 'enabled', remark: '' },
+          // post_visibility
+          { type: 'post_visibility', label: '公开', value: 'public', sort: 1, status: 'enabled', remark: '' },
+          { type: 'post_visibility', label: '私密', value: 'private', sort: 2, status: 'enabled', remark: '' }
+        ]
+        for (const d of defaultDicts) {
+          await request.post('/api/admin/dictionaries', d)
+        }
+        res = await request.get<any>('/api/admin/dictionaries', queryParams)
       }
-      res = await request.get<any>('/api/admin/dictionaries', { limit: 100 })
     }
 
     const currentList = res.data?.list || []

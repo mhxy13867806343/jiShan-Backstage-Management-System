@@ -339,17 +339,20 @@ const pageSize = ref(10)
 const selectedRows = ref<any[]>([])
 const dictsState = ref<Record<string, ApiDictItem[]>>({})
 
-const fetchDicts = async () => {
+const fetchDicts = async (bypassFilters = false) => {
+  loading.value = true
   try {
-    dictsState.value = await adminApi.getDicts()
+    dictsState.value = await adminApi.getDicts({
+      type: queryParams.dictType,
+      label: bypassFilters ? '' : queryParams.dictLabel,
+      status: bypassFilters ? '' : queryParams.status
+    })
   } catch (err) {
     console.error('Fetch dicts failed', err)
+  } finally {
+    loading.value = false
   }
 }
-
-onMounted(() => {
-  fetchDicts()
-})
 
 // Load dictionary items recursively to format child sub-levels
 const formatDictList = (list: any[], parentIndexPrefix = ''): any[] => {
@@ -407,6 +410,7 @@ const totalCount = computed(() => {
 const handleQuery = () => {
   currentPage.value = 1
   selectedRows.value = []
+  fetchDicts()
 }
 
 const resetQuery = () => {
@@ -415,6 +419,7 @@ const resetQuery = () => {
   currentPage.value = 1
   selectedRows.value = []
   ElMessage.success('筛选过滤条件已重置')
+  fetchDicts()
 }
 
 // Table row checked status
@@ -643,7 +648,7 @@ const subFormattedList = computed(() => {
 const handleManageSubItems = async (row: any) => {
   currentParentRow.value = row
   subManagerVisible.value = true
-  await fetchDicts() // Trigger a real backend query and Network request
+  await fetchDicts(true) // Bypass filters to load all children!
 }
 
 const handleChildAdd = () => {
@@ -698,7 +703,7 @@ const handleChildDelete = (row: any) => {
     try {
       await adminApi.deleteDictItem(queryParams.dictType, row.value)
       ElMessage.success('下级字典项已成功移除！')
-      fetchDicts()
+      fetchDicts(true) // Keep child manager updated!
     } catch (err) {
       console.error(err)
     }
@@ -720,7 +725,7 @@ const submitChildForm = () => {
         })
         ElMessage.success('下级字典项修改成功！已即时同步。')
         childFormVisible.value = false
-        fetchDicts()
+        fetchDicts(true) // Keep child manager updated!
       } else {
         // Add under active parent
         await adminApi.addDictItem(
@@ -737,7 +742,7 @@ const submitChildForm = () => {
         )
         ElMessage.success('新增下级字典成功！')
         childFormVisible.value = false
-        fetchDicts()
+        fetchDicts(true) // Keep child manager updated!
       }
     } catch (err: any) {
       console.error(err)
@@ -757,6 +762,7 @@ const handleClose = () => {
   currentPage.value = 1
   selectedRows.value = []
   ElMessage.info('已关闭字典搜索详情过滤')
+  fetchDicts()
 }
 
 onMounted(() => {
