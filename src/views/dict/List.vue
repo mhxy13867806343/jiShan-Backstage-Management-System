@@ -743,7 +743,7 @@ const handleChildDelete = (row: any) => {
     }
   ).then(async () => {
     try {
-      await adminApi.deleteDictItem(queryParams.dictType, row.value)
+      await adminApi.deleteDictItem(currentParentRow.value?.type || queryParams.dictType, row.value)
       ElMessage.success('下级字典项已成功移除！')
       fetchDicts(true) // Keep child manager updated!
     } catch (err) {
@@ -756,10 +756,19 @@ const submitChildForm = () => {
   childFormRef.value.validate(async (valid: boolean) => {
     if (!valid) return
     
+    // Frontend validation to prevent adding duplicate child keys under the same parent
+    if (!isChildEditState.value) {
+      const isDuplicate = subFormattedList.value.some((c: any) => c.value === childForm.value)
+      if (isDuplicate) {
+        ElMessage.error(`下级键值 “${childForm.value}” 已存在，请勿重复添加！`)
+        return
+      }
+    }
+    
     try {
       if (isChildEditState.value) {
         // Modify
-        await adminApi.updateDictItem(queryParams.dictType, childForm.value, {
+        await adminApi.updateDictItem(currentParentRow.value?.type || queryParams.dictType, childForm.value, {
           label: childForm.label,
           dictSort: childForm.dictSort,
           status: childForm.status as '0' | '1',
@@ -771,7 +780,7 @@ const submitChildForm = () => {
       } else {
         // Add under active parent
         await adminApi.addDictItem(
-          queryParams.dictType, 
+          currentParentRow.value?.type || queryParams.dictType, 
           {
             value: childForm.value,
             label: childForm.label,

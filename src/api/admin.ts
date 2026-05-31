@@ -90,6 +90,8 @@ export interface ApiDictItem {
   status?: '0' | '1'
   remark?: string
   createTime?: string
+  parentValue?: string | null
+  type?: string
   children?: ApiDictItem[]
 }
 
@@ -474,9 +476,9 @@ export const adminApi = {
   },
 
   async getDicts(params?: { type?: string; label?: string; status?: string }) {
-    const queryParams: any = { limit: 100 }
+    const queryParams: any = { limit: 1000 }
     if (params?.type) queryParams.type = params.type
-    if (params?.label) queryParams.label = params.label
+    if (params?.label) queryParams.keyword = params.label
     if (params?.status) {
       queryParams.status = params.status === '0' ? 'enabled' : (params.status === '1' ? 'disabled' : params.status)
     }
@@ -531,7 +533,7 @@ export const adminApi = {
       post_visibility: []
     }
 
-    const adaptedList = uniqueList.map((item: any) => {
+    const adaptDictItem = (item: any): ApiDictItem => {
       let parentValue: string | null = null
       let actualRemark = item.remark || ''
       
@@ -541,6 +543,18 @@ export const adminApi = {
         actualRemark = parentMatch[2]
       }
       
+      // De-duplicate children array recursively to prevent duplicate display of items in UI
+      const childrenList = item.children || []
+      const uniqueChildren: any[] = []
+      const childSeen = new Set<string>()
+      for (const child of childrenList) {
+        const key = `${child.type}:${child.value}`
+        if (!childSeen.has(key)) {
+          childSeen.add(key)
+          uniqueChildren.push(child)
+        }
+      }
+      
       return {
         value: item.value,
         label: item.label,
@@ -548,12 +562,13 @@ export const adminApi = {
         dictSort: item.sort || 1,
         status: item.status === 'enabled' ? '0' : '1',
         remark: actualRemark,
-        createTime: item.createdAt || '2026-05-26 11:04:08',
         parentValue,
         type: item.type,
-        children: [] as ApiDictItem[]
+        children: uniqueChildren.map((child: any) => adaptDictItem(child))
       }
-    })
+    }
+
+    const adaptedList = uniqueList.map((item: any) => adaptDictItem(item))
 
     adaptedList.forEach((item: any) => {
       if (!item.parentValue) {
@@ -564,11 +579,18 @@ export const adminApi = {
       }
     })
 
+    // Also support flat list building if parent match remark has parentValue
     adaptedList.forEach((item: any) => {
       if (item.parentValue) {
         const parent = adaptedList.find((p: any) => p.type === item.type && p.value === item.parentValue)
         if (parent) {
-          parent.children.push(item)
+          if (!parent.children) {
+            parent.children = []
+          }
+          // Verify it's not already added to prevent duplicates
+          if (!parent.children.some((c: any) => c.value === item.value)) {
+            parent.children.push(item)
+          }
         }
       }
     })
