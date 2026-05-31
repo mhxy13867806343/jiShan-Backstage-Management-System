@@ -5,7 +5,7 @@
     <div class="page-header premium-card">
       <div class="header-left">
         <h2>版本管理</h2>
-        <p>管理 iOS / Android 客户端版本，配置强制更新与灰度发布。</p>
+        <p>管理 iOS / Android / HarmonyOS 客户端版本，配置强制更新与灰度发布。</p>
       </div>
       <el-button type="primary" icon="Plus" @click="openDialog()">新增版本</el-button>
     </div>
@@ -14,9 +14,16 @@
     <div class="latest-cards">
       <div class="latest-card premium-card" v-for="card in latestVersions" :key="card.platform">
         <div class="card-platform">
-          <el-icon class="platform-icon" :style="{ color: card.color }">
+          <!-- Standard Icons for iOS / Android, Inline SVG for HarmonyOS -->
+          <el-icon v-if="card.platform !== 'HarmonyOS'" class="platform-icon" :style="{ color: card.color }">
             <component :is="card.icon" />
           </el-icon>
+          <span v-else class="harmony-svg-icon" :style="{ color: card.color }">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2.5" />
+              <path d="M7 12H17" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" />
+            </svg>
+          </span>
           <span>{{ card.platform }}</span>
         </div>
         <div class="card-version">{{ card.version }}</div>
@@ -29,9 +36,10 @@
 
     <!-- Filter Bar -->
     <div class="filter-bar premium-card">
-      <el-select v-model="filterPlatform" placeholder="平台" clearable style="width: 120px">
+      <el-select v-model="filterPlatform" placeholder="平台" clearable style="width: 140px">
         <el-option label="iOS" value="iOS" />
         <el-option label="Android" value="Android" />
+        <el-option label="HarmonyOS" value="HarmonyOS" />
       </el-select>
       <el-select v-model="filterStatus" placeholder="状态" clearable style="width: 120px">
         <el-option label="已发布" value="released" />
@@ -49,12 +57,22 @@
     <div class="table-card premium-card">
       <el-table :data="filteredList" stripe style="width: 100%">
 
-        <el-table-column label="平台" width="100" align="center">
+        <el-table-column label="平台" width="130" align="center">
           <template #default="{ row }">
             <div class="platform-cell">
-              <el-icon :style="{ color: row.platform === 'iOS' ? '#000' : '#3DDC84' }">
-                <component :is="row.platform === 'iOS' ? 'Apple' : 'Android'" />
+              <!-- Element Icons for iOS / Android, Inline SVG for HarmonyOS -->
+              <el-icon v-if="row.platform === 'iOS'" style="color: #000">
+                <Apple />
               </el-icon>
+              <el-icon v-else-if="row.platform === 'Android'" style="color: #3DDC84">
+                <Android />
+              </el-icon>
+              <span v-else-if="row.platform === 'HarmonyOS'" class="harmony-svg-icon-table">
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <circle cx="12" cy="12" r="10" stroke="#0A59F7" stroke-width="2.5" />
+                  <path d="M7 12H17" stroke="#0A59F7" stroke-width="2.5" stroke-linecap="round" />
+                </svg>
+              </span>
               <span>{{ row.platform }}</span>
             </div>
           </template>
@@ -153,6 +171,7 @@
               <el-select v-model="form.platform" style="width: 100%">
                 <el-option label="iOS" value="iOS" />
                 <el-option label="Android" value="Android" />
+                <el-option label="HarmonyOS" value="HarmonyOS" />
               </el-select>
             </el-form-item>
           </el-col>
@@ -201,7 +220,7 @@
         </el-row>
 
         <el-form-item label="下载地址">
-          <el-input v-model="form.downloadUrl" placeholder="App Store / 应用市场 链接" clearable />
+          <el-input v-model="form.downloadUrl" placeholder="App Store / 应用市场 / 应用宝 链接" clearable />
         </el-form-item>
 
         <el-form-item label="更新说明" prop="notes">
@@ -249,7 +268,7 @@ import type { IDomEditor, IEditorConfig, IToolbarConfig } from '@wangeditor/edit
 
 interface VersionItem {
   id: string
-  platform: 'iOS' | 'Android'
+  platform: 'iOS' | 'Android' | 'HarmonyOS'
   version: string
   build: string
   forceUpdate: boolean
@@ -285,11 +304,13 @@ const stripHtml = (html: string) => {
 }
 
 const list = ref<VersionItem[]>([
-  { id: 'V001', platform: 'iOS',     version: '2.3.1', build: '231010', forceUpdate: false, status: 'released',    betaPct: 0,  notes: '修复若干已知问题，优化启动速度，提升稳定性。', notesType: 'text', downloadUrl: 'https://apps.apple.com/jishan', releaseTime: '2026-05-28 10:00' },
-  { id: 'V002', platform: 'Android', version: '2.3.1', build: '231008', forceUpdate: false, status: 'released',    betaPct: 0,  notes: '修复若干已知问题，优化启动速度，提升稳定性。', notesType: 'text', downloadUrl: 'https://play.google.com/jishan', releaseTime: '2026-05-28 10:00' },
-  { id: 'V003', platform: 'iOS',     version: '2.4.0', build: '240001', forceUpdate: true,  status: 'beta',        betaPct: 20, notes: '<p>新增话题圈功能，全新消息通知体系，性能大幅提升。</p><ul><li>全新设计的<strong>社区话题圈</strong>，支持发布图文话题；</li><li>底层网络请求及图片加载组件升级，启动加载提速 <strong>40%</strong>；</li><li>修复了部分情况下消息通知延迟到达的问题。</li></ul>', notesType: 'rich', downloadUrl: '', releaseTime: '2026-05-30 14:00' },
-  { id: 'V004', platform: 'Android', version: '2.4.0', build: '240001', forceUpdate: true,  status: 'beta',        betaPct: 10, notes: '<p>新增话题圈功能，全新消息通知体系，性能大幅提升。</p><ul><li>全新设计的<strong>社区话题圈</strong>，支持发布图文话题；</li><li>底层网络请求及图片加载组件升级，启动加载提速 <strong>40%</strong>；</li><li>修复了部分情况下消息通知延迟到达的问题。</li></ul>', notesType: 'rich', downloadUrl: '', releaseTime: '2026-05-30 14:00' },
-  { id: 'V005', platform: 'iOS',     version: '2.2.0', build: '220015', forceUpdate: false, status: 'deprecated',  betaPct: 0,  notes: '早期版本，已停止支持。', notesType: 'text', downloadUrl: '', releaseTime: '2026-03-15 09:00' },
+  { id: 'V001', platform: 'iOS',       version: '2.3.1', build: '231010', forceUpdate: false, status: 'released',    betaPct: 0,  notes: '修复若干已知问题，优化启动速度，提升稳定性。', notesType: 'text', downloadUrl: 'https://apps.apple.com/jishan', releaseTime: '2026-05-28 10:00' },
+  { id: 'V002', platform: 'Android',   version: '2.3.1', build: '231008', forceUpdate: false, status: 'released',    betaPct: 0,  notes: '修复若干已知问题，优化启动速度，提升稳定性。', notesType: 'text', downloadUrl: 'https://play.google.com/jishan', releaseTime: '2026-05-28 10:00' },
+  { id: 'V003', platform: 'HarmonyOS', version: '2.3.1', build: '231009', forceUpdate: false, status: 'released',    betaPct: 0,  notes: '鸿蒙专版首发，深度适配鸿蒙原生特性，带来更丝滑的基础体验和高效省电运行。', notesType: 'text', downloadUrl: 'https://appgallery.huawei.com/jishan', releaseTime: '2026-05-28 10:00' },
+  { id: 'V004', platform: 'iOS',       version: '2.4.0', build: '240001', forceUpdate: true,  status: 'beta',        betaPct: 20, notes: '<p>新增话题圈功能，全新消息通知体系，性能大幅提升。</p><ul><li>全新设计的<strong>社区话题圈</strong>，支持发布图文话题；</li><li>底层网络请求及图片加载组件升级，启动加载提速 <strong>40%</strong>；</li><li>修复了部分情况下消息通知延迟到达的问题。</li></ul>', notesType: 'rich', downloadUrl: '', releaseTime: '2026-05-30 14:00' },
+  { id: 'V005', platform: 'Android',   version: '2.4.0', build: '240001', forceUpdate: true,  status: 'beta',        betaPct: 10, notes: '<p>新增话题圈功能，全新消息通知体系，性能大幅提升。</p><ul><li>全新设计的<strong>社区话题圈</strong>，支持发布图文话题；</li><li>底层网络请求及图片加载组件升级，启动加载提速 <strong>40%</strong>；</li><li>修复了部分情况下消息通知延迟到达的问题。</li></ul>', notesType: 'rich', downloadUrl: '', releaseTime: '2026-05-30 14:00' },
+  { id: 'V006', platform: 'HarmonyOS', version: '2.4.0', build: '240002', forceUpdate: true,  status: 'beta',        betaPct: 15, notes: '<p>新增话题圈功能，全新消息通知体系，性能大幅提升。</p><ul><li>全新设计的<strong>社区话题圈</strong>，支持发布图文话题；</li><li>底层网络请求及图片加载组件升级，启动加载提速 <strong>40%</strong>；</li><li>修复了部分情况下消息通知延迟到达的问题。</li></ul>', notesType: 'rich', downloadUrl: '', releaseTime: '2026-05-30 14:00' },
+  { id: 'V007', platform: 'iOS',       version: '2.2.0', build: '220015', forceUpdate: false, status: 'deprecated',  betaPct: 0,  notes: '早期版本，已停止支持。', notesType: 'text', downloadUrl: '', releaseTime: '2026-03-15 09:00' },
 ])
 
 // ── Latest versions summary cards ────────────────────────────────
@@ -299,9 +320,11 @@ const latestVersions = computed(() => {
       .sort((a, b) => b.build.localeCompare(a.build))[0]
   const ios = getLatest('iOS')
   const android = getLatest('Android')
+  const harmony = getLatest('HarmonyOS')
   return [
     { platform: 'iOS', version: ios ? `v${ios.version}` : '--', forceUpdate: ios?.forceUpdate ?? false, icon: 'Apple', color: '#000' },
     { platform: 'Android', version: android ? `v${android.version}` : '--', forceUpdate: android?.forceUpdate ?? false, icon: 'PhoneFilled', color: '#3DDC84' },
+    { platform: 'HarmonyOS', version: harmony ? `v${harmony.version}` : '--', forceUpdate: harmony?.forceUpdate ?? false, icon: 'Cpu', color: '#0A59F7' },
   ]
 })
 
@@ -332,7 +355,7 @@ const saving = ref(false)
 const formRef = ref<FormInstance>()
 
 const blankForm = () => ({
-  platform: 'iOS' as 'iOS' | 'Android',
+  platform: 'iOS' as 'iOS' | 'Android' | 'HarmonyOS',
   version: '',
   build: '',
   forceUpdate: false,
@@ -432,7 +455,7 @@ const deleteVersion = (id: string) => {
 /* ── Latest version cards ── */
 .latest-cards {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 14px;
 }
 
@@ -453,6 +476,12 @@ const deleteVersion = (id: string) => {
 }
 
 .platform-icon { font-size: 20px; }
+
+.harmony-svg-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
 
 .card-version {
   font-size: 28px;
@@ -478,6 +507,12 @@ const deleteVersion = (id: string) => {
 .platform-cell {
   display: flex; align-items: center; gap: 6px; justify-content: center;
   font-weight: 600; font-size: 13px;
+}
+
+.harmony-svg-icon-table {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .version-badge {
