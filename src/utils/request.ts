@@ -202,6 +202,166 @@ const handleMockRequest = async (config: any) => {
     }
   }
 
+  // --- MOCK ANNOUNCEMENTS ---
+  if (url === '/api/admin/announcements' && method === 'get') {
+    const res = mockStore.getAnnouncements(params)
+    return { code: 200, message: 'success', data: res }
+  }
+  if (url === '/api/admin/announcements' && method === 'post') {
+    const res = mockStore.addAnnouncement(data)
+    return { code: 200, message: 'success', data: res }
+  }
+  if (url.startsWith('/api/admin/announcements/') && method === 'put') {
+    const id = url.split('/').pop() || ''
+    mockStore.updateAnnouncement(id, data)
+    return { code: 200, message: 'success', data: null }
+  }
+  if (url.startsWith('/api/admin/announcements/') && method === 'delete') {
+    const id = url.split('/').pop() || ''
+    mockStore.deleteAnnouncement(id)
+    return { code: 200, message: 'success', data: null }
+  }
+  if (url === '/api/admin/announcements/batch-publish' && method === 'put') {
+    mockStore.batchPublishAnnouncements(data.ids)
+    return { code: 200, message: 'success', data: null }
+  }
+  if (url === '/api/admin/announcements/batch-disable' && method === 'put') {
+    mockStore.batchDisableAnnouncements(data.ids)
+    return { code: 200, message: 'success', data: null }
+  }
+  if (url === '/api/admin/announcements/batch-delete' && method === 'post') {
+    mockStore.batchDeleteAnnouncements(data.ids)
+    return { code: 200, message: 'success', data: null }
+  }
+
+  // --- MOCK VERSIONS ---
+  if (url === '/api/admin/versions' && method === 'get') {
+    const res = mockStore.getVersions(params)
+    return { code: 200, message: 'success', data: res }
+  }
+  if (url === '/api/admin/versions' && method === 'post') {
+    const res = mockStore.addVersion(data)
+    return { code: 200, message: 'success', data: res }
+  }
+  if (url.startsWith('/api/admin/versions/') && method === 'put') {
+    const id = url.split('/').pop() || ''
+    if (url.endsWith('/deprecate')) {
+      mockStore.deprecateVersion(id)
+    } else {
+      mockStore.updateVersion(id, data)
+    }
+    return { code: 200, message: 'success', data: null }
+  }
+  if (url.startsWith('/api/admin/versions/') && method === 'delete') {
+    const id = url.split('/').pop() || ''
+    mockStore.deleteVersion(id)
+    return { code: 200, message: 'success', data: null }
+  }
+  if (url === '/api/admin/versions/batch-deprecate' && method === 'put') {
+    mockStore.batchDeprecateVersions(data.ids)
+    return { code: 200, message: 'success', data: null }
+  }
+  if (url === '/api/admin/versions/batch-delete' && method === 'post') {
+    mockStore.batchDeleteVersions(data.ids)
+    return { code: 200, message: 'success', data: null }
+  }
+
+  // --- MOCK TAGS ---
+  if (url === '/api/admin/tags' && method === 'get') {
+    return { code: 200, message: 'success', data: mockStore.tags }
+  }
+  if (url === '/api/admin/tags' && method === 'post') {
+    mockStore.addTag(data.name)
+    return { code: 200, message: 'success', data: null }
+  }
+  if (url.startsWith('/api/admin/tags/') && method === 'delete') {
+    const name = decodeURIComponent(url.split('/').pop() || '')
+    mockStore.deleteTag(name)
+    return { code: 200, message: 'success', data: null }
+  }
+
+  // --- MOCK REGIONS ---
+  if (url === '/api/admin/regions' && method === 'get') {
+    return { code: 200, message: 'success', data: mockStore.regions }
+  }
+  if (url === '/api/admin/regions' && method === 'post') {
+    mockStore.addRegion(data.name)
+    return { code: 200, message: 'success', data: null }
+  }
+  if (url.startsWith('/api/admin/regions/') && method === 'delete') {
+    const name = decodeURIComponent(url.split('/').pop() || '')
+    mockStore.deleteRegion(name)
+    return { code: 200, message: 'success', data: null }
+  }
+
+  // --- MOCK DICTS ---
+  if (url === '/api/admin/dicts' && method === 'get') {
+    return { code: 200, message: 'success', data: mockStore.dicts }
+  }
+  if (url.startsWith('/api/admin/dicts/') && method === 'post') {
+    const key = url.split('/').pop() || ''
+    mockStore.addDictItem(key, data.item, data.parentValue)
+    return { code: 200, message: 'success', data: null }
+  }
+  if (url.startsWith('/api/admin/dicts/') && method === 'delete') {
+    const parts = url.split('/')
+    const value = parts.pop() || ''
+    const key = parts.pop() || ''
+    mockStore.deleteDictItem(key, value)
+    return { code: 200, message: 'success', data: null }
+  }
+  if (url.startsWith('/api/admin/dicts/') && method === 'put') {
+    const parts = url.split('/')
+    const value = parts.pop() || ''
+    const key = parts.pop() || ''
+    mockStore.updateDictItem(key, value, data)
+    return { code: 200, message: 'success', data: null }
+  }
+
+  // --- MOCK SYSTEM MESSAGES ---
+  if (url === '/api/admin/messages' && method === 'get') {
+    return { code: 200, message: 'success', data: mockStore.messages }
+  }
+  if (url === '/api/admin/messages' && method === 'post') {
+    mockStore.addMessage(data)
+    return { code: 200, message: 'success', data: null }
+  }
+  if (url.startsWith('/api/admin/messages/') && method === 'put') {
+    const id = url.split('/').pop() || ''
+    mockStore.updateMessage(id, data)
+    return { code: 200, message: 'success', data: null }
+  }
+  if (url.startsWith('/api/admin/messages/') && method === 'delete') {
+    const id = url.split('/').pop() || ''
+    mockStore.deleteMessage(id)
+    return { code: 200, message: 'success', data: null }
+  }
+
+  // --- MOCK ADMIN ACCOUNTS ---
+  if (url === '/api/admin/accounts' && method === 'get') {
+    return { code: 200, message: 'success', data: mockStore.getAdminAccounts() }
+  }
+  if (url === '/api/admin/accounts' && method === 'post') {
+    mockStore.addAdminAccount(data)
+    return { code: 200, message: 'success', data: null }
+  }
+  if (url.startsWith('/api/admin/accounts/') && method === 'put') {
+    const id = url.split('/').pop() || ''
+    mockStore.updateAdminAccount(id, data)
+    return { code: 200, message: 'success', data: null }
+  }
+  if (url.startsWith('/api/admin/accounts/') && method === 'delete') {
+    const id = url.split('/').pop() || ''
+    mockStore.deleteAdminAccount(id)
+    return { code: 200, message: 'success', data: null }
+  }
+  if (url.startsWith('/api/admin/accounts/') && url.endsWith('/reset-password') && method === 'post') {
+    const parts = url.split('/')
+    const id = parts[parts.length - 2]
+    mockStore.resetAdminPassword(id)
+    return { code: 200, message: 'success', data: null }
+  }
+
   // Fallback
   return {
     code: 404,
@@ -212,16 +372,35 @@ const handleMockRequest = async (config: any) => {
 
 // Intercept axios request to return Mock Data instead of making real network requests
 // This allows seamless integration when real backend is ready by simply turning this block off.
-const ENABLE_MOCK = true
+const ENABLE_MOCK = false
 
 service.interceptors.response.use(
   async (response) => {
-    // If we're bypassing mock or the url doesn't match standard patterns, return standard response
-    return response
+    // If we're bypassing mock or the url doesn't match standard patterns, return standard response data directly
+    return response.data
   },
   async (error) => {
     const config = error.config
     
+    // Check if it's a mock-only route (we want it to trigger network request first, then fallback to mock data on 404/failure)
+    const isMockRoute = config && (
+      config.url.includes('/api/admin/announcements') ||
+      config.url.includes('/api/admin/versions') ||
+      config.url.includes('/api/admin/accounts')
+    )
+
+    if (isMockRoute && config) {
+      try {
+        // Simulate minor network latency (100ms to 300ms)
+        await delay(Math.floor(Math.random() * 200) + 100)
+        const mockResult = await handleMockRequest(config)
+        return mockResult
+      } catch (err: any) {
+        ElMessage.error(err.message || 'Mock Fallback Error')
+        return Promise.reject(err)
+      }
+    }
+
     if (ENABLE_MOCK && config) {
       try {
         // Simulate network latency (300ms to 600ms)

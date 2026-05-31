@@ -236,6 +236,7 @@
 import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useMockDataStore } from '@/store/mockData'
+import { adminApi } from '@/api/admin'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 const route = useRoute()
@@ -288,18 +289,27 @@ const handleSelectCurrentPage = (val: boolean) => {
 // dummy — keep for el-table but we use our own checkbox
 const handleSelectionChange = () => {}
 
-// ── Batch Delete ─────────────────────────────────────────────────
+// ── Batch Delete (Offline) ─────────────────────────────────────────
 const handleBatchDelete = () => {
-  const count = selectedIds.value.length
+  const ids = [...selectedIds.value]
+  const count = ids.length
   ElMessageBox.confirm(
-    `确定要删除选中的 <b>${count}</b> 条内容吗？<br/>此操作<b>不可撤销</b>，删除后数据将永久移除。`,
-    '批量删除确认',
-    { confirmButtonText: '确认删除', cancelButtonText: '取消', type: 'error', dangerouslyUseHTMLString: true, confirmButtonClass: 'el-button--danger' }
-  ).then(() => {
-    const deleted = mockStore.deletePosts([...selectedIds.value])
+    `确定要批量下架选中的 <b>${count}</b> 条内容吗？下架后前端将不再对用户展示。`,
+    '批量下架确认',
+    { confirmButtonText: '确认下架', cancelButtonText: '取消', type: 'warning', dangerouslyUseHTMLString: true, confirmButtonClass: 'el-button--danger' }
+  ).then(async () => {
+    let successCount = 0
+    for (const id of ids) {
+      try {
+        const res = await adminApi.setPostOffline(id)
+        if (res.code === 200) successCount++
+      } catch (err) {
+        console.error(`Batch offline failed for ${id}`, err)
+      }
+    }
     selectedIds.value = []
     fetchPosts()
-    ElMessage.success(`已成功删除 ${deleted} 条内容`)
+    ElMessage.success(`已成功批量下架 ${successCount} 条内容`)
   }).catch(() => {})
 }
 
@@ -324,17 +334,21 @@ const getUserGender = (userId: string) => {
 }
 
 // ── Data Fetch ───────────────────────────────────────────────────
-const fetchPosts = () => {
-  const res = mockStore.getPosts({
-    user_id: searchForm.user_id || undefined,
-    nickname: searchForm.nickname || undefined,
-    status: searchForm.status || undefined,
-    content: searchForm.content || undefined,
-    page: currentPage.value,
-    limit: pageSize.value
-  })
-  tableData.value = res.list
-  totalCount.value = res.total
+const fetchPosts = async () => {
+  try {
+    const res = await adminApi.getPosts({
+      user_id: searchForm.user_id || undefined,
+      nickname: searchForm.nickname || undefined,
+      status: searchForm.status || undefined,
+      content: searchForm.content || undefined,
+      page: currentPage.value,
+      limit: pageSize.value
+    })
+    tableData.value = res.list
+    totalCount.value = res.total
+  } catch (err) {
+    console.error('fetchPosts error', err)
+  }
 }
 
 const handleTabChange = (name: any) => {
@@ -370,13 +384,17 @@ const handleCurrentChange = (val: number) => {
   fetchPosts()
 }
 
-const handleViewDetail = (row: any) => {
-  const post = mockStore.getPostById(row.post_id)
-  if (post) {
-    selectedPost.value = post
-    detailDrawerVisible.value = true
-  } else {
-    ElMessage.error('内容不存在')
+const handleViewDetail = async (row: any) => {
+  try {
+    const post = await adminApi.getPostById(row.post_id)
+    if (post) {
+      selectedPost.value = post
+      detailDrawerVisible.value = true
+    } else {
+      ElMessage.error('内容不存在')
+    }
+  } catch (err) {
+    console.error('handleViewDetail error', err)
   }
 }
 
@@ -385,16 +403,20 @@ const handleOffline = (row: any) => {
     `确定要下架内容ID为 "${row.post_id}" 的发布内容吗？下架后前端将不再对用户展示该内容。`,
     '安全提示',
     { confirmButtonText: '确定下架', cancelButtonText: '取消', type: 'warning', confirmButtonClass: 'el-button--danger' }
-  ).then(() => {
-    const success = mockStore.setPostOffline(row.post_id)
-    if (success) {
-      ElMessage.success('该内容已被下架')
-      fetchPosts()
-      if (detailDrawerVisible.value && selectedPost.value?.post_id === row.post_id) {
-        selectedPost.value.status = 'offline'
+  ).then(async () => {
+    try {
+      const res = await adminApi.setPostOffline(row.post_id)
+      if (res.code === 200) {
+        ElMessage.success('该内容已被下架')
+        fetchPosts()
+        if (detailDrawerVisible.value && selectedPost.value?.post_id === row.post_id) {
+          selectedPost.value.status = 'offline'
+        }
+      } else {
+        ElMessage.error('操作失败')
       }
-    } else {
-      ElMessage.error('操作失败')
+    } catch (err) {
+      console.error('handleOffline error', err)
     }
   }).catch(() => {})
 }
@@ -404,16 +426,20 @@ const handleRestore = (row: any) => {
     `确定要恢复内容ID "${row.post_id}" 重新上架吗？`,
     '提示',
     { confirmButtonText: '确定上架', cancelButtonText: '取消', type: 'success' }
-  ).then(() => {
-    const success = mockStore.setPostOnline(row.post_id)
-    if (success) {
-      ElMessage.success('内容已成功恢复上架')
-      fetchPosts()
-      if (detailDrawerVisible.value && selectedPost.value?.post_id === row.post_id) {
-        selectedPost.value.status = 'online'
+  ).then(async () => {
+    try {
+      const res = await adminApi.setPostOnline(row.post_id)
+      if (res.code === 200) {
+        ElMessage.success('内容已成功恢复上架')
+        fetchPosts()
+        if (detailDrawerVisible.value && selectedPost.value?.post_id === row.post_id) {
+          selectedPost.value.status = 'online'
+        }
+      } else {
+        ElMessage.error('操作失败')
       }
-    } else {
-      ElMessage.error('操作失败')
+    } catch (err) {
+      console.error('handleRestore error', err)
     }
   }).catch(() => {})
 }

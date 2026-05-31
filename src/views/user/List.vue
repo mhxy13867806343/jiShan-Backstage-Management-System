@@ -183,6 +183,7 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMockDataStore } from '@/store/mockData'
+import { adminApi } from '@/api/admin'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 const router = useRouter()
@@ -237,11 +238,19 @@ const handleBatchBan = () => {
     `确定要批量<b>禁用</b>选中的 <b>${ids.length}</b> 位用户吗？<br/>禁用后这些用户将无法登录和发布内容。`,
     '批量禁用确认',
     { confirmButtonText: '确认禁用', cancelButtonText: '取消', type: 'warning', dangerouslyUseHTMLString: true, confirmButtonClass: 'el-button--danger' }
-  ).then(() => {
-    const count = mockStore.batchUpdateUserStatus(ids, 'banned')
+  ).then(async () => {
+    let successCount = 0
+    for (const id of ids) {
+      try {
+        const res = await adminApi.updateUserStatus(id, 'banned')
+        if (res.code === 200) successCount++
+      } catch (err) {
+        console.error(`Batch ban failed for ${id}`, err)
+      }
+    }
     selectedIds.value = []
     fetchUsers()
-    ElMessage.success(`已成功禁用 ${count} 位用户`)
+    ElMessage.success(`已成功禁用 ${successCount} 位用户`)
   }).catch(() => {})
 }
 
@@ -251,40 +260,52 @@ const handleBatchUnban = () => {
     `确定要批量<b>解禁</b>选中的 <b>${ids.length}</b> 位用户吗？`,
     '批量解禁确认',
     { confirmButtonText: '确认解禁', cancelButtonText: '取消', type: 'success', dangerouslyUseHTMLString: true }
-  ).then(() => {
-    const count = mockStore.batchUpdateUserStatus(ids, 'normal')
+  ).then(async () => {
+    let successCount = 0
+    for (const id of ids) {
+      try {
+        const res = await adminApi.updateUserStatus(id, 'normal')
+        if (res.code === 200) successCount++
+      } catch (err) {
+        console.error(`Batch unban failed for ${id}`, err)
+      }
+    }
     selectedIds.value = []
     fetchUsers()
-    ElMessage.success(`已成功解禁 ${count} 位用户`)
+    ElMessage.success(`已成功解禁 ${successCount} 位用户`)
   }).catch(() => {})
 }
 
 // ── Export users as JSON ─────────────────────────────────────────
-const handleExport = () => {
-  const all = mockStore.getUsers({ page: 1, limit: 99999 })
-  const exportData = all.list.map(u => ({
-    user_id: u.user_id,
-    nickname: u.nickname,
-    phone: u.phone,
-    newPhone: u.newPhone || '',
-    status: u.status,
-    regTime: u.regTime,
-    postCount: u.postCount,
-    commentCount: u.commentCount,
-    likesReceived: u.likesReceived,
-    bio: u.bio,
-  }))
-  const blob = new Blob(
-    [JSON.stringify(exportData, null, 2)],
-    { type: 'application/json' }
-  )
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `users_export_${new Date().toISOString().slice(0, 10)}.json`
-  a.click()
-  URL.revokeObjectURL(url)
-  ElMessage.success(`已导出 ${exportData.length} 条用户数据`)
+const handleExport = async () => {
+  try {
+    const all = await adminApi.getUsers({ page: 1, limit: 99999 })
+    const exportData = all.list.map(u => ({
+      user_id: u.user_id,
+      nickname: u.nickname,
+      phone: u.phone,
+      newPhone: u.newPhone || '',
+      status: u.status,
+      regTime: u.regTime,
+      postCount: u.postCount,
+      commentCount: u.commentCount,
+      likesReceived: u.likesReceived,
+      bio: u.bio,
+    }))
+    const blob = new Blob(
+      [JSON.stringify(exportData, null, 2)],
+      { type: 'application/json' }
+    )
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `users_export_${new Date().toISOString().slice(0, 10)}.json`
+    a.click()
+    URL.revokeObjectURL(url)
+    ElMessage.success(`已导出 ${exportData.length} 条用户数据`)
+  } catch (err) {
+    console.error('Export failed', err)
+  }
 }
 
 // ── Import users from JSON ───────────────────────────────────────
@@ -332,17 +353,21 @@ const handleImport = (file: File) => {
 }
 
 // ── Data Fetch ───────────────────────────────────────────────────
-const fetchUsers = () => {
-  const res = mockStore.getUsers({
-    user_id: searchForm.user_id || undefined,
-    nickname: searchForm.nickname || undefined,
-    phone: searchForm.phone || undefined,
-    status: searchForm.status || undefined,
-    page: currentPage.value,
-    limit: pageSize.value
-  })
-  tableData.value = res.list
-  totalCount.value = res.total
+const fetchUsers = async () => {
+  try {
+    const res = await adminApi.getUsers({
+      user_id: searchForm.user_id || undefined,
+      nickname: searchForm.nickname || undefined,
+      phone: searchForm.phone || undefined,
+      status: searchForm.status || undefined,
+      page: currentPage.value,
+      limit: pageSize.value
+    })
+    tableData.value = res.list
+    totalCount.value = res.total
+  } catch (err) {
+    console.error('fetchUsers error', err)
+  }
 }
 
 const handleSearch = () => { currentPage.value = 1; fetchUsers() }
@@ -357,10 +382,14 @@ const handleReset = () => {
 const handleSizeChange = (val: number) => { pageSize.value = val; currentPage.value = 1; fetchUsers() }
 const handleCurrentChange = (val: number) => { currentPage.value = val; fetchUsers() }
 
-const handleViewDetail = (row: any) => {
-  const user = mockStore.getUserById(row.user_id)
-  if (user) { selectedUser.value = user; detailDrawerVisible.value = true }
-  else ElMessage.error('用户不存在')
+const handleViewDetail = async (row: any) => {
+  try {
+    const user = await adminApi.getUserById(row.user_id)
+    if (user) { selectedUser.value = user; detailDrawerVisible.value = true }
+    else ElMessage.error('用户不存在')
+  } catch (err) {
+    console.error('handleViewDetail error', err)
+  }
 }
 
 const handleToggleStatus = (row: any, newStatus: 'normal' | 'banned') => {
@@ -370,16 +399,20 @@ const handleToggleStatus = (row: any, newStatus: 'normal' | 'banned') => {
     `确定要对用户 "<b>${row.nickname}</b>" 执行${statusText}操作吗？`,
     '提示',
     { confirmButtonText: '确定', cancelButtonText: '取消', type: boxType, dangerouslyUseHTMLString: true }
-  ).then(() => {
-    const success = mockStore.updateUserStatus(row.user_id, newStatus)
-    if (success) {
-      ElMessage.success(`用户已成功${statusText}`)
-      fetchUsers()
-      if (detailDrawerVisible.value && selectedUser.value?.user_id === row.user_id) {
-        selectedUser.value.status = newStatus
+  ).then(async () => {
+    try {
+      const res = await adminApi.updateUserStatus(row.user_id, newStatus)
+      if (res.code === 200) {
+        ElMessage.success(`用户已成功${statusText}`)
+        fetchUsers()
+        if (detailDrawerVisible.value && selectedUser.value?.user_id === row.user_id) {
+          selectedUser.value.status = newStatus
+        }
+      } else {
+        ElMessage.error('操作失败')
       }
-    } else {
-      ElMessage.error('操作失败')
+    } catch (err) {
+      console.error('handleToggleStatus error', err)
     }
   }).catch(() => {})
 }

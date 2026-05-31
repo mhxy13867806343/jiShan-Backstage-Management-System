@@ -298,27 +298,46 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { useMockDataStore } from '@/store/mockData'
+import { adminApi } from '@/api/admin'
 import { Calendar } from '@element-plus/icons-vue'
 
 const router = useRouter()
-const mockStore = useMockDataStore()
 const chartTimeTab = ref('today')
 const activeChartType = ref('traffic')
 const currentTimeString = ref('')
 
-const metrics = computed(() => {
-  return mockStore.getDashboardMetrics()
+const metrics = ref<any>({
+  totalUsers: 0,
+  activeUsers: 0,
+  totalPosts: 0,
+  onlinePosts: 0,
+  offlinePosts: 0,
+  totalComments: 0,
+  totalLikes: 0
 })
 
-// Extract top 4 hot contents from local store posts sorted by likes
-const hotContents = computed(() => {
-  return [...mockStore.posts]
-    .sort((a, b) => b.likes - a.likes)
-    .slice(0, 4)
-})
+const hotContents = ref<any[]>([])
+
+const fetchDashboardData = async () => {
+  try {
+    const data = await adminApi.getDashboardMetrics()
+    if (data) {
+      metrics.value = data
+    }
+    
+    // Fetch posts to rank them
+    const postsRes = await adminApi.getPosts({ page: 1, limit: 10 })
+    if (postsRes && postsRes.list) {
+      hotContents.value = [...postsRes.list]
+        .sort((a, b) => b.likes - a.likes)
+        .slice(0, 4)
+    }
+  } catch (err) {
+    console.error('Failed to fetch dashboard data', err)
+  }
+}
 
 // Format current date
 const updateCurrentTime = () => {
@@ -333,6 +352,7 @@ const updateCurrentTime = () => {
 
 onMounted(() => {
   updateCurrentTime()
+  fetchDashboardData()
 })
 </script>
 

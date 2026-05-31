@@ -312,27 +312,16 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, shallowRef, watch } from 'vue'
+import { ref, reactive, computed, shallowRef, watch, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance } from 'element-plus'
 import { Editor, Toolbar } from '@wangeditor/editor-for-vue'
 import type { IDomEditor, IEditorConfig, IToolbarConfig } from '@wangeditor/editor'
 import { usePagination } from '@/hooks/usePagination'
 import { useTableSelection } from '@/hooks/useTableSelection'
+import { adminApi, type ApiVersion } from '@/api/admin'
 
-interface VersionItem {
-  id: string
-  platform: 'iOS' | 'Android' | 'HarmonyOS'
-  version: string
-  build: string
-  forceUpdate: boolean
-  status: 'released' | 'beta' | 'deprecated'
-  betaPct: number
-  notes: string
-  notesType: 'text' | 'rich'
-  downloadUrl: string
-  releaseTime: string
-}
+type VersionItem = ApiVersion
 
 // ── WangEditor Setup ──────────────────────────────────────────────
 const dialogEditorRef = shallowRef<IDomEditor>()
@@ -357,17 +346,25 @@ const stripHtml = (html: string) => {
   return html.replace(/<[^>]*>/g, '').slice(0, 100)
 }
 
-const list = ref<VersionItem[]>([
-  { id: 'V001', platform: 'iOS',       version: '2.3.1', build: '231010', forceUpdate: false, status: 'released',    betaPct: 0,  notes: '修复若干已知问题，优化启动速度，提升稳定性。', notesType: 'text', downloadUrl: 'https://apps.apple.com/jishan', releaseTime: '2026-05-28 10:00' },
-  { id: 'V002', platform: 'Android',   version: '2.3.1', build: '231008', forceUpdate: false, status: 'released',    betaPct: 0,  notes: '修复若干已知问题，优化启动速度，提升稳定性。', notesType: 'text', downloadUrl: 'https://play.google.com/jishan', releaseTime: '2026-05-28 10:00' },
-  { id: 'V003', platform: 'HarmonyOS', version: '2.3.1', build: '231009', forceUpdate: false, status: 'released',    betaPct: 0,  notes: '鸿蒙专版首发，深度适配鸿蒙原生特性，带来更丝滑的基础体验和高效省电运行。', notesType: 'text', downloadUrl: 'https://appgallery.huawei.com/jishan', releaseTime: '2026-05-28 10:00' },
-  { id: 'V004', platform: 'iOS',       version: '2.4.0', build: '240001', forceUpdate: true,  status: 'beta',        betaPct: 20, notes: '<p>新增话题圈功能，全新消息通知体系，性能大幅提升。</p><ul><li>全新设计的<strong>社区话题圈</strong>，支持发布图文话题；</li><li>底层网络请求及图片加载组件升级，启动加载提速 <strong>40%</strong>；</li><li>修复了部分情况下消息通知延迟到达的问题。</li></ul>', notesType: 'rich', downloadUrl: '', releaseTime: '2026-05-30 14:00' },
-  { id: 'V005', platform: 'Android',   version: '2.4.0', build: '240001', forceUpdate: true,  status: 'beta',        betaPct: 10, notes: '<p>新增话题圈功能，全新消息通知体系，性能大幅提升。</p><ul><li>全新设计的<strong>社区话题圈</strong>，支持发布图文话题；</li><li>底层网络请求及图片加载组件升级，启动加载提速 <strong>40%</strong>；</li><li>修复了部分情况下消息通知延迟到达的问题。</li></ul>', notesType: 'rich', downloadUrl: '', releaseTime: '2026-05-30 14:00' },
-  { id: 'V006', platform: 'HarmonyOS', version: '2.4.0', build: '240002', forceUpdate: true,  status: 'beta',        betaPct: 15, notes: '<p>新增话题圈功能，全新消息通知体系，性能大幅提升。</p><ul><li>全新设计的<strong>社区话题圈</strong>，支持发布图文话题；</li><li>底层网络请求及图片加载组件升级，启动加载提速 <strong>40%</strong>；</li><li>修复了部分情况下消息通知延迟到达的问题。</li></ul>', notesType: 'rich', downloadUrl: '', releaseTime: '2026-05-30 14:00' },
-  { id: 'V007', platform: 'iOS',       version: '2.2.0', build: '220015', forceUpdate: false, status: 'deprecated',  betaPct: 0,  notes: '早期版本，已停止支持。', notesType: 'text', downloadUrl: '', releaseTime: '2026-03-15 09:00' },
-  { id: 'V008', platform: 'Android',   version: '2.2.0', build: '220016', forceUpdate: false, status: 'deprecated',  betaPct: 0,  notes: '早期安卓版本，已下架。', notesType: 'text', downloadUrl: '', releaseTime: '2026-03-15 09:00' },
-  { id: 'V009', platform: 'HarmonyOS', version: '2.2.0', build: '220017', forceUpdate: false, status: 'deprecated',  betaPct: 0,  notes: '早期鸿蒙尝鲜版，已完成历史使命下线。', notesType: 'text', downloadUrl: '', releaseTime: '2026-03-15 09:00' },
-])
+// ── API State & Loader ───────────────────────────────────────────
+const list = ref<VersionItem[]>([])
+const loading = ref(false)
+
+const fetchVersions = async () => {
+  loading.value = true
+  try {
+    const res = await adminApi.getVersions({ page: 1, limit: 9999 })
+    list.value = res.list
+  } catch (err) {
+    console.error('Fetch versions failed', err)
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(() => {
+  fetchVersions()
+})
 
 // ── Latest versions summary cards ────────────────────────────────
 const latestVersions = computed(() => {
@@ -443,14 +440,11 @@ const handleBatchDeprecate = () => {
     `确定要批量下线选中的 ${selectedIds.value.length} 个版本记录吗？`,
     '系统提示',
     { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' }
-  ).then(() => {
-    list.value.forEach(item => {
-      if (selectedIds.value.includes(item.id)) {
-        item.status = 'deprecated'
-      }
-    })
+  ).then(async () => {
+    await adminApi.batchDeprecateVersions(selectedIds.value)
     ElMessage.success('批量下线成功')
     clearSelection()
+    fetchVersions()
   }).catch(() => {})
 }
 
@@ -459,11 +453,12 @@ const handleBatchDelete = () => {
     `确定要批量删除选中的 ${selectedIds.value.length} 个版本记录吗？此操作不可逆！`,
     '安全警告',
     { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' }
-  ).then(() => {
-    list.value = list.value.filter(item => !selectedIds.value.includes(item.id))
+  ).then(async () => {
+    await adminApi.batchDeleteVersions(selectedIds.value)
     ElMessage.success('批量删除成功')
     clearSelection()
     currentPage.value = 1
+    fetchVersions()
   }).catch(() => {})
 }
 
@@ -537,32 +532,42 @@ const handleSubmit = async () => {
   const valid = await formRef.value?.validate().catch(() => false)
   if (!valid) return
   saving.value = true
-  setTimeout(() => {
+  try {
+    const payload = {
+      ...form
+    } as any
     if (editingId.value) {
-      const item = list.value.find(v => v.id === editingId.value)
-      if (item) Object.assign(item, form)
-      ElMessage.success('版本信息已更新')
-    } else {
-      list.value.unshift({
-        id: 'V' + Date.now().toString().slice(-3),
-        ...form,
-        releaseTime: new Date().toISOString().replace('T', ' ').slice(0, 16),
-      })
-      ElMessage.success('版本已创建')
+      payload.id = editingId.value
     }
+    await adminApi.saveVersion(payload)
+    ElMessage.success(editingId.value ? '版本信息已更新' : '版本已创建')
     dialogVisible.value = false
+    fetchVersions()
+  } catch (err) {
+    console.error(err)
+  } finally {
     saving.value = false
-  }, 300)
+  }
 }
 
-const deprecate = (row: VersionItem) => {
-  row.status = 'deprecated'
-  ElMessage.success(`v${row.version} 已下线`)
+const deprecate = async (row: VersionItem) => {
+  try {
+    await adminApi.deprecateVersion(row.id)
+    ElMessage.success(`v${row.version} 已下线`)
+    fetchVersions()
+  } catch (err) {
+    console.error(err)
+  }
 }
 
-const deleteVersion = (id: string) => {
-  list.value = list.value.filter(v => v.id !== id)
-  ElMessage.success('已删除')
+const deleteVersion = async (id: string) => {
+  try {
+    await adminApi.deleteVersion(id)
+    ElMessage.success('已删除')
+    fetchVersions()
+  } catch (err) {
+    console.error(err)
+  }
 }
 </script>
 

@@ -85,6 +85,32 @@ export interface CommentItem {
   pubTime: string
 }
 
+export interface AnnItem {
+  id: string
+  title: string
+  type: 'info' | 'warning' | 'danger'
+  content: string
+  link: string
+  pinned: boolean
+  startTime: string
+  endTime: string
+  status: 'active' | 'inactive'
+}
+
+export interface VersionItem {
+  id: string
+  platform: 'iOS' | 'Android' | 'HarmonyOS'
+  version: string
+  build: string
+  forceUpdate: boolean
+  status: 'released' | 'beta' | 'deprecated'
+  betaPct: number
+  notes: string
+  notesType: 'text' | 'rich'
+  downloadUrl: string
+  releaseTime: string
+}
+
 export const useMockDataStore = defineStore('mockData', () => {
   // Initialize mock messages
   const messages = ref<MessageItem[]>([
@@ -115,6 +141,89 @@ export const useMockDataStore = defineStore('mockData', () => {
       status: '1',
       pubTime: '2026-05-30 09:00:00'
     }
+  ])
+
+  // Initialize mock announcements
+  const announcements = ref<AnnItem[]>([
+    {
+      id: 'N001',
+      title: '【系统通知】即闪 App 6 月服务升级公告',
+      type: 'info',
+      content: '<p>我们将于 <strong>2026-06-01 凌晨 2:00-4:00</strong> 进行服务器维护升级，届时部分功能短暂不可用。</p>',
+      link: '',
+      pinned: true,
+      startTime: '2026-05-31 00:00',
+      endTime: '2026-06-02 00:00',
+      status: 'active',
+    },
+    {
+      id: 'N002',
+      title: '【安全提醒】谨防虚假刷单诈骗',
+      type: 'warning',
+      content: '<p>近期出现冒充即闪平台的<strong>虚假刷单诈骗</strong>，请勿相信任何要求充值的信息，注意保护财产安全。</p>',
+      link: 'https://jishanapp.com/safety',
+      pinned: false,
+      startTime: '2026-05-20 10:00',
+      endTime: '',
+      status: 'active',
+    },
+    {
+      id: 'N003',
+      title: '五一假期活动公告',
+      type: 'info',
+      content: '<p>五一假期即闪将开展特别活动，参与活动可获得<em>专属徽章</em>，欢迎积极参与！</p>',
+      link: '',
+      pinned: false,
+      startTime: '2026-04-28 00:00',
+      endTime: '2026-05-06 23:59',
+      status: 'inactive',
+    },
+    {
+      id: 'N004',
+      title: '即闪 App 社交版块上线庆典',
+      type: 'info',
+      content: '<p>庆祝即闪 App 社区功能上线，发布动态即可瓜分<strong>万元话费红包</strong>，快来参与吧！</p>',
+      link: '',
+      pinned: false,
+      startTime: '2026-05-15 09:00',
+      endTime: '2026-06-15 00:00',
+      status: 'active',
+    },
+    {
+      id: 'N005',
+      title: '【重要声明】防范网络理财诈骗风险',
+      type: 'danger',
+      content: '<p>即闪平台从未设立任何“投资群” or “代客理财”服务。请广大用户提高警惕，切勿向陌生账户转账。</p>',
+      link: '',
+      pinned: false,
+      startTime: '2026-05-10 08:00',
+      endTime: '',
+      status: 'active',
+    },
+    {
+      id: 'N006',
+      title: '微信支付通道临时维护公告',
+      type: 'warning',
+      content: '<p>微信支付将于 <strong>2026-05-05 03:00-03:30</strong> 进行系统维护，期间微信支付功能可能出现短暂波动，建议使用支付宝付款。</p>',
+      link: '',
+      pinned: false,
+      startTime: '2026-05-04 12:00',
+      endTime: '2026-05-05 04:00',
+      status: 'inactive',
+    }
+  ])
+
+  // Initialize mock versions
+  const versions = ref<VersionItem[]>([
+    { id: 'V001', platform: 'iOS',       version: '2.3.1', build: '231010', forceUpdate: false, status: 'released',    betaPct: 0,  notes: '修复若干已知问题，优化启动速度，提升稳定性。', notesType: 'text', downloadUrl: 'https://apps.apple.com/jishan', releaseTime: '2026-05-28 10:00' },
+    { id: 'V002', platform: 'Android',   version: '2.3.1', build: '231008', forceUpdate: false, status: 'released',    betaPct: 0,  notes: '修复若干已知问题，优化启动速度，提升稳定性。', notesType: 'text', downloadUrl: 'https://play.google.com/jishan', releaseTime: '2026-05-28 10:00' },
+    { id: 'V003', platform: 'HarmonyOS', version: '2.3.1', build: '231009', forceUpdate: false, status: 'released',    betaPct: 0,  notes: '鸿蒙专版首发，深度适配鸿蒙原生特性，带来更丝滑的基础体验和高效省电运行。', notesType: 'text', downloadUrl: 'https://appgallery.huawei.com/jishan', releaseTime: '2026-05-28 10:00' },
+    { id: 'V004', platform: 'iOS',       version: '2.4.0', build: '240001', forceUpdate: true,  status: 'beta',        betaPct: 20, notes: '<p>新增话题圈功能，全新消息通知体系，性能大幅提升。</p><ul><li>全新设计的<strong>社区话题圈</strong>，支持发布图文话题；</li><li>底层网络请求及图片加载组件升级，启动加载提速 <strong>40%</strong>；</li><li>修复了部分情况下消息通知延迟到达的问题。</li></ul>', notesType: 'rich', downloadUrl: '', releaseTime: '2026-05-30 14:00' },
+    { id: 'V005', platform: 'Android',   version: '2.4.0', build: '240001', forceUpdate: true,  status: 'beta',        betaPct: 10, notes: '<p>新增话题圈功能，全新消息通知体系，性能大幅提升。</p><ul><li>全新设计的<strong>社区话题圈</strong>，支持发布图文话题；</li><li>底层网络请求及图片加载组件升级，启动加载提速 <strong>40%</strong>；</li><li>修复了部分情况下消息通知延迟到达的问题。</li></ul>', notesType: 'rich', downloadUrl: '', releaseTime: '2026-05-30 14:00' },
+    { id: 'V006', platform: 'HarmonyOS', version: '2.4.0', build: '240002', forceUpdate: true,  status: 'beta',        betaPct: 15, notes: '<p>新增话题圈功能，全新消息通知体系，性能大幅提升。</p><ul><li>全新设计的<strong>社区话题圈</strong>，支持发布图文话题；</li><li>底层网络请求及图片加载组件升级，启动加载提速 <strong>40%</strong>；</li><li>修复了部分情况下消息通知延迟到达的问题。</li></ul>', notesType: 'rich', downloadUrl: '', releaseTime: '2026-05-30 14:00' },
+    { id: 'V007', platform: 'iOS',       version: '2.2.0', build: '220015', forceUpdate: false, status: 'deprecated',  betaPct: 0,  notes: '早期版本，已停止支持。', notesType: 'text', downloadUrl: '', releaseTime: '2026-03-15 09:00' },
+    { id: 'V008', platform: 'Android',   version: '2.2.0', build: '220016', forceUpdate: false, status: 'deprecated',  betaPct: 0,  notes: '早期安卓版本，已下架。', notesType: 'text', downloadUrl: '', releaseTime: '2026-03-15 09:00' },
+    { id: 'V009', platform: 'HarmonyOS', version: '2.2.0', build: '220017', forceUpdate: false, status: 'deprecated',  betaPct: 0,  notes: '早期鸿蒙尝鲜版，已完成历史使命下线。', notesType: 'text', downloadUrl: '', releaseTime: '2026-03-15 09:00' }
   ])
 
   // Initialize mock users
@@ -1137,6 +1246,167 @@ export const useMockDataStore = defineStore('mockData', () => {
     return !!item
   }
 
+  // --- ANNOUNCEMENT ACTIONS ---
+  const getAnnouncements = (params: { keyword?: string; type?: string; status?: string; page?: number; limit?: number }) => {
+    let result = [...announcements.value]
+    
+    if (params.keyword) {
+      const kw = params.keyword.toLowerCase()
+      result = result.filter(a => a.title.toLowerCase().includes(kw) || a.content.toLowerCase().includes(kw))
+    }
+    if (params.type) {
+      result = result.filter(a => a.type === params.type)
+    }
+    if (params.status) {
+      result = result.filter(a => a.status === params.status)
+    }
+
+    // Sort pinned ones to top, then start time descending
+    result.sort((a, b) => {
+      if (a.pinned && !b.pinned) return -1
+      if (!a.pinned && b.pinned) return 1
+      return b.startTime.localeCompare(a.startTime)
+    })
+
+    const page = params.page || 1
+    const limit = params.limit || 10
+    const total = result.length
+    const start = (page - 1) * limit
+    const list = result.slice(start, start + limit)
+
+    return { list, total }
+  }
+
+  const addAnnouncement = (item: Omit<AnnItem, 'id'>) => {
+    const newId = 'N' + (Date.now() % 1000).toString().padStart(3, '0')
+    const newItem: AnnItem = {
+      id: newId,
+      ...item
+    }
+    announcements.value.unshift(newItem)
+    return newItem
+  }
+
+  const updateAnnouncement = (id: string, updatedFields: Partial<AnnItem>) => {
+    const item = announcements.value.find(a => a.id === id)
+    if (item) {
+      Object.assign(item, updatedFields)
+      return true
+    }
+    return false
+  }
+
+  const deleteAnnouncement = (id: string) => {
+    const idx = announcements.value.findIndex(a => a.id === id)
+    if (idx !== -1) {
+      announcements.value.splice(idx, 1)
+      return true
+    }
+    return false
+  }
+
+  const batchPublishAnnouncements = (ids: string[]) => {
+    announcements.value.forEach(a => {
+      if (ids.includes(a.id)) {
+        a.status = 'active'
+      }
+    })
+    return true
+  }
+
+  const batchDisableAnnouncements = (ids: string[]) => {
+    announcements.value.forEach(a => {
+      if (ids.includes(a.id)) {
+        a.status = 'inactive'
+      }
+    })
+    return true
+  }
+
+  const batchDeleteAnnouncements = (ids: string[]) => {
+    announcements.value = announcements.value.filter(a => !ids.includes(a.id))
+    return true
+  }
+
+  // --- VERSION ACTIONS ---
+  const getVersions = (params: { platform?: string; status?: string; forceUpdate?: string; page?: number; limit?: number }) => {
+    let result = [...versions.value]
+
+    if (params.platform) {
+      result = result.filter(v => v.platform === params.platform)
+    }
+    if (params.status) {
+      result = result.filter(v => v.status === params.status)
+    }
+    if (params.forceUpdate !== undefined && params.forceUpdate !== '') {
+      const isForce = params.forceUpdate === 'true'
+      result = result.filter(v => v.forceUpdate === isForce)
+    }
+
+    // Sort by build descending
+    result.sort((a, b) => b.build.localeCompare(a.build))
+
+    const page = params.page || 1
+    const limit = params.limit || 10
+    const total = result.length
+    const start = (page - 1) * limit
+    const list = result.slice(start, start + limit)
+
+    return { list, total }
+  }
+
+  const addVersion = (item: Omit<VersionItem, 'id' | 'releaseTime'>) => {
+    const newId = 'V' + (Date.now() % 1000).toString().padStart(3, '0')
+    const newItem: VersionItem = {
+      id: newId,
+      ...item,
+      releaseTime: new Date().toISOString().replace('T', ' ').slice(0, 16)
+    }
+    versions.value.unshift(newItem)
+    return newItem
+  }
+
+  const updateVersion = (id: string, updatedFields: Partial<VersionItem>) => {
+    const item = versions.value.find(v => v.id === id)
+    if (item) {
+      Object.assign(item, updatedFields)
+      return true
+    }
+    return false
+  }
+
+  const deleteVersion = (id: string) => {
+    const idx = versions.value.findIndex(v => v.id === id)
+    if (idx !== -1) {
+      versions.value.splice(idx, 1)
+      return true
+    }
+    return false
+  }
+
+  const deprecateVersion = (id: string) => {
+    const item = versions.value.find(v => v.id === id)
+    if (item) {
+      item.status = 'deprecated'
+      return true
+    }
+    return false
+  }
+
+  const batchDeprecateVersions = (ids: string[]) => {
+    versions.value.forEach(v => {
+      if (ids.includes(v.id)) {
+        v.status = 'deprecated'
+      }
+    })
+    return true
+  }
+
+  const batchDeleteVersions = (ids: string[]) => {
+    versions.value = versions.value.filter(v => !ids.includes(v.id))
+    return true
+  }
+
   return {
     users,
     posts,
@@ -1179,6 +1449,22 @@ export const useMockDataStore = defineStore('mockData', () => {
     addAdminAccount,
     updateAdminAccount,
     deleteAdminAccount,
-    resetAdminPassword
+    resetAdminPassword,
+    announcements,
+    getAnnouncements,
+    addAnnouncement,
+    updateAnnouncement,
+    deleteAnnouncement,
+    batchPublishAnnouncements,
+    batchDisableAnnouncements,
+    batchDeleteAnnouncements,
+    versions,
+    getVersions,
+    addVersion,
+    updateVersion,
+    deleteVersion,
+    deprecateVersion,
+    batchDeprecateVersions,
+    batchDeleteVersions
   }
 })

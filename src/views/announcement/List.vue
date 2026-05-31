@@ -227,26 +227,17 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, shallowRef, watch } from 'vue'
+import { ref, reactive, computed, shallowRef, watch, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance } from 'element-plus'
 import { Editor, Toolbar } from '@wangeditor/editor-for-vue'
 import type { IDomEditor, IEditorConfig, IToolbarConfig } from '@wangeditor/editor'
 import { usePagination } from '@/hooks/usePagination'
 import { useTableSelection } from '@/hooks/useTableSelection'
+import { adminApi, type ApiAnnouncement } from '@/api/admin'
 
 // ── Types ────────────────────────────────────────────────────────
-interface AnnItem {
-  id: string
-  title: string
-  type: 'info' | 'warning' | 'danger'
-  content: string
-  link: string
-  pinned: boolean
-  startTime: string
-  endTime: string
-  status: 'active' | 'inactive'
-}
+type AnnItem = ApiAnnouncement
 
 // ── WangEditor (dialog instance) ─────────────────────────────────
 const dialogEditorRef = shallowRef<IDomEditor>()
@@ -261,77 +252,33 @@ const handleDialogEditorCreated = (editor: IDomEditor) => { dialogEditorRef.valu
 const destroyEditor = () => { dialogEditorRef.value?.destroy(); dialogEditorRef.value = undefined }
 
 // ── Helper: strip html for table preview ─────────────────────────
-const stripHtml = (html: string) => html.replace(/<[^>]*>/g, '').slice(0, 80)
+const stripHtml = (html: string) => {
+  if (!html) return ''
+  return html.replace(/<[^>]*>/g, '').slice(0, 80)
+}
 
-// ── Mock data ────────────────────────────────────────────────────
-const list = ref<AnnItem[]>([
-  {
-    id: 'N001',
-    title: '【系统通知】即闪 App 6 月服务升级公告',
-    type: 'info',
-    content: '<p>我们将于 <strong>2026-06-01 凌晨 2:00-4:00</strong> 进行服务器维护升级，届时部分功能短暂不可用。</p>',
-    link: '',
-    pinned: true,
-    startTime: '2026-05-31 00:00',
-    endTime: '2026-06-02 00:00',
-    status: 'active',
-  },
-  {
-    id: 'N002',
-    title: '【安全提醒】谨防虚假刷单诈骗',
-    type: 'warning',
-    content: '<p>近期出现冒充即闪平台的<strong>虚假刷单诈骗</strong>，请勿相信任何要求充值的信息，注意保护财产安全。</p>',
-    link: 'https://jishanapp.com/safety',
-    pinned: false,
-    startTime: '2026-05-20 10:00',
-    endTime: '',
-    status: 'active',
-  },
-  {
-    id: 'N003',
-    title: '五一假期活动公告',
-    type: 'info',
-    content: '<p>五一假期即闪将开展特别活动，参与活动可获得<em>专属徽章</em>，欢迎积极参与！</p>',
-    link: '',
-    pinned: false,
-    startTime: '2026-04-28 00:00',
-    endTime: '2026-05-06 23:59',
-    status: 'inactive',
-  },
-  {
-    id: 'N004',
-    title: '即闪 App 社交版块上线庆典',
-    type: 'info',
-    content: '<p>庆祝即闪 App 社区功能上线，发布动态即可瓜分<strong>万元话费红包</strong>，快来参与吧！</p>',
-    link: '',
-    pinned: false,
-    startTime: '2026-05-15 09:00',
-    endTime: '2026-06-15 00:00',
-    status: 'active',
-  },
-  {
-    id: 'N005',
-    title: '【重要声明】防范网络理财诈骗风险',
-    type: 'danger',
-    content: '<p>即闪平台从未设立任何“投资群” or “代客理财”服务。请广大用户提高警惕，切勿向陌生账户转账。</p>',
-    link: '',
-    pinned: false,
-    startTime: '2026-05-10 08:00',
-    endTime: '',
-    status: 'active',
-  },
-  {
-    id: 'N006',
-    title: '微信支付通道临时维护公告',
-    type: 'warning',
-    content: '<p>微信支付将于 <strong>2026-05-05 03:00-03:30</strong> 进行系统维护，期间微信支付功能可能出现短暂波动，建议使用支付宝付款。</p>',
-    link: '',
-    pinned: false,
-    startTime: '2026-05-04 12:00',
-    endTime: '2026-05-05 04:00',
-    status: 'inactive',
+// ── API State & Loader ───────────────────────────────────────────
+const list = ref<AnnItem[]>([])
+const loading = ref(false)
+
+const fetchAnnouncements = async () => {
+  loading.value = true
+  try {
+    const res = await adminApi.getAnnouncements({
+      page: 1,
+      limit: 9999
+    })
+    list.value = res.list
+  } catch (err) {
+    console.error('Fetch announcements failed', err)
+  } finally {
+    loading.value = false
   }
-])
+}
+
+onMounted(() => {
+  fetchAnnouncements()
+})
 
 // ── Filters ──────────────────────────────────────────────────────
 const searchKw = ref('')
@@ -394,14 +341,11 @@ const handleBatchPublish = () => {
     `确定要批量发布选中的 ${selectedIds.value.length} 个公告吗？`,
     '系统提示',
     { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' }
-  ).then(() => {
-    list.value.forEach(item => {
-      if (selectedIds.value.includes(item.id)) {
-        item.status = 'active'
-      }
-    })
+  ).then(async () => {
+    await adminApi.batchPublishAnnouncements(selectedIds.value)
     ElMessage.success('批量发布成功')
     clearSelection()
+    fetchAnnouncements()
   }).catch(() => {})
 }
 
@@ -410,14 +354,11 @@ const handleBatchDisable = () => {
     `确定要批量停用选中的 ${selectedIds.value.length} 个公告吗？`,
     '系统提示',
     { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' }
-  ).then(() => {
-    list.value.forEach(item => {
-      if (selectedIds.value.includes(item.id)) {
-        item.status = 'inactive'
-      }
-    })
+  ).then(async () => {
+    await adminApi.batchDisableAnnouncements(selectedIds.value)
     ElMessage.success('批量停用成功')
     clearSelection()
+    fetchAnnouncements()
   }).catch(() => {})
 }
 
@@ -426,11 +367,12 @@ const handleBatchDelete = () => {
     `确定要批量删除选中的 ${selectedIds.value.length} 个公告吗？此操作不可逆！`,
     '安全警告',
     { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' }
-  ).then(() => {
-    list.value = list.value.filter(item => !selectedIds.value.includes(item.id))
+  ).then(async () => {
+    await adminApi.batchDeleteAnnouncements(selectedIds.value)
     ElMessage.success('批量删除成功')
     clearSelection()
     currentPage.value = 1
+    fetchAnnouncements()
   }).catch(() => {})
 }
 
@@ -484,32 +426,44 @@ const handleSubmit = async () => {
     return
   }
   saving.value = true
-  setTimeout(() => {
-    if (editingId.value) {
-      const item = list.value.find(a => a.id === editingId.value)
-      if (item) Object.assign(item, { ...form, status: form.statusActive ? 'active' : 'inactive' })
-      ElMessage.success('公告已更新')
-    } else {
-      list.value.unshift({
-        id: 'N' + Date.now().toString().slice(-4),
-        ...form,
-        status: form.statusActive ? 'active' : 'inactive',
-      })
-      ElMessage.success('公告已创建')
+  try {
+    const payload: Partial<ApiAnnouncement> = {
+      ...form,
+      status: form.statusActive ? ('active' as const) : ('inactive' as const)
     }
+    if (editingId.value) {
+      payload.id = editingId.value
+    }
+    await adminApi.saveAnnouncement(payload)
+    ElMessage.success(editingId.value ? '公告已更新' : '公告已创建')
     dialogVisible.value = false
+    fetchAnnouncements()
+  } catch (err) {
+    console.error(err)
+  } finally {
     saving.value = false
-  }, 300)
+  }
 }
 
-const toggleStatus = (row: AnnItem) => {
-  row.status = row.status === 'active' ? 'inactive' : 'active'
-  ElMessage.success(row.status === 'active' ? '公告已发布' : '公告已停用')
+const toggleStatus = async (row: AnnItem) => {
+  const newStatus = row.status === 'active' ? 'inactive' : 'active'
+  try {
+    await adminApi.saveAnnouncement({ id: row.id, status: newStatus })
+    ElMessage.success(newStatus === 'active' ? '公告已发布' : '公告已停用')
+    fetchAnnouncements()
+  } catch (err) {
+    console.error(err)
+  }
 }
 
-const deleteAnn = (id: string) => {
-  list.value = list.value.filter(a => a.id !== id)
-  ElMessage.success('已删除')
+const deleteAnn = async (id: string) => {
+  try {
+    await adminApi.deleteAnnouncement(id)
+    ElMessage.success('已删除')
+    fetchAnnouncements()
+  } catch (err) {
+    console.error(err)
+  }
 }
 </script>
 

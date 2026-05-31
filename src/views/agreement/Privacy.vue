@@ -75,12 +75,11 @@
 
 <script setup lang="ts">
 import { ref, shallowRef, onMounted, onBeforeUnmount } from 'vue'
-import { useMockDataStore } from '@/store/mockData'
+import { adminApi } from '@/api/admin'
 import { ElMessage } from 'element-plus'
 import { Editor, Toolbar } from '@wangeditor/editor-for-vue'
 import type { IDomEditor, IEditorConfig, IToolbarConfig } from '@wangeditor/editor'
 
-const mockStore = useMockDataStore()
 const saveLoading = ref(false)
 const editContent = ref('')
 const originalContent = ref('')
@@ -101,10 +100,14 @@ const handleCreated = (editor: IDomEditor) => {
   editorRef.value = editor
 }
 
-const fetchAgreement = () => {
-  const data = mockStore.getAgreement('privacy')
-  originalContent.value = data
-  editContent.value = data
+const fetchAgreement = async () => {
+  try {
+    const data = await adminApi.getAgreement('privacy')
+    originalContent.value = data || ''
+    editContent.value = data || ''
+  } catch (err) {
+    console.error('fetchAgreement error', err)
+  }
 }
 
 const handleCancel = () => {
@@ -112,14 +115,21 @@ const handleCancel = () => {
   ElMessage.info('已重置为上次保存的内容')
 }
 
-const handleSave = () => {
+const handleSave = async () => {
   saveLoading.value = true
-  setTimeout(() => {
-    mockStore.updateAgreement('privacy', editContent.value)
-    originalContent.value = editContent.value
-    ElMessage.success('隐私协议已成功更新并发布！')
+  try {
+    const res = await adminApi.updateAgreement('privacy', editContent.value)
+    if (res.code === 200) {
+      originalContent.value = editContent.value
+      ElMessage.success('隐私协议已成功更新并发布！')
+    } else {
+      ElMessage.error(res.message || '更新协议失败')
+    }
+  } catch (err) {
+    console.error('handleSave error', err)
+  } finally {
     saveLoading.value = false
-  }, 300)
+  }
 }
 
 onMounted(() => {

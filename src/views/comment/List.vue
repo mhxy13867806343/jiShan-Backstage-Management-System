@@ -102,13 +102,12 @@
 <script setup lang="ts">
 import { ref, reactive, computed, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useMockDataStore } from '@/store/mockData'
+import { adminApi } from '@/api/admin'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { InfoFilled } from '@element-plus/icons-vue'
 
 const route = useRoute()
 const router = useRouter()
-const mockStore = useMockDataStore()
 const tableData = ref<any[]>([])
 const totalCount = ref(0)
 const currentPage = ref(1)
@@ -123,16 +122,20 @@ const activePostId = computed(() => {
   return (route.query.post_id as string) || ''
 })
 
-const fetchComments = () => {
-  const res = mockStore.getComments({
-    post_id: searchForm.post_id || undefined,
-    user_id: searchForm.user_id || undefined,
-    page: currentPage.value,
-    limit: pageSize.value
-  })
-  
-  tableData.value = res.list
-  totalCount.value = res.total
+const fetchComments = async () => {
+  try {
+    const res = await adminApi.getComments({
+      post_id: searchForm.post_id || undefined,
+      user_id: searchForm.user_id || undefined,
+      page: currentPage.value,
+      limit: pageSize.value
+    })
+    
+    tableData.value = res.list
+    totalCount.value = res.total
+  } catch (err) {
+    console.error('fetchComments error', err)
+  }
 }
 
 // Sync router queries with our searchForm
@@ -197,13 +200,17 @@ const handleDelete = (row: any) => {
       type: 'warning',
       confirmButtonClass: 'el-button--danger'
     }
-  ).then(() => {
-    const success = mockStore.deleteComment(row.comment_id)
-    if (success) {
-      ElMessage.success('评论已成功删除')
-      fetchComments()
-    } else {
-      ElMessage.error('删除失败')
+  ).then(async () => {
+    try {
+      const res = await adminApi.deleteComment(row.comment_id)
+      if (res.code === 200) {
+        ElMessage.success('评论已成功删除')
+        fetchComments()
+      } else {
+        ElMessage.error('删除失败')
+      }
+    } catch (err) {
+      console.error('deleteComment error', err)
     }
   }).catch(() => {})
 }

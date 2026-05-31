@@ -255,13 +255,31 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed } from 'vue'
-import { useMockDataStore } from '@/store/mockData'
-import type { AdminAccount, AdminRole } from '@/store/mockData'
+import { ref, reactive, computed, onMounted } from 'vue'
+import { adminApi, type ApiAdminAccount } from '@/api/admin'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
 
-const mockStore = useMockDataStore()
+type AdminAccount = ApiAdminAccount
+type AdminRole = 'superadmin' | 'admin' | 'operator' | 'viewer'
+
+const accountsList = ref<AdminAccount[]>([])
+const loading = ref(false)
+
+const fetchAccounts = async () => {
+  loading.value = true
+  try {
+    accountsList.value = await adminApi.getAdminAccounts()
+  } catch (err) {
+    console.error('Fetch accounts failed', err)
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(() => {
+  fetchAccounts()
+})
 
 // ── All permission modules ───────────────────────────────────────
 const allPermissions = [
@@ -310,7 +328,7 @@ const filteredAccounts = computed(() => {
   const kw = searchKw.value.toLowerCase()
   const role = filterRole.value
   const status = filterStatus.value
-  return mockStore.adminAccounts.filter(a => {
+  return accountsList.value.filter(a => {
     const matchKw = !kw || a.username.includes(kw) || a.nickname.includes(kw) || a.email.includes(kw)
     const matchRole = !role || a.role === role
     const matchStatus = !status || a.status === status
@@ -326,7 +344,7 @@ const resetFilters = () => {
 
 // ── Role stats cards (use reactive ref directly) ──────────────────
 const roleStats = computed(() => {
-  const all = mockStore.adminAccounts
+  const all = accountsList.value
   return [
     { key: 'superadmin', label: '超级管理员', icon: 'StarFilled', count: all.filter(a => a.role === 'superadmin').length },
     { key: 'admin',      label: '管理员',     icon: 'UserFilled', count: all.filter(a => a.role === 'admin').length },
@@ -432,10 +450,10 @@ const handleSubmit = async () => {
   if (!valid) return
 
   submitLoading.value = true
-  setTimeout(() => {
+  try {
     const perms = form.role === 'superadmin' ? allPermissions.map(p => p.key) : [...form.permissions]
     if (isEdit.value) {
-      mockStore.updateAdminAccount(editingId.value, {
+      await adminApi.updateAdminAccount(editingId.value, {
         nickname: form.nickname,
         email: form.email,
         phone: form.phone,
@@ -446,7 +464,7 @@ const handleSubmit = async () => {
       })
       ElMessage.success('账号信息已更新')
     } else {
-      mockStore.addAdminAccount({
+      await adminApi.addAdminAccount({
         username: form.username,
         nickname: form.nickname,
         avatar: '',
@@ -460,13 +478,22 @@ const handleSubmit = async () => {
       ElMessage.success('账号创建成功')
     }
     dialogVisible.value = false
+    fetchAccounts()
+  } catch (err) {
+    console.error(err)
+  } finally {
     submitLoading.value = false
-  }, 300)
+  }
 }
 
-const handleDelete = (id: string) => {
-  mockStore.deleteAdminAccount(id)
-  ElMessage.success('账号已删除')
+const handleDelete = async (id: string) => {
+  try {
+    await adminApi.deleteAdminAccount(id)
+    ElMessage.success('账号已删除')
+    fetchAccounts()
+  } catch (err) {
+    console.error(err)
+  }
 }
 
 const handleResetPwd = (row: AdminAccount) => {
@@ -474,9 +501,13 @@ const handleResetPwd = (row: AdminAccount) => {
     `确定要重置账号「${row.nickname}」的密码吗？重置后密码将变为 <b>123456</b>`,
     '重置密码',
     { confirmButtonText: '确认重置', cancelButtonText: '取消', type: 'warning', dangerouslyUseHTMLString: true }
-  ).then(() => {
-    mockStore.resetAdminPassword(row.account_id)
-    ElMessage.success(`已重置「${row.nickname}」的密码为 123456`)
+  ).then(async () => {
+    try {
+      await adminApi.resetAdminPassword(row.account_id)
+      ElMessage.success(`已重置「${row.nickname}」的密码为 123456`)
+    } catch (err) {
+      console.error(err)
+    }
   }).catch(() => {})
 }
 </script>

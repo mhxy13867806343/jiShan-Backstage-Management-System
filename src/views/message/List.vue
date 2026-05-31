@@ -66,6 +66,7 @@
           <span>批量删除 ({{ selectedIds.length }})</span>
         </el-button>
         <el-button 
+          v-if="hasDrafts"
           type="success" 
           plain 
           :disabled="selectedIds.length === 0"
@@ -77,7 +78,7 @@
       </div>
       <div class="right-stats">
         <span class="total-badge">
-          总消息: <b>{{ filteredMessages.length }}</b> 条
+          总消息: <b>{{ total }}</b> 条
         </span>
       </div>
     </div>
@@ -92,7 +93,7 @@
         border
         class="custom-table"
       >
-        <el-table-column type="selection" width="50" align="center" />
+        <el-table-column type="selection" width="50" align="center" :selectable="checkSelectable" />
         
         <el-table-column prop="message_id" label="消息编号" width="90" align="center" />
         
@@ -187,7 +188,7 @@
           v-model:page-size="pageSize"
           :page-sizes="[5, 10, 20]"
           layout="total, sizes, prev, pager, next, jumper"
-          :total="filteredMessages.length"
+          :total="total"
           @size-change="handleSizeChange"
           @current-change="handleCurrentChange"
         />
@@ -263,17 +264,19 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed } from 'vue'
-import { useMockDataStore, type MessageItem } from '@/store/mockData'
+import { ref, reactive, computed, onMounted } from 'vue'
+import { adminApi, type ApiSysMessage } from '@/api/admin'
 import { ElMessage, ElMessageBox, type FormInstance } from 'element-plus'
 import { Search, Refresh, Delete, Edit, Position, Close, Finished } from '@element-plus/icons-vue'
 
-const mockStore = useMockDataStore()
+type MessageItem = ApiSysMessage
+
 const loading = ref(false)
 const submitLoading = ref(false)
 const dialogVisible = ref(false)
 const dialogType = ref<'create' | 'edit'>('create')
 const selectedIds = ref<string[]>([])
+const messagesList = ref<MessageItem[]>([])
 
 // Pagination
 const currentPage = ref(1)
@@ -311,20 +314,37 @@ const formRules = {
   ]
 }
 
-// Compute filtered messages based on query parameters
-const filteredMessages = computed(() => {
-  return mockStore.messages.filter(m => {
-    const matchTitle = !queryParams.title || m.title.toLowerCase().includes(queryParams.title.toLowerCase())
-    const matchType = !queryParams.type || m.type === queryParams.type
-    const matchStatus = !queryParams.status || m.status === queryParams.status
-    return matchTitle && matchType && matchStatus
-  })
+const total = ref(0)
+
+const fetchMessages = async () => {
+  loading.value = true
+  try {
+    const res = await adminApi.getMessages({
+      keyword: queryParams.title,
+      type: queryParams.type,
+      status: queryParams.status,
+      page: currentPage.value,
+      limit: pageSize.value
+    })
+    messagesList.value = res.list
+    total.value = res.total
+  } catch (err) {
+    console.error('Fetch messages failed', err)
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(() => {
+  fetchMessages()
 })
 
-// Paginated data list
 const paginatedData = computed(() => {
-  const start = (currentPage.value - 1) * pageSize.value
-  return filteredMessages.value.slice(start, start + pageSize.value)
+  return messagesList.value
+})
+
+const hasDrafts = computed(() => {
+  return messagesList.value.some(item => item.status === '0')
 })
 
 // Helpers for tags UI representation
@@ -360,6 +380,7 @@ const getTargetLabel = (target: string) => {
 // Query operations
 const handleSearch = () => {
   currentPage.value = 1
+  fetchMessages()
 }
 
 const resetQuery = () => {
@@ -367,9 +388,14 @@ const resetQuery = () => {
   queryParams.type = ''
   queryParams.status = ''
   currentPage.value = 1
+  fetchMessages()
 }
 
 // Table events
+const checkSelectable = (row: MessageItem) => {
+  return row.status === '0'
+}
+
 const handleSelectionChange = (selection: MessageItem[]) => {
   selectedIds.value = selection.map(item => item.message_id)
 }
@@ -377,10 +403,12 @@ const handleSelectionChange = (selection: MessageItem[]) => {
 const handleSizeChange = (val: number) => {
   pageSize.value = val
   currentPage.value = 1
+  fetchMessages()
 }
 
 const handleCurrentChange = (val: number) => {
   currentPage.value = val
+  fetchMessages()
 }
 
 // CRUD Methods
@@ -416,12 +444,13 @@ const handleDelete = (row: MessageItem) => {
       type: 'warning',
       confirmButtonClass: 'el-button--danger'
     }
-  ).then(() => {
-    const success = mockStore.deleteMessage(row.message_id)
-    if (success) {
+  ).then(async () => {
+    try {
+      await adminApi.deleteMessage(row.message_id)
       ElMessage.success('系统消息已成功删除')
-    } else {
-      ElMessage.error('删除失败，未查找到对应消息 ID')
+      fetchMessages()
+    } catch (err) {
+      console.error(err)
     }
   }).catch(() => {})
 }
@@ -438,12 +467,17 @@ const handleBatchDelete = () => {
       type: 'warning',
       confirmButtonClass: 'el-button--danger'
     }
-  ).then(() => {
-    selectedIds.value.forEach(id => {
-      mockStore.deleteMessage(id)
-    })
-    ElMessage.success('批量删除消息成功')
-    selectedIds.value = []
+  ).then(async () => {
+    try {
+      for (const id of selectedIds.value) {
+        await adminApi.deleteMessage(id)
+      }
+      ElMessage.success('批量删除消息成功')
+      selectedIds.value = []
+      fetchMessages()
+    } catch (err) {
+      console.error(err)
+    }
   }).catch(() => {})
 }
 
@@ -457,40 +491,49 @@ const handleBatchPublish = () => {
       cancelButtonText: '取消',
       type: 'success'
     }
-  ).then(() => {
-    selectedIds.value.forEach(id => {
-      mockStore.updateMessage(id, { status: '1', pubTime: new Date().toISOString().replace('T', ' ').substring(0, 19) })
-    })
-    ElMessage.success('批量推送发布成功')
-    selectedIds.value = []
+  ).then(async () => {
+    try {
+      for (const id of selectedIds.value) {
+        await adminApi.updateMessage(id, { status: '1', pubTime: new Date().toISOString().replace('T', ' ').substring(0, 19) })
+      }
+      ElMessage.success('批量推送发布成功')
+      selectedIds.value = []
+      fetchMessages()
+    } catch (err) {
+      console.error(err)
+    }
   }).catch(() => {})
 }
 
 // Toggle publication
-const togglePublish = (row: MessageItem) => {
+const togglePublish = async (row: MessageItem) => {
   const newStatus = row.status === '1' ? '0' : '1'
   const actionText = newStatus === '1' ? '推送发布' : '下架撤回'
   
-  mockStore.updateMessage(row.message_id, {
-    status: newStatus,
-    pubTime: newStatus === '1' ? new Date().toISOString().replace('T', ' ').substring(0, 19) : row.pubTime
-  })
-  
-  ElMessage.success(`系统消息已成功${actionText}`)
+  try {
+    await adminApi.updateMessage(row.message_id, {
+      status: newStatus,
+      pubTime: newStatus === '1' ? new Date().toISOString().replace('T', ' ').substring(0, 19) : row.pubTime
+    })
+    ElMessage.success(`系统消息已成功${actionText}`)
+    fetchMessages()
+  } catch (err) {
+    console.error(err)
+  }
 }
 
 // Save form values
 const submitForm = async () => {
   if (!formRef.value) return
   
-  await formRef.value.validate((valid) => {
+  await formRef.value.validate(async (valid) => {
     if (valid) {
       submitLoading.value = true
-      
-      setTimeout(() => {
+      try {
         if (dialogType.value === 'create') {
-          mockStore.addMessage({
+          await adminApi.addMessage({
             title: formModel.title,
+            content: formModel.content,
             type: formModel.type,
             target: formModel.target,
             status: formModel.status,
@@ -498,8 +541,9 @@ const submitForm = async () => {
           })
           ElMessage.success('系统新推送消息已成功创建并保存！')
         } else {
-          mockStore.updateMessage(editingId.value, {
+          await adminApi.updateMessage(editingId.value, {
             title: formModel.title,
+            content: formModel.content,
             type: formModel.type,
             target: formModel.target,
             status: formModel.status,
@@ -507,10 +551,13 @@ const submitForm = async () => {
           })
           ElMessage.success('推送消息配置已成功更新')
         }
-        
-        submitLoading.value = false
         dialogVisible.value = false
-      }, 500)
+        fetchMessages()
+      } catch (err) {
+        console.error(err)
+      } finally {
+        submitLoading.value = false
+      }
     }
   })
 }

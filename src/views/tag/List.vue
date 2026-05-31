@@ -45,7 +45,7 @@
           <div class="tags-grid-wrapper">
             <el-row :gutter="20">
               <el-col 
-                v-for="tag in mockStore.tags" 
+                v-for="tag in tags" 
                 :key="tag" 
                 :xs="24" :sm="12" :md="8" :lg="6"
               >
@@ -80,7 +80,7 @@
                 </el-card>
               </el-col>
 
-              <el-col v-if="!mockStore.tags.length" :span="24">
+              <el-col v-if="!tags.length" :span="24">
                 <el-empty description="暂无平台配置的话题标签，请在上方快捷新增" />
               </el-col>
             </el-row>
@@ -154,13 +154,27 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useMockDataStore } from '@/store/mockData'
+import { adminApi } from '@/api/admin'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 const mockStore = useMockDataStore()
 const activeTab = ref('config')
 const newTagName = ref('')
+const tags = ref<string[]>([])
+
+const fetchTags = async () => {
+  try {
+    tags.value = await adminApi.getTags()
+  } catch (err) {
+    console.error('Fetch tags failed', err)
+  }
+}
+
+onMounted(() => {
+  fetchTags()
+})
 
 // Calculate usage count of this tag across mock posts
 const getTagPostCount = (tag: string) => {
@@ -189,7 +203,7 @@ const getTagScamCount = (tag: string) => {
 
 // Compute dynamic, highly realistic user search statistics
 const sortedSearchStats = computed(() => {
-  const list = mockStore.tags.map(tag => {
+  const list = tags.value.map(tag => {
     let hash = 0
     for (let i = 0; i < tag.length; i++) {
       hash += tag.charCodeAt(i) * (i + 3)
@@ -226,19 +240,20 @@ const sortedSearchStats = computed(() => {
   return list.sort((a, b) => b.searchCount - a.searchCount)
 })
 
-const handleCreateTag = () => {
+const handleCreateTag = async () => {
   const name = newTagName.value.trim().replace(/^#+/, '')
   if (!name) {
     ElMessage.warning('标签名称不能为空')
     return
   }
 
-  const success = mockStore.addTag(name)
-  if (success) {
-    ElMessage.success(`标签话题“#${name}”创建成功！已动态下发至模拟器推荐列表。`)
+  try {
+    await adminApi.addTag(name)
+    ElMessage.success(`标签话题“#${name}”创建成功！已动态下发至推荐列表。`)
     newTagName.value = ''
-  } else {
-    ElMessage.warning('该标签已存在')
+    fetchTags()
+  } catch (err: any) {
+    console.error(err)
   }
 }
 
@@ -257,12 +272,13 @@ const handleDeleteTag = (tag: string) => {
       type: usageCount > 0 ? 'warning' : 'info',
       confirmButtonClass: usageCount > 0 ? 'el-button--danger' : ''
     }
-  ).then(() => {
-    const success = mockStore.deleteTag(tag)
-    if (success) {
+  ).then(async () => {
+    try {
+      await adminApi.deleteTag(tag)
       ElMessage.success('标签话题已成功删除')
-    } else {
-      ElMessage.error('操作失败')
+      fetchTags()
+    } catch (err) {
+      console.error(err)
     }
   }).catch(() => {})
 }

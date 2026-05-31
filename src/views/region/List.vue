@@ -42,7 +42,7 @@
           <div class="regions-grid-wrapper">
             <el-row :gutter="20">
               <el-col 
-                v-for="region in mockStore.regions" 
+                v-for="region in regions" 
                 :key="region" 
                 :xs="24" :sm="12" :md="8" :lg="6"
               >
@@ -75,7 +75,7 @@
                 </el-card>
               </el-col>
 
-              <el-col v-if="!mockStore.regions.length" :span="24">
+              <el-col v-if="!regions.length" :span="24">
                 <el-empty description="暂无可选地标，请在右上方快捷增加或从全国区划导入" />
               </el-col>
             </el-row>
@@ -188,13 +188,27 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { useMockDataStore } from '@/store/mockData'
+import { adminApi } from '@/api/admin'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 const mockStore = useMockDataStore()
 const activeTab = ref('active_regions')
 const newRegionName = ref('')
+const regions = ref<string[]>([])
+
+const fetchRegions = async () => {
+  try {
+    regions.value = await adminApi.getRegions()
+  } catch (err) {
+    console.error('Fetch regions failed', err)
+  }
+}
+
+onMounted(() => {
+  fetchRegions()
+})
 
 // Calculate usage of this location in content text
 const getRegionPostCount = (region: string) => {
@@ -202,19 +216,20 @@ const getRegionPostCount = (region: string) => {
   return mockStore.posts.filter(p => p.content.includes(searchTerm)).length
 }
 
-const handleCreateRegion = () => {
+const handleCreateRegion = async () => {
   const name = newRegionName.value.trim()
   if (!name) {
     ElMessage.warning('位置名称不能为空')
     return
   }
 
-  const success = mockStore.addRegion(name)
-  if (success) {
-    ElMessage.success(`位置地标“${name}”创建成功！已动态装载至模拟器的位置列表中。`)
+  try {
+    await adminApi.addRegion(name)
+    ElMessage.success(`位置地标“${name}”创建成功！已动态装载至位置列表中。`)
     newRegionName.value = ''
-  } else {
-    ElMessage.warning('该地区地标已存在')
+    fetchRegions()
+  } catch (err) {
+    console.error(err)
   }
 }
 
@@ -233,12 +248,13 @@ const handleDeleteRegion = (region: string) => {
       type: usageCount > 0 ? 'warning' : 'info',
       confirmButtonClass: usageCount > 0 ? 'el-button--danger' : ''
     }
-  ).then(() => {
-    const success = mockStore.deleteRegion(region)
-    if (success) {
+  ).then(async () => {
+    try {
+      await adminApi.deleteRegion(region)
       ElMessage.success('定位地标已成功删除')
-    } else {
-      ElMessage.error('操作失败')
+      fetchRegions()
+    } catch (err) {
+      console.error(err)
     }
   }).catch(() => {})
 }
@@ -428,7 +444,7 @@ const flatNationwideList = computed(() => {
       const distName = district.replace('区', '').replace('县', '')
       const strName = node.label.replace('街道', '').replace('镇', '')
       const appLocationFormat = `${distName}·${strName}`
-      const isAlreadyActive = mockStore.regions.includes(appLocationFormat)
+      const isAlreadyActive = regions.value.includes(appLocationFormat)
       
       result.push({
         value: node.value,

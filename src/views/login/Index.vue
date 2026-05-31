@@ -66,6 +66,8 @@ import { useAuthStore } from '@/store/auth'
 import { ElMessage } from 'element-plus'
 import type { FormInstance } from 'element-plus'
 
+import { adminApi } from '@/api/admin'
+
 const router = useRouter()
 const authStore = useAuthStore()
 const loginFormRef = ref<FormInstance>()
@@ -90,22 +92,23 @@ const loginRules = {
 const handleLogin = async () => {
   if (!loginFormRef.value) return
   
-  await loginFormRef.value.validate((valid) => {
+  await loginFormRef.value.validate(async (valid) => {
     if (valid) {
       loading.value = true
-      
-      // Simulate synchronous local login
-      setTimeout(() => {
-        if (loginForm.username === 'admin' && loginForm.password === '123456') {
-          const generatedToken = 'admin_token_' + Math.random().toString(36).substring(2)
-          authStore.login(loginForm.username, generatedToken)
+      try {
+        const res = await adminApi.login(loginForm.username, loginForm.password)
+        if (res.code === 200 && res.data) {
+          authStore.login(res.data.username || loginForm.username, res.data.token)
           ElMessage.success('欢迎回来，运营管理员！')
           router.push('/dashboard')
         } else {
-          ElMessage.error('用户名或密码错误')
+          ElMessage.error(res.message || '用户名或密码错误')
         }
+      } catch (err: any) {
+        // Axios error message is handled by request interceptor, but we catch to clear loading
+      } finally {
         loading.value = false
-      }, 300)
+      }
     }
   })
 }

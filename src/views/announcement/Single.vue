@@ -139,11 +139,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, shallowRef, onBeforeUnmount } from 'vue'
+import { ref, reactive, shallowRef, onBeforeUnmount, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import type { FormInstance } from 'element-plus'
 import { Editor, Toolbar } from '@wangeditor/editor-for-vue'
 import type { IDomEditor, IEditorConfig, IToolbarConfig } from '@wangeditor/editor'
+import { adminApi } from '@/api/admin'
 
 const formRef = ref<FormInstance>()
 const saving = ref(false)
@@ -183,6 +184,22 @@ const rules = {
   title: [{ required: true, message: '请输入公告标题', trigger: 'blur' }],
 }
 
+const fetchSingleBanner = async () => {
+  try {
+    const res = await adminApi.getAnnouncements({ keyword: '' })
+    const found = res.list.find(a => a.id === 'SINGLE_BANNER')
+    if (found) {
+      Object.assign(form, { ...found, statusActive: found.status === 'active' })
+    }
+  } catch (err) {
+    console.error('Fetch single banner failed', err)
+  }
+}
+
+onMounted(() => {
+  fetchSingleBanner()
+})
+
 const handleReset = () => {
   const def = defaultForm()
   Object.assign(form, def)
@@ -197,10 +214,24 @@ const handleSave = async () => {
     return
   }
   saving.value = true
-  setTimeout(() => {
-    saving.value = false
+  try {
+    await adminApi.saveAnnouncement({
+      id: 'SINGLE_BANNER',
+      title: form.title,
+      type: form.type,
+      content: form.content,
+      link: form.link,
+      pinned: true,
+      startTime: form.startTime,
+      endTime: form.endTime,
+      status: form.statusActive ? 'active' : 'inactive'
+    })
     ElMessage.success('单公告已保存并发布')
-  }, 500)
+  } catch (err) {
+    console.error('Save single banner failed', err)
+  } finally {
+    saving.value = false
+  }
 }
 </script>
 

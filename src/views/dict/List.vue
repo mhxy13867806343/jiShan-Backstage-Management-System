@@ -314,10 +314,9 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
-import { useMockDataStore } from '@/store/mockData'
+import { adminApi, type ApiDictItem } from '@/api/admin'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
-const mockStore = useMockDataStore()
 const loading = ref(false)
 
 // RuoYi mock dictionary types
@@ -338,6 +337,19 @@ const queryParams = reactive({
 const currentPage = ref(1)
 const pageSize = ref(10)
 const selectedRows = ref<any[]>([])
+const dictsState = ref<Record<string, ApiDictItem[]>>({})
+
+const fetchDicts = async () => {
+  try {
+    dictsState.value = await adminApi.getDicts()
+  } catch (err) {
+    console.error('Fetch dicts failed', err)
+  }
+}
+
+onMounted(() => {
+  fetchDicts()
+})
 
 // Load dictionary items recursively to format child sub-levels
 const formatDictList = (list: any[], parentIndexPrefix = ''): any[] => {
@@ -357,7 +369,7 @@ const formatDictList = (list: any[], parentIndexPrefix = ''): any[] => {
 }
 
 const dictList = computed(() => {
-  const rawList = mockStore.dicts[queryParams.dictType] || []
+  const rawList = dictsState.value[queryParams.dictType] || []
   return formatDictList(rawList)
 })
 
@@ -417,7 +429,7 @@ const dialogVisible = ref(false)
 const dialogTitle = ref('')
 const isEditState = ref(false)
 const formRef = ref()
-const form = ref({
+const form = reactive({
   label: '',
   value: '',
   dictSort: 1,
@@ -431,19 +443,19 @@ const rules = {
     { required: true, message: '字典键值不能为空', trigger: 'blur' },
     { pattern: /^[a-zA-Z0-9_]+$/, message: '键值只能是英文、数字或下划线', trigger: 'blur' }
   ],
-  dictSort: [{ required: true, message: '排序不能为空', trigger: 'blur' }]
+  dictSort: [{ required: true, type: 'number', message: '排序不能为空', trigger: 'blur' }]
 }
 
 const handleAdd = () => {
   isEditState.value = false
   dialogTitle.value = '新增字典数据'
-  form.value = {
+  Object.assign(form, {
     label: '',
     value: '',
     dictSort: dictList.value.length + 1,
     status: '0',
     remark: ''
-  }
+  })
   dialogVisible.value = true
 }
 
@@ -452,58 +464,64 @@ const handleUpdate = () => {
   handleEditRow(selectedRows.value[0])
 }
 
-const handleEditRow = (row: any) => {
+const handleEditRow = async (row: any) => {
   isEditState.value = true
   dialogTitle.value = '修改字典数据'
-  form.value = {
-    label: row.label,
-    value: row.value,
-    dictSort: row.dictSort,
-    status: row.status,
-    remark: row.remark
+  try {
+    const res = await adminApi.getDictById(row.dictCode)
+    const freshDetail = res.data
+    Object.assign(form, {
+      label: freshDetail.label,
+      value: freshDetail.value,
+      dictSort: freshDetail.sort || 1,
+      status: freshDetail.status === 'enabled' ? '0' : '1',
+      remark: freshDetail.remark || ''
+    })
+    dialogVisible.value = true
+  } catch (err) {
+    console.error(err)
+    ElMessage.error('获取字典详情失败')
   }
-  dialogVisible.value = true
 }
 
 const submitForm = () => {
-  formRef.value.validate((valid: boolean) => {
+  formRef.value.validate(async (valid: boolean) => {
     if (!valid) return
     
-    if (isEditState.value) {
-      // Modify
-      const success = mockStore.updateDictItem(queryParams.dictType, form.value.value, {
-        label: form.value.label,
-        dictSort: form.value.dictSort,
-        status: form.value.status as '0' | '1',
-        remark: form.value.remark
-      })
-      if (success) {
+    try {
+      if (isEditState.value) {
+        // Modify
+        await adminApi.updateDictItem(queryParams.dictType, form.value, {
+          label: form.label,
+          dictSort: form.dictSort,
+          status: form.status as '0' | '1',
+          remark: form.remark
+        })
         ElMessage.success('字典项修改成功！已即时同步。')
         dialogVisible.value = false
         selectedRows.value = []
+        fetchDicts()
       } else {
-        ElMessage.error('字典项修改失败')
-      }
-    } else {
-      // Add
-      const success = mockStore.addDictItem(
-        queryParams.dictType, 
-        {
-          value: form.value.value,
-          label: form.value.label,
-          dictSort: form.value.dictSort,
-          status: form.value.status as '0' | '1',
-          remark: form.value.remark,
-          children: []
-        }
-      )
-      if (success) {
+        // Add
+        await adminApi.addDictItem(
+          queryParams.dictType, 
+          {
+            value: form.value,
+            label: form.label,
+            dictSort: form.dictSort,
+            status: form.status as '0' | '1',
+            remark: form.remark,
+            children: []
+          }
+        )
         ElMessage.success('新增字典数据成功！')
         dialogVisible.value = false
         selectedRows.value = []
-      } else {
-        ElMessage.error('添加失败，字典键值(Value)可能已存在！')
+        fetchDicts()
       }
+    } catch (err: any) {
+      console.error(err)
+      ElMessage.error(err.message || '操作失败')
     }
   })
 }
@@ -523,13 +541,14 @@ const handleDeleteRow = (row: any) => {
       cancelButtonText: '取消',
       type: 'warning'
     }
-  ).then(() => {
-    const success = mockStore.deleteDictItem(queryParams.dictType, row.value)
-    if (success) {
+  ).then(async () => {
+    try {
+      await adminApi.deleteDictItem(queryParams.dictType, row.value)
       ElMessage.success('字典项已成功移除！')
       selectedRows.value = []
-    } else {
-      ElMessage.error('删除操作失败')
+      fetchDicts()
+    } catch (err) {
+      console.error(err)
     }
   }).catch(() => {})
 }
@@ -554,16 +573,20 @@ const handleBatchDelete = () => {
       cancelButtonText: '取消',
       type: 'warning'
     }
-  ).then(() => {
+  ).then(async () => {
     loading.value = true
-    setTimeout(() => {
-      selectedRows.value.forEach(row => {
-        mockStore.deleteDictItem(queryParams.dictType, row.value)
-      })
-      loading.value = false
+    try {
+      for (const row of selectedRows.value) {
+        await adminApi.deleteDictItem(queryParams.dictType, row.value)
+      }
       ElMessage.success('批量删除成功！')
       selectedRows.value = []
-    }, 500)
+      fetchDicts()
+    } catch (err) {
+      console.error(err)
+    } finally {
+      loading.value = false
+    }
   }).catch(() => {})
 }
 
@@ -577,7 +600,7 @@ const childFormVisible = ref(false)
 const isChildEditState = ref(false)
 const childDialogTitle = ref('')
 const childFormRef = ref()
-const childForm = ref({
+const childForm = reactive({
   label: '',
   value: '',
   dictSort: 1,
@@ -591,7 +614,7 @@ const childRules = {
     { required: true, message: '字典键值不能为空', trigger: 'blur' },
     { pattern: /^[a-zA-Z0-9_]+$/, message: '键值只能是英文、数字或下划线', trigger: 'blur' }
   ],
-  dictSort: [{ required: true, message: '排序不能为空', trigger: 'blur' }]
+  dictSort: [{ required: true, type: 'number', message: '排序不能为空', trigger: 'blur' }]
 }
 
 // Extract children dynamically from the reactive list
@@ -611,35 +634,43 @@ const subFormattedList = computed(() => {
   return parentInList ? parentInList.children || [] : []
 })
 
-const handleManageSubItems = (row: any) => {
+const handleManageSubItems = async (row: any) => {
   currentParentRow.value = row
   subManagerVisible.value = true
+  await fetchDicts() // Trigger a real backend query and Network request
 }
 
 const handleChildAdd = () => {
   isChildEditState.value = false
   childDialogTitle.value = '新增下级字典'
-  childForm.value = {
+  Object.assign(childForm, {
     label: '',
     value: '',
     dictSort: subFormattedList.value.length + 1,
     status: '0',
     remark: ''
-  }
+  })
   childFormVisible.value = true
 }
 
-const handleChildEdit = (row: any) => {
+const handleChildEdit = async (row: any) => {
   isChildEditState.value = true
   childDialogTitle.value = '修改下级字典'
-  childForm.value = {
-    label: row.label,
-    value: row.value,
-    dictSort: row.dictSort,
-    status: row.status,
-    remark: row.remark
+  try {
+    const res = await adminApi.getDictById(row.dictCode)
+    const freshDetail = res.data
+    Object.assign(childForm, {
+      label: freshDetail.label,
+      value: freshDetail.value,
+      dictSort: freshDetail.sort || 1,
+      status: freshDetail.status === 'enabled' ? '0' : '1',
+      remark: freshDetail.remark || ''
+    })
+    childFormVisible.value = true
+  } catch (err) {
+    console.error(err)
+    ElMessage.error('获取下级字典详情失败')
   }
-  childFormVisible.value = true
 }
 
 const handleChildDelete = (row: any) => {
@@ -657,54 +688,54 @@ const handleChildDelete = (row: any) => {
       cancelButtonText: '取消',
       type: 'warning'
     }
-  ).then(() => {
-    const success = mockStore.deleteDictItem(queryParams.dictType, row.value)
-    if (success) {
+  ).then(async () => {
+    try {
+      await adminApi.deleteDictItem(queryParams.dictType, row.value)
       ElMessage.success('下级字典项已成功移除！')
-    } else {
-      ElMessage.error('删除操作失败')
+      fetchDicts()
+    } catch (err) {
+      console.error(err)
     }
   }).catch(() => {})
 }
 
 const submitChildForm = () => {
-  childFormRef.value.validate((valid: boolean) => {
+  childFormRef.value.validate(async (valid: boolean) => {
     if (!valid) return
     
-    if (isChildEditState.value) {
-      // Modify
-      const success = mockStore.updateDictItem(queryParams.dictType, childForm.value.value, {
-        label: childForm.value.label,
-        dictSort: childForm.value.dictSort,
-        status: childForm.value.status as '0' | '1',
-        remark: childForm.value.remark
-      })
-      if (success) {
+    try {
+      if (isChildEditState.value) {
+        // Modify
+        await adminApi.updateDictItem(queryParams.dictType, childForm.value, {
+          label: childForm.label,
+          dictSort: childForm.dictSort,
+          status: childForm.status as '0' | '1',
+          remark: childForm.remark
+        })
         ElMessage.success('下级字典项修改成功！已即时同步。')
         childFormVisible.value = false
+        fetchDicts()
       } else {
-        ElMessage.error('修改失败')
-      }
-    } else {
-      // Add under active parent
-      const success = mockStore.addDictItem(
-        queryParams.dictType, 
-        {
-          value: childForm.value.value,
-          label: childForm.value.label,
-          dictSort: childForm.value.dictSort,
-          status: childForm.value.status as '0' | '1',
-          remark: childForm.value.remark,
-          children: []
-        },
-        currentParentRow.value?.value
-      )
-      if (success) {
+        // Add under active parent
+        await adminApi.addDictItem(
+          queryParams.dictType, 
+          {
+            value: childForm.value,
+            label: childForm.label,
+            dictSort: childForm.dictSort,
+            status: childForm.status as '0' | '1',
+            remark: childForm.remark,
+            children: []
+          },
+          currentParentRow.value?.value
+        )
         ElMessage.success('新增下级字典成功！')
         childFormVisible.value = false
-      } else {
-        ElMessage.error('添加失败，字典键值可能已存在！')
+        fetchDicts()
       }
+    } catch (err: any) {
+      console.error(err)
+      ElMessage.error(err.message || '操作失败')
     }
   })
 }
