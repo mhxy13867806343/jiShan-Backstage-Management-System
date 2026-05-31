@@ -5,29 +5,70 @@
     <div class="page-header premium-card">
       <div class="header-left">
         <h2>公告列表</h2>
-        <p>管理所有 App 内推送公告，支持新增、编辑、上下架操作。</p>
+        <p>管理所有 App 内推送公告，支持新增、编辑、批量上下架操作。</p>
       </div>
       <el-button type="primary" icon="Plus" @click="openDialog()">新增公告</el-button>
     </div>
 
     <!-- Filter Bar -->
     <div class="filter-bar premium-card">
-      <el-input v-model="searchKw" placeholder="搜索标题/内容" prefix-icon="Search" clearable style="width: 220px" />
-      <el-select v-model="filterType" placeholder="类型" clearable style="width: 130px">
+      <el-input v-model="searchKw" placeholder="搜索标题/内容" prefix-icon="Search" clearable style="width: 220px" @input="currentPage = 1" />
+      <el-select v-model="filterType" placeholder="类型" clearable style="width: 130px" @change="currentPage = 1">
         <el-option label="普通通知" value="info" />
         <el-option label="重要提醒" value="warning" />
         <el-option label="紧急公告" value="danger" />
       </el-select>
-      <el-select v-model="filterStatus" placeholder="状态" clearable style="width: 120px">
+      <el-select v-model="filterStatus" placeholder="状态" clearable style="width: 120px" @change="currentPage = 1">
         <el-option label="已发布" value="active" />
         <el-option label="已停用" value="inactive" />
       </el-select>
       <el-button icon="RefreshLeft" @click="resetFilters">重置</el-button>
     </div>
 
-    <!-- Table -->
+    <!-- Table Card -->
     <div class="table-card premium-card">
-      <el-table :data="filteredList" stripe style="width: 100%">
+
+      <!-- Toolbar -->
+      <div class="table-toolbar">
+        <div class="toolbar-left">
+          <el-button type="success" plain icon="VideoPlay" :disabled="selectedIds.length === 0" @click="handleBatchPublish">
+            批量发布 <span v-if="selectedIds.length > 0">({{ selectedIds.length }})</span>
+          </el-button>
+          <el-button type="warning" plain icon="VideoPause" :disabled="selectedIds.length === 0" @click="handleBatchDisable">
+            批量停用 <span v-if="selectedIds.length > 0">({{ selectedIds.length }})</span>
+          </el-button>
+          <el-button type="danger" plain icon="Delete" :disabled="selectedIds.length === 0" @click="handleBatchDelete">
+            批量删除 <span v-if="selectedIds.length > 0">({{ selectedIds.length }})</span>
+          </el-button>
+        </div>
+      </div>
+
+      <!-- Batch Action Bar -->
+      <div class="batch-action-bar" v-if="selectedIds.length > 0">
+        <el-icon><InfoFilled /></el-icon>
+        <span>已选 <b>{{ selectedIds.length }}</b> 个公告（支持跨页保留选择）</span>
+        <el-button size="small" @click="selectedIds = []">清除选择</el-button>
+      </div>
+
+      <!-- Table with Cross-page selection column -->
+      <el-table :data="paginatedList" stripe style="width: 100%">
+        
+        <!-- Checkbox column -->
+        <el-table-column width="50" align="center">
+          <template #header>
+            <el-checkbox
+              :model-value="isCurrentPageAllSelected"
+              :indeterminate="isCurrentPageIndeterminate"
+              @change="handleSelectCurrentPage"
+            />
+          </template>
+          <template #default="{ row }">
+            <el-checkbox
+              :model-value="selectedIds.includes(row.id)"
+              @change="(val: boolean) => toggleSelect(row.id, val)"
+            />
+          </template>
+        </el-table-column>
 
         <el-table-column label="类型" width="100" align="center">
           <template #default="{ row }">
@@ -85,6 +126,20 @@
           </template>
         </el-table-column>
       </el-table>
+
+      <!-- Pagination -->
+      <div class="pagination-container">
+        <el-pagination
+          v-model:current-page="currentPage"
+          v-model:page-size="pageSize"
+          :page-sizes="[5, 10, 20, 50]"
+          layout="total, sizes, prev, pager, next, jumper"
+          :total="totalCount"
+          background
+          @size-change="handleSizeChange"
+          @current-change="handleCurrentChange"
+        />
+      </div>
     </div>
 
     <!-- Add/Edit Dialog — full width rich text -->
@@ -172,8 +227,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, shallowRef } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ref, reactive, computed, shallowRef, watch } from 'vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance } from 'element-plus'
 import { Editor, Toolbar } from '@wangeditor/editor-for-vue'
 import type { IDomEditor, IEditorConfig, IToolbarConfig } from '@wangeditor/editor'
@@ -241,6 +296,39 @@ const list = ref<AnnItem[]>([
     endTime: '2026-05-06 23:59',
     status: 'inactive',
   },
+  {
+    id: 'N004',
+    title: '即闪 App 社交版块上线庆典',
+    type: 'info',
+    content: '<p>庆祝即闪 App 社区功能上线，发布动态即可瓜分<strong>万元话费红包</strong>，快来参与吧！</p>',
+    link: '',
+    pinned: false,
+    startTime: '2026-05-15 09:00',
+    endTime: '2026-06-15 00:00',
+    status: 'active',
+  },
+  {
+    id: 'N005',
+    title: '【重要声明】防范网络理财诈骗风险',
+    type: 'danger',
+    content: '<p>即闪平台从未设立任何“投资群”或“代客理财”服务。请广大用户提高警惕，切勿向陌生账户转账。</p>',
+    link: '',
+    pinned: false,
+    startTime: '2026-05-10 08:00',
+    endTime: '',
+    status: 'active',
+  },
+  {
+    id: 'N006',
+    title: '微信支付通道临时维护公告',
+    type: 'warning',
+    content: '<p>微信支付将于 <strong>2026-05-05 03:00-03:30</strong> 进行系统维护，期间微信支付功能可能出现短暂波动，建议使用支付宝付款。</p>',
+    link: '',
+    pinned: false,
+    startTime: '2026-05-04 12:00',
+    endTime: '2026-05-05 04:00',
+    status: 'inactive',
+  }
 ])
 
 // ── Filters ──────────────────────────────────────────────────────
@@ -259,7 +347,114 @@ const filteredList = computed(() => {
   })
 })
 
-const resetFilters = () => { searchKw.value = ''; filterType.value = ''; filterStatus.value = '' }
+const resetFilters = () => {
+  searchKw.value = ''
+  filterType.value = ''
+  filterStatus.value = ''
+  currentPage.value = 1
+}
+
+// ── Pagination ───────────────────────────────────────────────────
+const currentPage = ref(1)
+const pageSize = ref(5) // default 5 for gorgeous pagination display since we have 6 items
+
+const totalCount = computed(() => filteredList.value.length)
+
+const paginatedList = computed(() => {
+  const start = (currentPage.value - 1) * pageSize.value
+  return filteredList.value.slice(start, start + pageSize.value)
+})
+
+const handleSizeChange = (val: number) => {
+  pageSize.value = val
+  currentPage.value = 1
+}
+
+const handleCurrentChange = (val: number) => {
+  currentPage.value = val
+}
+
+// ── Checkboxes & Selection Logic ─────────────────────────────────
+const selectedIds = ref<string[]>([])
+
+const isCurrentPageAllSelected = computed(() => {
+  return paginatedList.value.length > 0 && paginatedList.value.every(r => selectedIds.value.includes(r.id))
+})
+
+const isCurrentPageIndeterminate = computed(() => {
+  return paginatedList.value.some(r => selectedIds.value.includes(r.id)) && !isCurrentPageAllSelected.value
+})
+
+const toggleSelect = (id: string, val: boolean) => {
+  if (val) {
+    if (!selectedIds.value.includes(id)) {
+      selectedIds.value = [...selectedIds.value, id]
+    }
+  } else {
+    selectedIds.value = selectedIds.value.filter(x => x !== id)
+  }
+}
+
+const handleSelectCurrentPage = (val: boolean) => {
+  const pageIds = paginatedList.value.map(r => r.id)
+  if (val) {
+    const merged = new Set([...selectedIds.value, ...pageIds])
+    selectedIds.value = [...merged]
+  } else {
+    selectedIds.value = selectedIds.value.filter(id => !pageIds.includes(id))
+  }
+}
+
+// Watch filters to clear selections that are filtered out
+watch([searchKw, filterType, filterStatus], () => {
+  selectedIds.value = []
+})
+
+// ── Bulk Actions ──────────────────────────────────────────────────
+const handleBatchPublish = () => {
+  ElMessageBox.confirm(
+    `确定要批量发布选中的 ${selectedIds.value.length} 个公告吗？`,
+    '系统提示',
+    { confirmButtonText: '确定', cancelButtonText: '取消', type: 'success' }
+  ).then(() => {
+    list.value.forEach(item => {
+      if (selectedIds.value.includes(item.id)) {
+        item.status = 'active'
+      }
+    })
+    ElMessage.success('批量发布成功')
+    selectedIds.value = []
+  }).catch(() => {})
+}
+
+const handleBatchDisable = () => {
+  ElMessageBox.confirm(
+    `确定要批量停用选中的 ${selectedIds.value.length} 个公告吗？`,
+    '系统提示',
+    { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' }
+  ).then(() => {
+    list.value.forEach(item => {
+      if (selectedIds.value.includes(item.id)) {
+        item.status = 'inactive'
+      }
+    })
+    ElMessage.success('批量停用成功')
+    selectedIds.value = []
+  }).catch(() => {})
+}
+
+const handleBatchDelete = () => {
+  ElMessageBox.confirm(
+    `确定要批量删除选中的 ${selectedIds.value.length} 个公告吗？此操作不可逆！`,
+    '安全警告',
+    { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' }
+  ).then(() => {
+    list.value = list.value.filter(item => !selectedIds.value.includes(item.id))
+    ElMessage.success('批量删除成功')
+    selectedIds.value = []
+    currentPage.value = 1
+  }).catch(() => {})
+}
 
 // ── Helpers ──────────────────────────────────────────────────────
 const typeTagMap: Record<string, string> = { info: '', warning: 'warning', danger: 'danger' }
@@ -359,7 +554,43 @@ const deleteAnn = (id: string) => {
   display: flex; align-items: center; gap: 12px; padding: 14px 20px; flex-wrap: wrap;
 }
 
-.table-card { padding: 0; overflow: hidden; }
+.table-card { padding: 24px; overflow: hidden; }
+
+/* ── Toolbar ── */
+.table-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* ── Batch action bar ── */
+.batch-action-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: #fff7e6;
+  border: 1px solid #ffd591;
+  border-radius: 8px;
+  margin-bottom: 12px;
+  font-size: 13px;
+  color: #874d00;
+  animation: slideDown 0.2s ease;
+}
+.batch-action-bar b { color: #d46b08; }
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
 
 .title-cell { display: flex; align-items: center; }
 .ann-title  { font-weight: 600; color: var(--text-main); }
@@ -367,6 +598,13 @@ const deleteAnn = (id: string) => {
 .content-preview {
   font-size: 12px; color: var(--text-muted);
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+
+/* ── Pagination ── */
+.pagination-container {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 20px;
 }
 
 /* ── Rich text editor in dialog ── */
