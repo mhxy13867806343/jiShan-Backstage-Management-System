@@ -244,10 +244,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/store/auth'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { adminApi } from '@/api/admin'
 
 interface TagItem {
   name: string
@@ -349,16 +350,70 @@ const toggleFullScreen = () => {
 }
 
 // ── Notifications ────────────────────────────────────────────────
-const notifications = ref([
-  { id: 1, title: '新用户注册通知: 今天已有24名新用户加入即闪', time: '5分钟前', unread: true },
-  { id: 2, title: '系统日志警告: 服务器CPU使用率达到82%', time: '2小时前', unread: true },
-  { id: 3, title: '意见反馈: 收到用户【即闪003】的举报反馈', time: '5小时前', unread: true },
-])
+const notifications = ref<any[]>([])
+
+const fetchNotifications = async () => {
+  try {
+    const res = await adminApi.getMessages({
+      status: '1', // 只获取已推送的消息
+      page: 1,
+      limit: 10
+    })
+    
+    // 只获取前 3 条数据，其他的数据直接跳过/忽略
+    const list = (res.list || []).slice(0, 3)
+    
+    notifications.value = list.map((item: any) => {
+      let timeStr = item.pubTime
+      if (timeStr && timeStr !== '--') {
+        try {
+          const now = new Date()
+          const pubDate = new Date(timeStr.replace(/-/g, '/'))
+          const diffMs = now.getTime() - pubDate.getTime()
+          const diffMins = Math.floor(diffMs / (1000 * 60))
+          const diffHours = Math.floor(diffMs / (1000 * 60 * 60))
+          const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+          
+          if (diffMins < 60) {
+            timeStr = diffMins <= 0 ? '刚刚' : `${diffMins}分钟前`
+          } else if (diffHours < 24) {
+            timeStr = `${diffHours}小时前`
+          } else if (diffDays < 7) {
+            timeStr = `${diffDays}天前`
+          } else {
+            timeStr = timeStr.substring(5, 16)
+          }
+        } catch (e) {
+          // Fallback
+        }
+      } else {
+        timeStr = '刚刚'
+      }
+
+      const readKey = `read_msg_${item.message_id}`
+      const isRead = localStorage.getItem(readKey) === 'true'
+
+      return {
+        id: item.message_id,
+        title: item.title,
+        time: timeStr,
+        unread: !isRead
+      }
+    })
+  } catch (err) {
+    console.error('获取系统消息失败', err)
+  }
+}
+
+onMounted(() => {
+  fetchNotifications()
+})
 
 const unreadCount = computed(() => notifications.value.filter(n => n.unread).length)
 
 const handleNotificationClick = (item: any) => {
   item.unread = false
+  localStorage.setItem(`read_msg_${item.id}`, 'true')
   ElMessage.info(`已标记为已读`)
 }
 
