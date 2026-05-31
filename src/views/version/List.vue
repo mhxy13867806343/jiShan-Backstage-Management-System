@@ -36,20 +36,21 @@
 
     <!-- Filter Bar -->
     <div class="filter-bar premium-card">
-      <el-select v-model="filterPlatform" placeholder="平台" clearable style="width: 140px" @change="currentPage = 1">
+      <el-select v-model="filterPlatform" placeholder="平台" clearable style="width: 140px">
         <el-option label="iOS" value="iOS" />
         <el-option label="Android" value="Android" />
         <el-option label="HarmonyOS" value="HarmonyOS" />
       </el-select>
-      <el-select v-model="filterStatus" placeholder="状态" clearable style="width: 120px" @change="currentPage = 1">
+      <el-select v-model="filterStatus" placeholder="状态" clearable style="width: 120px">
         <el-option label="已发布" value="released" />
         <el-option label="灰度中" value="beta" />
         <el-option label="已下线" value="deprecated" />
       </el-select>
-      <el-select v-model="filterForce" placeholder="更新类型" clearable style="width: 130px" @change="currentPage = 1">
+      <el-select v-model="filterForce" placeholder="更新类型" clearable style="width: 130px">
         <el-option label="强制更新" value="true" />
         <el-option label="可选更新" value="false" />
       </el-select>
+      <el-button type="primary" icon="Search" @click="handleSearch">查询</el-button>
       <el-button icon="RefreshLeft" @click="resetFilters">重置</el-button>
     </div>
 
@@ -350,16 +351,38 @@ const stripHtml = (html: string) => {
 const list = ref<VersionItem[]>([])
 const loading = ref(false)
 
-const fetchVersions = async () => {
+const fetchVersions = async (queryParams?: { platform?: string; status?: string; forceUpdate?: string }) => {
   loading.value = true
   try {
-    const res = await adminApi.getVersions({ page: 1, limit: 9999 })
-    list.value = res.list
+    const params: Record<string, any> = { page: 1, limit: 9999 }
+    if (queryParams?.platform) params.platform = queryParams.platform
+    if (queryParams?.status) params.status = queryParams.status
+    if (queryParams?.forceUpdate !== undefined && queryParams?.forceUpdate !== '') {
+      params.forceUpdate = queryParams.forceUpdate
+    }
+    const res = await adminApi.getVersions(params)
+    // 兼容后端直接返回数组 或 { list, total } 两种格式
+    if (Array.isArray(res)) {
+      list.value = res
+    } else {
+      list.value = res?.list ?? []
+    }
+    currentPage.value = 1
   } catch (err) {
     console.error('Fetch versions failed', err)
+    list.value = []
   } finally {
     loading.value = false
   }
+}
+
+// 点击查询按钮 → 带当前筛选条件调用后端接口
+const handleSearch = () => {
+  fetchVersions({
+    platform: filterPlatform.value,
+    status: filterStatus.value,
+    forceUpdate: filterForce.value
+  })
 }
 
 onMounted(() => {
@@ -386,20 +409,15 @@ const filterPlatform = ref('')
 const filterStatus = ref('')
 const filterForce = ref('')
 
-const filteredList = computed(() => {
-  return list.value.filter(v => {
-    const matchPlatform = !filterPlatform.value || v.platform === filterPlatform.value
-    const matchStatus = !filterStatus.value || v.status === filterStatus.value
-    const matchForce = !filterForce.value || String(v.forceUpdate) === filterForce.value
-    return matchPlatform && matchStatus && matchForce
-  })
-})
+// API 已在后端筛选，filteredList 直接返回结果即可
+const filteredList = computed(() => list.value)
 
 const resetFilters = () => {
   filterPlatform.value = ''
   filterStatus.value = ''
   filterForce.value = ''
   currentPage.value = 1
+  fetchVersions() // 重置后重新加载全量数据
 }
 
 // ── Shared Composable hooks: Pagination ───────────────────────────

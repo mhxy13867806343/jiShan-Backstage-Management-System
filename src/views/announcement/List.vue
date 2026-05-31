@@ -12,16 +12,17 @@
 
     <!-- Filter Bar -->
     <div class="filter-bar premium-card">
-      <el-input v-model="searchKw" placeholder="搜索标题/内容" prefix-icon="Search" clearable style="width: 220px" @input="currentPage = 1" />
-      <el-select v-model="filterType" placeholder="类型" clearable style="width: 130px" @change="currentPage = 1">
+      <el-input v-model="searchKw" placeholder="搜索标题/内容" prefix-icon="Search" clearable style="width: 220px" @keyup.enter="handleSearch" />
+      <el-select v-model="filterType" placeholder="类型" clearable style="width: 130px">
         <el-option label="普通通知" value="info" />
         <el-option label="重要提醒" value="warning" />
         <el-option label="紧急公告" value="danger" />
       </el-select>
-      <el-select v-model="filterStatus" placeholder="状态" clearable style="width: 120px" @change="currentPage = 1">
+      <el-select v-model="filterStatus" placeholder="状态" clearable style="width: 120px">
         <el-option label="已发布" value="active" />
         <el-option label="已停用" value="inactive" />
       </el-select>
+      <el-button type="primary" icon="Search" @click="handleSearch">查询</el-button>
       <el-button icon="RefreshLeft" @click="resetFilters">重置</el-button>
     </div>
 
@@ -261,19 +262,36 @@ const stripHtml = (html: string) => {
 const list = ref<AnnItem[]>([])
 const loading = ref(false)
 
-const fetchAnnouncements = async () => {
+const fetchAnnouncements = async (queryParams?: { keyword?: string; type?: string; status?: string }) => {
   loading.value = true
   try {
-    const res = await adminApi.getAnnouncements({
-      page: 1,
-      limit: 9999
-    })
-    list.value = res.list
+    const params: Record<string, any> = { page: 1, limit: 9999 }
+    if (queryParams?.keyword) params.keyword = queryParams.keyword
+    if (queryParams?.type) params.type = queryParams.type
+    if (queryParams?.status) params.status = queryParams.status
+    const res = await adminApi.getAnnouncements(params)
+    // 兼容后端直接返回数组 或 { list, total } 两种格式
+    if (Array.isArray(res)) {
+      list.value = res
+    } else {
+      list.value = res?.list ?? []
+    }
+    currentPage.value = 1
   } catch (err) {
     console.error('Fetch announcements failed', err)
+    list.value = []
   } finally {
     loading.value = false
   }
+}
+
+// 点击查询按钮 → 带当前筛选条件调用后端接口
+const handleSearch = () => {
+  fetchAnnouncements({
+    keyword: searchKw.value,
+    type: filterType.value,
+    status: filterStatus.value
+  })
 }
 
 onMounted(() => {
@@ -285,22 +303,15 @@ const searchKw = ref('')
 const filterType = ref('')
 const filterStatus = ref('')
 
-const filteredList = computed(() => {
-  const kw = searchKw.value.toLowerCase()
-  return list.value.filter(a => {
-    const plain = stripHtml(a.content)
-    const matchKw = !kw || a.title.toLowerCase().includes(kw) || plain.toLowerCase().includes(kw)
-    const matchType = !filterType.value || a.type === filterType.value
-    const matchStatus = !filterStatus.value || a.status === filterStatus.value
-    return matchKw && matchType && matchStatus
-  })
-})
+// API 已在后端筛选，filteredList 直接返回结果即可
+const filteredList = computed(() => list.value)
 
 const resetFilters = () => {
   searchKw.value = ''
   filterType.value = ''
   filterStatus.value = ''
   currentPage.value = 1
+  fetchAnnouncements() // 重置后重新加载全量数据
 }
 
 // ── Shared Composable hooks: Pagination ───────────────────────────

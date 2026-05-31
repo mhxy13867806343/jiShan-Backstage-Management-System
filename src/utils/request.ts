@@ -211,16 +211,7 @@ const handleMockRequest = async (config: any) => {
     const res = mockStore.addAnnouncement(data)
     return { code: 200, message: 'success', data: res }
   }
-  if (url.startsWith('/api/admin/announcements/') && method === 'put') {
-    const id = url.split('/').pop() || ''
-    mockStore.updateAnnouncement(id, data)
-    return { code: 200, message: 'success', data: null }
-  }
-  if (url.startsWith('/api/admin/announcements/') && method === 'delete') {
-    const id = url.split('/').pop() || ''
-    mockStore.deleteAnnouncement(id)
-    return { code: 200, message: 'success', data: null }
-  }
+  // ⚠️ 批量路由必须在通用 startsWith 之前判断，否则会被误匹配
   if (url === '/api/admin/announcements/batch-publish' && method === 'put') {
     mockStore.batchPublishAnnouncements(data.ids)
     return { code: 200, message: 'success', data: null }
@@ -233,6 +224,17 @@ const handleMockRequest = async (config: any) => {
     mockStore.batchDeleteAnnouncements(data.ids)
     return { code: 200, message: 'success', data: null }
   }
+  // 单条操作放在批量路由之后
+  if (url.startsWith('/api/admin/announcements/') && method === 'put') {
+    const id = url.split('/').pop() || ''
+    mockStore.updateAnnouncement(id, data)
+    return { code: 200, message: 'success', data: null }
+  }
+  if (url.startsWith('/api/admin/announcements/') && method === 'delete') {
+    const id = url.split('/').pop() || ''
+    mockStore.deleteAnnouncement(id)
+    return { code: 200, message: 'success', data: null }
+  }
 
   // --- MOCK VERSIONS ---
   if (url === '/api/admin/versions' && method === 'get') {
@@ -243,26 +245,31 @@ const handleMockRequest = async (config: any) => {
     const res = mockStore.addVersion(data)
     return { code: 200, message: 'success', data: res }
   }
-  if (url.startsWith('/api/admin/versions/') && method === 'put') {
-    const id = url.split('/').pop() || ''
-    if (url.endsWith('/deprecate')) {
-      mockStore.deprecateVersion(id)
-    } else {
-      mockStore.updateVersion(id, data)
-    }
-    return { code: 200, message: 'success', data: null }
-  }
-  if (url.startsWith('/api/admin/versions/') && method === 'delete') {
-    const id = url.split('/').pop() || ''
-    mockStore.deleteVersion(id)
-    return { code: 200, message: 'success', data: null }
-  }
+  // ⚠️ 批量路由必须在通用 startsWith 之前判断
   if (url === '/api/admin/versions/batch-deprecate' && method === 'put') {
     mockStore.batchDeprecateVersions(data.ids)
     return { code: 200, message: 'success', data: null }
   }
   if (url === '/api/admin/versions/batch-delete' && method === 'post') {
     mockStore.batchDeleteVersions(data.ids)
+    return { code: 200, message: 'success', data: null }
+  }
+  // deprecate 单条：URL = /api/admin/versions/{id}/deprecate，需正确提取 id
+  if (url.startsWith('/api/admin/versions/') && url.endsWith('/deprecate') && method === 'put') {
+    const parts = url.split('/')
+    const id = parts[parts.length - 2] // 倒数第二段才是真实 id
+    mockStore.deprecateVersion(id)
+    return { code: 200, message: 'success', data: null }
+  }
+  // 单条编辑
+  if (url.startsWith('/api/admin/versions/') && method === 'put') {
+    const id = url.split('/').pop() || ''
+    mockStore.updateVersion(id, data)
+    return { code: 200, message: 'success', data: null }
+  }
+  if (url.startsWith('/api/admin/versions/') && method === 'delete') {
+    const id = url.split('/').pop() || ''
+    mockStore.deleteVersion(id)
     return { code: 200, message: 'success', data: null }
   }
 
@@ -376,7 +383,26 @@ const ENABLE_MOCK = false
 
 service.interceptors.response.use(
   async (response) => {
-    // If we're bypassing mock or the url doesn't match standard patterns, return standard response data directly
+    // 对于 isMockRoute 路由，如果后端返回了 200 但数据是空/无效，也尝试 fallback 到 mock
+    const url = response.config?.url || ''
+    const isMockRoute = (
+      url.includes('/api/admin/announcements') ||
+      url.includes('/api/admin/versions') ||
+      url.includes('/api/admin/accounts')
+    )
+    if (isMockRoute) {
+      const body = response.data
+      // 后端返回的 data 字段为空或 list 为空时，fallback 到 mock
+      const dataPayload = body?.data
+      const isEmpty = !dataPayload || (dataPayload.list !== undefined && dataPayload.list === null)
+      if (isEmpty || body?.code !== 200) {
+        try {
+          await delay(100)
+          const mockResult = await handleMockRequest(response.config as any)
+          if (mockResult.code === 200) return mockResult
+        } catch (_) { /* 忽略 mock 错误，继续用后端数据 */ }
+      }
+    }
     return response.data
   },
   async (error) => {
@@ -394,6 +420,16 @@ service.interceptors.response.use(
         // Simulate minor network latency (100ms to 300ms)
         await delay(Math.floor(Math.random() * 200) + 100)
         const mockResult = await handleMockRequest(config)
+        // 检查 mock 返回的业务 code，处理 401 鉴权失败
+        if (mockResult.code === 401) {
+          const authStore = useAuthStore()
+          authStore.logout()
+          ElMessage.error(mockResult.message || '登录失效，请重新登录')
+          if (window.location.hash !== '#/login') {
+            window.location.hash = '/login'
+          }
+          return Promise.reject(new Error(mockResult.message))
+        }
         return mockResult
       } catch (err: any) {
         ElMessage.error(err.message || 'Mock Fallback Error')
