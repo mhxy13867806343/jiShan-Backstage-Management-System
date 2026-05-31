@@ -339,7 +339,16 @@ export const adminApi = {
   // ── Announcement Management ──
   async getAnnouncements(params: { keyword?: string; type?: string; status?: string; page?: number; limit?: number }) {
     const res = await request.get<{ list: ApiAnnouncement[]; total: number }>('/api/admin/announcements', params)
-    return res.data
+    const data = res?.data ?? res as any
+    return {
+      list: (Array.isArray(data) ? data : (data?.list ?? [])) as ApiAnnouncement[],
+      total: (Array.isArray(data) ? data.length : (data?.total ?? 0)) as number
+    }
+  },
+
+  async getAnnouncement(id: string) {
+    const res = await request.get<ApiAnnouncement>(`/api/admin/announcements/${id}`)
+    return (res?.data ?? res) as ApiAnnouncement
   },
 
   saveAnnouncement(ann: Partial<ApiAnnouncement>) {
@@ -369,7 +378,11 @@ export const adminApi = {
   // ── Version Management ──
   async getVersions(params: { platform?: string; status?: string; forceUpdate?: string; page?: number; limit?: number }) {
     const res = await request.get<{ list: ApiVersion[]; total: number }>('/api/admin/versions', params)
-    return res.data
+    const data = res?.data ?? res as any
+    return {
+      list: (Array.isArray(data) ? data : (data?.list ?? [])) as ApiVersion[],
+      total: (Array.isArray(data) ? data.length : (data?.total ?? 0)) as number
+    }
   },
 
   saveVersion(ver: Partial<ApiVersion>) {

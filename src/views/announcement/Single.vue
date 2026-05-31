@@ -184,14 +184,17 @@ const rules = {
   title: [{ required: true, message: '请输入公告标题', trigger: 'blur' }],
 }
 
+// ── 单公告配置 ────────────────────────────────────────────────
+const STORAGE_KEY = 'jishan_single_banner'
+const SINGLE_BANNER_ID = 'SINGLE_BANNER'
+
 const fetchSingleBanner = async () => {
   try {
-    const res = await adminApi.getAnnouncements({ keyword: '' })
-    const found = res.list.find(a => a.id === 'SINGLE_BANNER')
-    if (found) {
-      Object.assign(form, { ...found, statusActive: found.status === 'active' })
-    }
+    const saved = await adminApi.getAnnouncement(SINGLE_BANNER_ID)
+    Object.assign(form, { ...saved, statusActive: saved.status === 'active' })
   } catch (err) {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    if (raw) Object.assign(form, JSON.parse(raw))
     console.error('Fetch single banner failed', err)
   }
 }
@@ -203,7 +206,8 @@ onMounted(() => {
 const handleReset = () => {
   const def = defaultForm()
   Object.assign(form, def)
-  ElMessage.info('已重置')
+  localStorage.removeItem(STORAGE_KEY)
+  ElMessage.info('已重置为默认内容')
 }
 
 const handleSave = async () => {
@@ -215,8 +219,8 @@ const handleSave = async () => {
   }
   saving.value = true
   try {
-    await adminApi.saveAnnouncement({
-      id: 'SINGLE_BANNER',
+    const saved = await adminApi.saveAnnouncement({
+      id: SINGLE_BANNER_ID,
       title: form.title,
       type: form.type,
       content: form.content,
@@ -226,9 +230,14 @@ const handleSave = async () => {
       endTime: form.endTime,
       status: form.statusActive ? 'active' : 'inactive'
     })
-    ElMessage.success('单公告已保存并发布')
+    const data = (saved as any)?.data ?? saved
+    Object.assign(form, { ...data, statusActive: data.status === 'active' })
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...form }))
+    await fetchSingleBanner()
+    ElMessage.success('单公告已保存并发布 ✓')
   } catch (err) {
     console.error('Save single banner failed', err)
+    ElMessage.error('保存失败，请重试')
   } finally {
     saving.value = false
   }
