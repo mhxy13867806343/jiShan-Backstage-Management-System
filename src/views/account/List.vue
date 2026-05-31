@@ -471,12 +471,12 @@ const handleDelete = (id: string) => {
 
 const handleResetPwd = (row: AdminAccount) => {
   ElMessageBox.confirm(
-    `确定要重置账号「${row.nickname}」的密码吗？重置后密码将变为 <b>jishan@2024</b>`,
+    `确定要重置账号「${row.nickname}」的密码吗？重置后密码将变为 <b>123456</b>`,
     '重置密码',
     { confirmButtonText: '确认重置', cancelButtonText: '取消', type: 'warning', dangerouslyUseHTMLString: true }
   ).then(() => {
     mockStore.resetAdminPassword(row.account_id)
-    ElMessage.success(`已重置「${row.nickname}」的密码为 jishan@2024`)
+    ElMessage.success(`已重置「${row.nickname}」的密码为 123456`)
   }).catch(() => {})
 }
 </script>
