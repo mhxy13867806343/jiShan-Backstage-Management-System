@@ -68,9 +68,28 @@
 
         <el-table-column label="Build号" width="110" align="center" prop="build" />
 
-        <el-table-column label="更新说明" min-width="220">
+        <el-table-column label="更新说明" min-width="260">
           <template #default="{ row }">
-            <span class="notes-text">{{ row.notes }}</span>
+            <el-popover
+              placement="top-start"
+              :title="'更新说明 - v' + row.version"
+              :width="380"
+              trigger="hover"
+              popper-class="notes-popover"
+            >
+              <template #reference>
+                <div class="notes-preview-cell">
+                  <el-tag size="small" :type="row.notesType === 'rich' ? 'success' : 'info'" class="notes-type-tag">
+                    {{ row.notesType === 'rich' ? '富文本' : '纯文本' }}
+                  </el-tag>
+                  <span class="notes-text">{{ row.notesType === 'rich' ? stripHtml(row.notes) : row.notes }}</span>
+                </div>
+              </template>
+              <div class="popover-notes-content">
+                <div v-if="row.notesType === 'rich'" v-html="row.notes"></div>
+                <div v-else class="plain-pre-wrap">{{ row.notes }}</div>
+              </div>
+            </el-popover>
           </template>
         </el-table-column>
 
@@ -119,10 +138,16 @@
     </div>
 
     <!-- Add/Edit Dialog -->
-    <el-dialog v-model="dialogVisible" :title="editingId ? '编辑版本' : '新增版本'" width="560px" destroy-on-close>
-      <el-form :model="form" :rules="rules" ref="formRef" label-width="90px">
+    <el-dialog
+      v-model="dialogVisible"
+      :title="editingId ? '编辑版本' : '新增版本'"
+      width="750px"
+      destroy-on-close
+      @close="destroyEditor"
+    >
+      <el-form :model="form" :rules="rules" ref="formRef" label-width="100px">
 
-        <el-row :gutter="16">
+        <el-row :gutter="20">
           <el-col :span="12">
             <el-form-item label="平台" prop="platform">
               <el-select v-model="form.platform" style="width: 100%">
@@ -138,7 +163,7 @@
           </el-col>
         </el-row>
 
-        <el-row :gutter="16">
+        <el-row :gutter="20">
           <el-col :span="12">
             <el-form-item label="Build 号" prop="build">
               <el-input v-model="form.build" placeholder="如 231001" />
@@ -159,16 +184,48 @@
           <el-slider v-model="form.betaPct" :min="1" :max="100" show-input />
         </el-form-item>
 
-        <el-form-item label="强制更新">
-          <el-switch v-model="form.forceUpdate" active-text="强制（用户必须更新）" inactive-text="可选（用户可跳过）" />
-        </el-form-item>
+        <el-row :gutter="20">
+          <el-col :span="12">
+            <el-form-item label="强制更新">
+              <el-switch v-model="form.forceUpdate" active-text="强制（必须更新）" inactive-text="可选（可跳过）" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="说明方式">
+              <el-radio-group v-model="form.notesType" @change="handleNotesTypeChange">
+                <el-radio-button value="text">纯文本</el-radio-button>
+                <el-radio-button value="rich">富文本</el-radio-button>
+              </el-radio-group>
+            </el-form-item>
+          </el-col>
+        </el-row>
 
         <el-form-item label="下载地址">
           <el-input v-model="form.downloadUrl" placeholder="App Store / 应用市场 链接" clearable />
         </el-form-item>
 
         <el-form-item label="更新说明" prop="notes">
-          <el-input v-model="form.notes" type="textarea" :rows="4" placeholder="请描述本版本的更新内容" maxlength="500" show-word-limit />
+          <!-- Plain text editor -->
+          <el-input
+            v-if="form.notesType === 'text'"
+            v-model="form.notes"
+            type="textarea"
+            :rows="6"
+            placeholder="请描述本版本的更新内容"
+            maxlength="500"
+            show-word-limit
+          />
+          <!-- Rich text editor -->
+          <div v-else class="wang-editor-wrap">
+            <Toolbar :editor="dialogEditorRef" :defaultConfig="toolbarConfig" mode="default" class="wang-toolbar" />
+            <Editor
+              v-model="form.notes"
+              :defaultConfig="editorConfig"
+              mode="default"
+              class="wang-editor-body"
+              @onCreated="handleDialogEditorCreated"
+            />
+          </div>
         </el-form-item>
 
       </el-form>
@@ -184,9 +241,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive, computed, shallowRef } from 'vue'
 import { ElMessage } from 'element-plus'
 import type { FormInstance } from 'element-plus'
+import { Editor, Toolbar } from '@wangeditor/editor-for-vue'
+import type { IDomEditor, IEditorConfig, IToolbarConfig } from '@wangeditor/editor'
 
 interface VersionItem {
   id: string
@@ -197,16 +256,40 @@ interface VersionItem {
   status: 'released' | 'beta' | 'deprecated'
   betaPct: number
   notes: string
+  notesType: 'text' | 'rich'
   downloadUrl: string
   releaseTime: string
 }
 
+// ── WangEditor Setup ──────────────────────────────────────────────
+const dialogEditorRef = shallowRef<IDomEditor>()
+const toolbarConfig: Partial<IToolbarConfig> = {
+  excludeKeys: ['uploadVideo', 'insertVideo', 'group-video']
+}
+const editorConfig: Partial<IEditorConfig> = {
+  placeholder: '请输入本版本的更新内容（支持富文本格式）...',
+  autoFocus: false,
+}
+const handleDialogEditorCreated = (editor: IDomEditor) => {
+  dialogEditorRef.value = editor
+}
+const destroyEditor = () => {
+  dialogEditorRef.value?.destroy()
+  dialogEditorRef.value = undefined
+}
+
+// Strip HTML helper for table cells
+const stripHtml = (html: string) => {
+  if (!html) return ''
+  return html.replace(/<[^>]*>/g, '').slice(0, 100)
+}
+
 const list = ref<VersionItem[]>([
-  { id: 'V001', platform: 'iOS',     version: '2.3.1', build: '231010', forceUpdate: false, status: 'released',    betaPct: 0,  notes: '修复若干已知问题，优化启动速度，提升稳定性。', downloadUrl: 'https://apps.apple.com/jishan', releaseTime: '2026-05-28 10:00' },
-  { id: 'V002', platform: 'Android', version: '2.3.1', build: '231008', forceUpdate: false, status: 'released',    betaPct: 0,  notes: '修复若干已知问题，优化启动速度，提升稳定性。', downloadUrl: 'https://play.google.com/jishan', releaseTime: '2026-05-28 10:00' },
-  { id: 'V003', platform: 'iOS',     version: '2.4.0', build: '240001', forceUpdate: true,  status: 'beta',        betaPct: 20, notes: '新增话题圈功能，全新消息通知体系，性能大幅提升。', downloadUrl: '', releaseTime: '2026-05-30 14:00' },
-  { id: 'V004', platform: 'Android', version: '2.4.0', build: '240001', forceUpdate: true,  status: 'beta',        betaPct: 10, notes: '新增话题圈功能，全新消息通知体系，性能大幅提升。', downloadUrl: '', releaseTime: '2026-05-30 14:00' },
-  { id: 'V005', platform: 'iOS',     version: '2.2.0', build: '220015', forceUpdate: false, status: 'deprecated',  betaPct: 0,  notes: '早期版本，已停止支持。', downloadUrl: '', releaseTime: '2026-03-15 09:00' },
+  { id: 'V001', platform: 'iOS',     version: '2.3.1', build: '231010', forceUpdate: false, status: 'released',    betaPct: 0,  notes: '修复若干已知问题，优化启动速度，提升稳定性。', notesType: 'text', downloadUrl: 'https://apps.apple.com/jishan', releaseTime: '2026-05-28 10:00' },
+  { id: 'V002', platform: 'Android', version: '2.3.1', build: '231008', forceUpdate: false, status: 'released',    betaPct: 0,  notes: '修复若干已知问题，优化启动速度，提升稳定性。', notesType: 'text', downloadUrl: 'https://play.google.com/jishan', releaseTime: '2026-05-28 10:00' },
+  { id: 'V003', platform: 'iOS',     version: '2.4.0', build: '240001', forceUpdate: true,  status: 'beta',        betaPct: 20, notes: '<p>新增话题圈功能，全新消息通知体系，性能大幅提升。</p><ul><li>全新设计的<strong>社区话题圈</strong>，支持发布图文话题；</li><li>底层网络请求及图片加载组件升级，启动加载提速 <strong>40%</strong>；</li><li>修复了部分情况下消息通知延迟到达的问题。</li></ul>', notesType: 'rich', downloadUrl: '', releaseTime: '2026-05-30 14:00' },
+  { id: 'V004', platform: 'Android', version: '2.4.0', build: '240001', forceUpdate: true,  status: 'beta',        betaPct: 10, notes: '<p>新增话题圈功能，全新消息通知体系，性能大幅提升。</p><ul><li>全新设计的<strong>社区话题圈</strong>，支持发布图文话题；</li><li>底层网络请求及图片加载组件升级，启动加载提速 <strong>40%</strong>；</li><li>修复了部分情况下消息通知延迟到达的问题。</li></ul>', notesType: 'rich', downloadUrl: '', releaseTime: '2026-05-30 14:00' },
+  { id: 'V005', platform: 'iOS',     version: '2.2.0', build: '220015', forceUpdate: false, status: 'deprecated',  betaPct: 0,  notes: '早期版本，已停止支持。', notesType: 'text', downloadUrl: '', releaseTime: '2026-03-15 09:00' },
 ])
 
 // ── Latest versions summary cards ────────────────────────────────
@@ -256,6 +339,7 @@ const blankForm = () => ({
   status: 'released' as 'released' | 'beta' | 'deprecated',
   betaPct: 20,
   notes: '',
+  notesType: 'text' as 'text' | 'rich',
   downloadUrl: '',
 })
 
@@ -265,13 +349,41 @@ const rules = {
   platform: [{ required: true, message: '请选择平台', trigger: 'change' }],
   version:  [{ required: true, message: '请输入版本号', trigger: 'blur' }],
   build:    [{ required: true, message: '请输入 Build 号', trigger: 'blur' }],
-  notes:    [{ required: true, message: '请输入更新说明', trigger: 'blur' }],
+  notes: [
+    {
+      validator: (_: any, value: string, callback: Function) => {
+        if (form.notesType === 'rich') {
+          if (!value || value === '<p><br></p>') callback(new Error('请输入更新说明'))
+          else callback()
+        } else {
+          if (!value || !value.trim()) callback(new Error('请输入更新说明'))
+          else callback()
+        }
+      },
+      trigger: 'blur'
+    }
+  ],
+}
+
+const handleNotesTypeChange = (val: 'text' | 'rich') => {
+  if (val === 'text') {
+    // Strip HTML if switching to text
+    form.notes = form.notes ? form.notes.replace(/<[^>]*>/g, '') : ''
+  } else {
+    // Convert newlines to paragraphs if switching to rich
+    if (form.notes && !form.notes.includes('<p>')) {
+      form.notes = form.notes.split('\n').map(line => `<p>${line}</p>`).join('')
+    }
+  }
 }
 
 const openDialog = (row?: VersionItem) => {
   editingId.value = row?.id || ''
-  if (row) Object.assign(form, { ...row })
-  else Object.assign(form, blankForm())
+  if (row) {
+    Object.assign(form, { ...row, notesType: row.notesType || 'text' })
+  } else {
+    Object.assign(form, blankForm())
+  }
   dialogVisible.value = true
 }
 
@@ -380,14 +492,69 @@ const deleteVersion = (id: string) => {
   color: #e6a23c;
 }
 
+.notes-preview-cell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  max-width: 100%;
+}
+
+.notes-type-tag {
+  flex-shrink: 0;
+}
+
 .notes-text {
   font-size: 12px;
   color: var(--text-muted);
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
+  white-space: nowrap;
   overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+}
+
+.popover-notes-content {
+  font-size: 13px;
+  line-height: 1.6;
+  max-height: 250px;
+  overflow-y: auto;
+  color: var(--text-main, #303133);
+}
+
+.popover-notes-content p {
+  margin: 0 0 6px 0;
+}
+.popover-notes-content p:last-child {
+  margin-bottom: 0;
+}
+.popover-notes-content ul {
+  padding-left: 18px;
+  margin: 4px 0;
+}
+
+.plain-pre-wrap {
+  white-space: pre-wrap;
+  word-break: break-all;
 }
 
 .empty-placeholder { color: #c0c4cc; }
+
+/* ── Rich text editor in dialog ── */
+.wang-editor-wrap {
+  border: 1px solid #dcdfe6;
+  border-radius: 8px;
+  overflow: hidden;
+  width: 100%;
+}
+
+.wang-toolbar {
+  border-bottom: 1px solid #e2e8f0 !important;
+  background: #f8fafc !important;
+}
+
+.wang-editor-body {
+  height: 200px !important;
+  overflow-y: auto;
+  font-size: 14px;
+}
 </style>

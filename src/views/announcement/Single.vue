@@ -6,17 +6,17 @@
         <h2>单公告管理</h2>
         <p>设置 App 首页展示的全局置顶公告，发布后所有用户可见。</p>
       </div>
-      <el-tag :type="form.status === 'active' ? 'success' : 'info'" size="large">
-        {{ form.status === 'active' ? '当前状态：已发布' : '当前状态：已停用' }}
+      <el-tag :type="form.statusActive ? 'success' : 'info'" size="large">
+        {{ form.statusActive ? '当前状态：已发布' : '当前状态：已停用' }}
       </el-tag>
     </div>
 
-    <!-- Editor + Preview 两栏布局 -->
+    <!-- Editor + Preview -->
     <div class="editor-layout">
-      <!-- Left: 编辑区 -->
+      <!-- Left: Editor -->
       <div class="editor-panel premium-card">
         <div class="panel-title">
-          <el-icon><Edit /></el-icon> 公告内容编辑
+          <el-icon><EditPen /></el-icon> 公告内容编辑
         </div>
 
         <el-form :model="form" :rules="rules" ref="formRef" label-width="90px">
@@ -24,7 +24,7 @@
             <el-input v-model="form.title" placeholder="请输入公告标题" maxlength="50" show-word-limit />
           </el-form-item>
 
-          <el-form-item label="公告类型" prop="type">
+          <el-form-item label="公告类型">
             <el-radio-group v-model="form.type">
               <el-radio-button value="info">普通通知</el-radio-button>
               <el-radio-button value="warning">重要提醒</el-radio-button>
@@ -37,47 +37,43 @@
           </el-form-item>
 
           <el-form-item label="生效时间">
-            <el-date-picker
-              v-model="form.startTime"
-              type="datetime"
-              placeholder="开始时间"
-              format="YYYY-MM-DD HH:mm"
-              value-format="YYYY-MM-DD HH:mm"
-              style="width: 200px"
-            />
-            <span style="margin: 0 8px; color: #909399;">至</span>
-            <el-date-picker
-              v-model="form.endTime"
-              type="datetime"
-              placeholder="结束时间（不填则永久）"
-              format="YYYY-MM-DD HH:mm"
-              value-format="YYYY-MM-DD HH:mm"
-              style="width: 200px"
-            />
-          </el-form-item>
-
-          <el-form-item label="公告正文" prop="content">
-            <el-input
-              v-model="form.content"
-              type="textarea"
-              :rows="5"
-              placeholder="请输入公告正文内容"
-              maxlength="500"
-              show-word-limit
-            />
+            <el-date-picker v-model="form.startTime" type="datetime" placeholder="开始时间"
+              format="YYYY-MM-DD HH:mm" value-format="YYYY-MM-DD HH:mm" style="width:195px" />
+            <span style="margin:0 8px;color:#909399">至</span>
+            <el-date-picker v-model="form.endTime" type="datetime" placeholder="结束时间（不填则永久）"
+              format="YYYY-MM-DD HH:mm" value-format="YYYY-MM-DD HH:mm" style="width:195px" />
           </el-form-item>
 
           <el-form-item label="启用状态">
-            <el-switch
-              v-model="form.statusActive"
-              active-text="已发布（用户可见）"
-              inactive-text="停用（用户不可见）"
-            />
+            <el-switch v-model="form.statusActive" active-text="已发布（用户可见）" inactive-text="停用（用户不可见）" />
+          </el-form-item>
+
+          <el-form-item label="展示频次">
+            <el-radio-group v-model="form.showBehavior">
+              <el-radio-button value="every">每次访问时展示</el-radio-button>
+              <el-radio-button value="once">只展示一次</el-radio-button>
+            </el-radio-group>
           </el-form-item>
         </el-form>
+
+        <!-- Rich Text Editor -->
+        <div class="rich-label">
+          <span class="rich-label-text">公告正文</span>
+          <el-tag size="small" type="success">富文本</el-tag>
+        </div>
+        <div class="wang-editor-wrap">
+          <Toolbar :editor="editorRef" :defaultConfig="toolbarConfig" mode="default" class="wang-toolbar" />
+          <Editor
+            v-model="form.content"
+            :defaultConfig="editorConfig"
+            mode="default"
+            class="wang-editor-body"
+            @onCreated="handleCreated"
+          />
+        </div>
       </div>
 
-      <!-- Right: 手机预览 -->
+      <!-- Right: Phone preview -->
       <div class="preview-panel">
         <div class="panel-title preview-title">
           <el-icon><View /></el-icon> 效果预览
@@ -86,7 +82,6 @@
           <div class="phone-frame">
             <div class="phone-notch"></div>
             <div class="phone-screen">
-              <!-- App Bar -->
               <div class="app-bar">
                 <span class="app-bar-title">即闪</span>
                 <div class="app-bar-icons">
@@ -95,10 +90,9 @@
                 </div>
               </div>
 
-              <!-- Announcement Banner -->
               <transition name="banner-fade">
                 <div
-                  v-if="form.statusActive && (form.title || form.content)"
+                  v-if="form.statusActive && form.title"
                   class="ann-banner"
                   :class="'ann-' + form.type"
                 >
@@ -106,16 +100,13 @@
                     <component :is="typeIconMap[form.type]" />
                   </el-icon>
                   <div class="ann-text">
-                    <div class="ann-title-preview">{{ form.title || '公告标题' }}</div>
-                    <div class="ann-content-preview">{{ form.content || '公告内容将在这里显示...' }}</div>
+                    <div class="ann-title-preview">{{ form.title }}</div>
+                    <div class="ann-content-preview" v-html="form.content || '公告内容将在这里显示...'"></div>
                   </div>
-                  <el-icon class="ann-close">
-                    <Close />
-                  </el-icon>
+                  <el-icon class="ann-close"><Close /></el-icon>
                 </div>
               </transition>
 
-              <!-- Feed skeleton -->
               <div class="feed-skeleton">
                 <div class="feed-item" v-for="i in 4" :key="i">
                   <div class="feed-avatar-sk"></div>
@@ -128,7 +119,10 @@
             </div>
           </div>
           <div class="preview-label">
-            {{ form.statusActive ? '✅ 公告已开启，用户可见' : '⚠️ 公告已停用，用户不可见' }}
+            <span>{{ form.statusActive ? '✅ 公告已开启，用户可见' : '⚠️ 公告已停用，用户不可见' }}</span>
+            <el-tag v-if="form.statusActive" size="small" :type="form.showBehavior === 'every' ? 'primary' : 'warning'" style="margin-left: 6px">
+              {{ form.showBehavior === 'every' ? '每次访问展示' : '仅首次访问展示' }}
+            </el-tag>
           </div>
         </div>
       </div>
@@ -138,21 +132,33 @@
     <div class="bottom-action-bar">
       <div class="action-bar-inner">
         <el-button icon="RefreshLeft" @click="handleReset">重置</el-button>
-        <el-button type="primary" icon="Check" :loading="saving" @click="handleSave">
-          保存并发布
-        </el-button>
+        <el-button type="primary" icon="Check" :loading="saving" @click="handleSave">保存并发布</el-button>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { ref, reactive, shallowRef, onBeforeUnmount } from 'vue'
 import { ElMessage } from 'element-plus'
 import type { FormInstance } from 'element-plus'
+import { Editor, Toolbar } from '@wangeditor/editor-for-vue'
+import type { IDomEditor, IEditorConfig, IToolbarConfig } from '@wangeditor/editor'
 
 const formRef = ref<FormInstance>()
 const saving = ref(false)
+
+// WangEditor
+const editorRef = shallowRef<IDomEditor>()
+const toolbarConfig: Partial<IToolbarConfig> = {
+  excludeKeys: ['uploadVideo', 'insertVideo', 'group-video']
+}
+const editorConfig: Partial<IEditorConfig> = {
+  placeholder: '请输入公告正文内容（支持富文本格式）...',
+  autoFocus: false,
+}
+const handleCreated = (editor: IDomEditor) => { editorRef.value = editor }
+onBeforeUnmount(() => { editorRef.value?.destroy() })
 
 const typeIconMap: Record<string, string> = {
   info: 'InfoFilled',
@@ -163,38 +169,46 @@ const typeIconMap: Record<string, string> = {
 const defaultForm = () => ({
   title: '【系统通知】即闪 App 服务升级公告',
   type: 'info' as 'info' | 'warning' | 'danger',
-  content: '亲爱的用户，我们将于 2026-06-01 凌晨 2:00-4:00 进行服务器维护升级，届时部分功能可能短暂不可用，感谢您的理解与支持。',
+  content: '<p>亲爱的用户，我们将于 <strong>2026-06-01 凌晨 2:00-4:00</strong> 进行服务器维护升级，届时部分功能可能短暂不可用，感谢您的理解与支持。</p>',
   link: '',
   startTime: '2026-06-01 00:00',
   endTime: '',
   statusActive: true,
-  status: 'active' as 'active' | 'inactive',
+  showBehavior: 'every' as 'every' | 'once',
 })
 
 const form = reactive(defaultForm())
 
 const rules = {
   title: [{ required: true, message: '请输入公告标题', trigger: 'blur' }],
-  content: [{ required: true, message: '请输入公告内容', trigger: 'blur' }],
 }
 
 const handleReset = () => {
-  Object.assign(form, defaultForm())
+  const def = defaultForm()
+  Object.assign(form, def)
   ElMessage.info('已重置')
 }
 
 const handleSave = async () => {
-  if (!formRef.value) return
-  const valid = await formRef.value.validate().catch(() => false)
+  const valid = await formRef.value?.validate().catch(() => false)
   if (!valid) return
+  if (!form.content || form.content === '<p><br></p>') {
+    ElMessage.warning('请输入公告正文内容')
+    return
+  }
   saving.value = true
   setTimeout(() => {
-    form.status = form.statusActive ? 'active' : 'inactive'
     saving.value = false
     ElMessage.success('单公告已保存并发布')
   }, 500)
 }
 </script>
+
+<style>
+/* WangEditor global (cannot be scoped) */
+.ann-single-toolbar { border-bottom: 1px solid #e2e8f0 !important; background: #f8fafc !important; border-radius: 8px 8px 0 0; }
+.ann-single-editor-body { height: 280px !important; overflow-y: auto; font-size: 14px; }
+</style>
 
 <style scoped>
 .single-ann-container {
@@ -204,30 +218,19 @@ const handleSave = async () => {
   padding-bottom: 80px;
 }
 
-/* ── Header ── */
 .page-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 20px 24px;
 }
+.header-left h2 { font-size: 20px; font-weight: 700; color: var(--text-main); margin-bottom: 3px; }
+.header-left p  { font-size: 13px; color: var(--text-muted); }
 
-.header-left h2 {
-  font-size: 20px;
-  font-weight: 700;
-  color: var(--text-main);
-  margin-bottom: 3px;
-}
-
-.header-left p {
-  font-size: 13px;
-  color: var(--text-muted);
-}
-
-/* ── Layout ── */
+/* ── Two column layout ── */
 .editor-layout {
   display: grid;
-  grid-template-columns: 1fr 320px;
+  grid-template-columns: 1fr 300px;
   gap: 16px;
   align-items: start;
 }
@@ -244,8 +247,36 @@ const handleSave = async () => {
   border-bottom: 1px solid var(--border-color);
 }
 
-.editor-panel {
-  padding: 24px;
+.editor-panel { padding: 24px; }
+
+/* ── Rich text editor ── */
+.rich-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.rich-label-text {
+  font-size: 13px;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.wang-editor-wrap {
+  border: 1px solid #dcdfe6;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.wang-toolbar {
+  border-bottom: 1px solid #e2e8f0 !important;
+  background: #f8fafc !important;
+}
+
+.wang-editor-body {
+  height: 280px !important;
+  overflow-y: auto;
+  font-size: 14px;
 }
 
 /* ── Preview ── */
@@ -255,35 +286,27 @@ const handleSave = async () => {
   align-items: center;
   gap: 12px;
 }
-
 .preview-title {
   align-self: flex-start;
-  padding: 16px 20px 0;
   border-bottom: none;
-  margin-bottom: 12px;
+  margin-bottom: 0;
 }
 
-.phone-mockup {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-}
+.phone-mockup { display: flex; flex-direction: column; align-items: center; gap: 10px; }
 
 .phone-frame {
-  width: 240px;
-  height: 460px;
+  width: 220px;
+  height: 440px;
   background: #1a1a2e;
   border-radius: 36px;
   padding: 14px 10px;
   box-shadow: 0 20px 60px rgba(0,0,0,0.4), inset 0 0 0 1px rgba(255,255,255,0.1);
-  position: relative;
   overflow: hidden;
 }
 
 .phone-notch {
   width: 60px;
-  height: 18px;
+  height: 16px;
   background: #0d0d1a;
   border-radius: 0 0 12px 12px;
   margin: 0 auto 6px;
@@ -292,7 +315,7 @@ const handleSave = async () => {
 .phone-screen {
   background: #f5f7fa;
   border-radius: 20px;
-  height: calc(100% - 28px);
+  height: calc(100% - 24px);
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -306,24 +329,11 @@ const handleSave = async () => {
   align-items: center;
   border-bottom: 1px solid #f0f0f0;
 }
+.app-bar-title { font-size: 13px; font-weight: 700; color: #222; }
+.app-bar-icons { display: flex; gap: 6px; }
+.icon-dot { font-size: 8px; color: #bbb; }
 
-.app-bar-title {
-  font-size: 13px;
-  font-weight: 700;
-  color: #222;
-}
-
-.app-bar-icons {
-  display: flex;
-  gap: 6px;
-}
-
-.icon-dot {
-  font-size: 8px;
-  color: #bbb;
-}
-
-/* ── Announcement Banner in preview ── */
+/* ── Banner ── */
 .ann-banner {
   display: flex;
   align-items: flex-start;
@@ -334,32 +344,17 @@ const handleSave = async () => {
   border-left: 3px solid;
   font-size: 10px;
 }
-
 .ann-info    { background: #e6f4ff; border-color: #1677ff; }
 .ann-warning { background: #fffbe6; border-color: #faad14; }
 .ann-danger  { background: #fff2f0; border-color: #ff4d4f; }
 
-.ann-icon {
-  font-size: 12px;
-  margin-top: 1px;
-  flex-shrink: 0;
-}
-
+.ann-icon { font-size: 12px; margin-top: 1px; flex-shrink: 0; }
 .ann-info .ann-icon    { color: #1677ff; }
 .ann-warning .ann-icon { color: #faad14; }
 .ann-danger .ann-icon  { color: #ff4d4f; }
 
 .ann-text { flex: 1; min-width: 0; }
-
-.ann-title-preview {
-  font-weight: 700;
-  color: #222;
-  margin-bottom: 2px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
+.ann-title-preview { font-weight: 700; color: #222; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ann-content-preview {
   color: #666;
   line-height: 1.4;
@@ -368,65 +363,28 @@ const handleSave = async () => {
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
-
-.ann-close {
-  font-size: 10px;
-  color: #bbb;
-  flex-shrink: 0;
-}
+.ann-content-preview :deep(p) { margin: 0; }
+.ann-close { font-size: 10px; color: #bbb; flex-shrink: 0; }
 
 /* ── Feed skeleton ── */
-.feed-skeleton {
-  flex: 1;
-  padding: 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.feed-item {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-
-.feed-avatar-sk {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: #e5e7eb;
-  flex-shrink: 0;
-}
-
+.feed-skeleton { flex: 1; padding: 8px; display: flex; flex-direction: column; gap: 10px; }
+.feed-item { display: flex; gap: 8px; align-items: center; }
+.feed-avatar-sk { width: 28px; height: 28px; border-radius: 50%; background: #e5e7eb; flex-shrink: 0; }
 .feed-lines { flex: 1; display: flex; flex-direction: column; gap: 5px; }
-
-.feed-line {
-  height: 8px;
-  border-radius: 4px;
-  background: #e5e7eb;
-}
-
+.feed-line { height: 8px; border-radius: 4px; background: #e5e7eb; }
 .feed-line.long { width: 80%; }
 .feed-line.short { width: 50%; }
 
-/* ── Banner animation ── */
-.banner-fade-enter-active,
-.banner-fade-leave-active { transition: all 0.3s ease; }
-.banner-fade-enter-from,
-.banner-fade-leave-to { opacity: 0; transform: translateY(-8px); }
+/* ── Transitions ── */
+.banner-fade-enter-active, .banner-fade-leave-active { transition: all 0.3s ease; }
+.banner-fade-enter-from, .banner-fade-leave-to { opacity: 0; transform: translateY(-8px); }
 
-.preview-label {
-  font-size: 12px;
-  color: var(--text-muted);
-  text-align: center;
-}
+.preview-label { font-size: 12px; color: var(--text-muted); text-align: center; }
 
 /* ── Bottom action bar ── */
 .bottom-action-bar {
   position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
+  bottom: 0; left: 0; right: 0;
   z-index: 100;
   background: rgba(255,255,255,0.95);
   backdrop-filter: blur(8px);
@@ -434,7 +392,6 @@ const handleSave = async () => {
   box-shadow: 0 -2px 12px rgba(0,0,0,0.06);
   padding: 12px 24px;
 }
-
 .action-bar-inner {
   max-width: 1400px;
   margin: 0 auto;

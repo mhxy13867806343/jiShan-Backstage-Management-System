@@ -44,14 +44,15 @@
           </template>
         </el-table-column>
 
-        <el-table-column label="公告内容" min-width="240">
+        <el-table-column label="公告内容（摘要）" min-width="220">
           <template #default="{ row }">
-            <span class="content-preview">{{ row.content }}</span>
+            <!-- Strip html tags for preview -->
+            <span class="content-preview">{{ stripHtml(row.content) }}</span>
           </template>
         </el-table-column>
 
-        <el-table-column label="生效时间" width="160" align="center" prop="startTime" />
-        <el-table-column label="结束时间" width="160" align="center">
+        <el-table-column label="生效时间" width="155" align="center" prop="startTime" />
+        <el-table-column label="结束时间" width="155" align="center">
           <template #default="{ row }">
             <span>{{ row.endTime || '--' }}</span>
           </template>
@@ -86,46 +87,79 @@
       </el-table>
     </div>
 
-    <!-- Add/Edit Dialog -->
-    <el-dialog v-model="dialogVisible" :title="editingId ? '编辑公告' : '新增公告'" width="580px" destroy-on-close>
+    <!-- Add/Edit Dialog — full width rich text -->
+    <el-dialog
+      v-model="dialogVisible"
+      :title="editingId ? '编辑公告' : '新增公告'"
+      width="780px"
+      destroy-on-close
+      @close="destroyEditor"
+    >
       <el-form :model="form" :rules="rules" ref="formRef" label-width="90px">
+        <el-row :gutter="16">
+          <el-col :span="16">
+            <el-form-item label="公告标题" prop="title">
+              <el-input v-model="form.title" maxlength="50" show-word-limit placeholder="请输入公告标题" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="8">
+            <el-form-item label="公告类型">
+              <el-select v-model="form.type" style="width:100%">
+                <el-option label="普通通知" value="info" />
+                <el-option label="重要提醒" value="warning" />
+                <el-option label="紧急公告" value="danger" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+        </el-row>
 
-        <el-form-item label="公告标题" prop="title">
-          <el-input v-model="form.title" maxlength="50" show-word-limit placeholder="请输入公告标题" />
-        </el-form-item>
+        <el-row :gutter="16">
+          <el-col :span="8">
+            <el-form-item label="是否置顶">
+              <el-switch v-model="form.pinned" active-text="置顶" inactive-text="不置顶" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="8">
+            <el-form-item label="发布状态">
+              <el-switch v-model="form.statusActive" active-text="立即发布" inactive-text="草稿" />
+            </el-form-item>
+          </el-col>
+        </el-row>
 
-        <el-form-item label="公告类型" prop="type">
-          <el-radio-group v-model="form.type">
-            <el-radio-button value="info">普通通知</el-radio-button>
-            <el-radio-button value="warning">重要提醒</el-radio-button>
-            <el-radio-button value="danger">紧急公告</el-radio-button>
-          </el-radio-group>
-        </el-form-item>
-
-        <el-form-item label="是否置顶">
-          <el-switch v-model="form.pinned" active-text="置顶" inactive-text="不置顶" />
-        </el-form-item>
+        <el-row :gutter="16">
+          <el-col :span="12">
+            <el-form-item label="生效时间">
+              <el-date-picker v-model="form.startTime" type="datetime" placeholder="开始时间"
+                format="YYYY-MM-DD HH:mm" value-format="YYYY-MM-DD HH:mm" style="width:100%" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="结束时间">
+              <el-date-picker v-model="form.endTime" type="datetime" placeholder="不填则永久有效"
+                format="YYYY-MM-DD HH:mm" value-format="YYYY-MM-DD HH:mm" style="width:100%" />
+            </el-form-item>
+          </el-col>
+        </el-row>
 
         <el-form-item label="跳转链接">
           <el-input v-model="form.link" placeholder="可选，点击跳转链接" clearable />
         </el-form-item>
 
-        <el-form-item label="生效时间">
-          <el-date-picker v-model="form.startTime" type="datetime" placeholder="开始时间" format="YYYY-MM-DD HH:mm" value-format="YYYY-MM-DD HH:mm" style="width: 200px" />
-        </el-form-item>
-
-        <el-form-item label="结束时间">
-          <el-date-picker v-model="form.endTime" type="datetime" placeholder="不填则永久有效" format="YYYY-MM-DD HH:mm" value-format="YYYY-MM-DD HH:mm" style="width: 200px" />
-        </el-form-item>
-
-        <el-form-item label="公告内容" prop="content">
-          <el-input v-model="form.content" type="textarea" :rows="4" maxlength="500" show-word-limit placeholder="请输入公告正文" />
-        </el-form-item>
-
-        <el-form-item label="发布状态">
-          <el-switch v-model="form.statusActive" active-text="立即发布" inactive-text="保存草稿" />
+        <!-- Rich Text Editor -->
+        <el-form-item label="公告正文" prop="content">
+          <div class="wang-editor-wrap">
+            <Toolbar :editor="dialogEditorRef" :defaultConfig="toolbarConfig" mode="default" class="wang-toolbar" />
+            <Editor
+              v-model="form.content"
+              :defaultConfig="editorConfig"
+              mode="default"
+              class="wang-editor-body"
+              @onCreated="handleDialogEditorCreated"
+            />
+          </div>
         </el-form-item>
       </el-form>
+
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
         <el-button type="primary" :loading="saving" @click="handleSubmit">
@@ -138,11 +172,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive, computed, shallowRef } from 'vue'
 import { ElMessage } from 'element-plus'
 import type { FormInstance } from 'element-plus'
+import { Editor, Toolbar } from '@wangeditor/editor-for-vue'
+import type { IDomEditor, IEditorConfig, IToolbarConfig } from '@wangeditor/editor'
 
-// ── Types ───────────────────────────────────────────────────────
+// ── Types ────────────────────────────────────────────────────────
 interface AnnItem {
   id: string
   title: string
@@ -155,13 +191,28 @@ interface AnnItem {
   status: 'active' | 'inactive'
 }
 
+// ── WangEditor (dialog instance) ─────────────────────────────────
+const dialogEditorRef = shallowRef<IDomEditor>()
+const toolbarConfig: Partial<IToolbarConfig> = {
+  excludeKeys: ['uploadVideo', 'insertVideo', 'group-video']
+}
+const editorConfig: Partial<IEditorConfig> = {
+  placeholder: '请输入公告正文内容（支持富文本格式）...',
+  autoFocus: false,
+}
+const handleDialogEditorCreated = (editor: IDomEditor) => { dialogEditorRef.value = editor }
+const destroyEditor = () => { dialogEditorRef.value?.destroy(); dialogEditorRef.value = undefined }
+
+// ── Helper: strip html for table preview ─────────────────────────
+const stripHtml = (html: string) => html.replace(/<[^>]*>/g, '').slice(0, 80)
+
 // ── Mock data ────────────────────────────────────────────────────
 const list = ref<AnnItem[]>([
   {
     id: 'N001',
     title: '【系统通知】即闪 App 6 月服务升级公告',
     type: 'info',
-    content: '我们将于 2026-06-01 凌晨 2:00-4:00 进行服务器维护升级，届时部分功能短暂不可用。',
+    content: '<p>我们将于 <strong>2026-06-01 凌晨 2:00-4:00</strong> 进行服务器维护升级，届时部分功能短暂不可用。</p>',
     link: '',
     pinned: true,
     startTime: '2026-05-31 00:00',
@@ -172,7 +223,7 @@ const list = ref<AnnItem[]>([
     id: 'N002',
     title: '【安全提醒】谨防虚假刷单诈骗',
     type: 'warning',
-    content: '近期出现冒充即闪平台的虚假刷单诈骗，请勿相信任何要求充值的信息，注意保护财产安全。',
+    content: '<p>近期出现冒充即闪平台的<strong>虚假刷单诈骗</strong>，请勿相信任何要求充值的信息，注意保护财产安全。</p>',
     link: 'https://jishanapp.com/safety',
     pinned: false,
     startTime: '2026-05-20 10:00',
@@ -183,7 +234,7 @@ const list = ref<AnnItem[]>([
     id: 'N003',
     title: '五一假期活动公告',
     type: 'info',
-    content: '五一假期即闪将开展特别活动，参与活动可获得专属徽章，欢迎积极参与！',
+    content: '<p>五一假期即闪将开展特别活动，参与活动可获得<em>专属徽章</em>，欢迎积极参与！</p>',
     link: '',
     pinned: false,
     startTime: '2026-04-28 00:00',
@@ -200,7 +251,8 @@ const filterStatus = ref('')
 const filteredList = computed(() => {
   const kw = searchKw.value.toLowerCase()
   return list.value.filter(a => {
-    const matchKw = !kw || a.title.toLowerCase().includes(kw) || a.content.toLowerCase().includes(kw)
+    const plain = stripHtml(a.content)
+    const matchKw = !kw || a.title.toLowerCase().includes(kw) || plain.toLowerCase().includes(kw)
     const matchType = !filterType.value || a.type === filterType.value
     const matchStatus = !filterStatus.value || a.status === filterStatus.value
     return matchKw && matchType && matchStatus
@@ -230,7 +282,15 @@ const form = reactive(blankForm())
 
 const rules = {
   title: [{ required: true, message: '请输入公告标题', trigger: 'blur' }],
-  content: [{ required: true, message: '请输入公告内容', trigger: 'blur' }],
+  content: [
+    {
+      validator: (_: any, value: string, callback: Function) => {
+        if (!value || value === '<p><br></p>') callback(new Error('请输入公告正文内容'))
+        else callback()
+      },
+      trigger: 'blur'
+    }
+  ],
 }
 
 const openDialog = (row?: AnnItem) => {
@@ -246,6 +306,10 @@ const openDialog = (row?: AnnItem) => {
 const handleSubmit = async () => {
   const valid = await formRef.value?.validate().catch(() => false)
   if (!valid) return
+  if (!form.content || form.content === '<p><br></p>') {
+    ElMessage.warning('请输入公告正文内容')
+    return
+  }
   saving.value = true
   setTimeout(() => {
     if (editingId.value) {
@@ -276,6 +340,12 @@ const deleteAnn = (id: string) => {
 }
 </script>
 
+<style>
+/* WangEditor global (cannot be scoped) */
+.ann-wang-toolbar { border-bottom: 1px solid #e2e8f0 !important; background: #f8fafc !important; border-radius: 8px 8px 0 0; }
+.ann-wang-editor  { height: 260px !important; overflow-y: auto; font-size: 14px; }
+</style>
+
 <style scoped>
 .ann-list-container { display: flex; flex-direction: column; gap: 16px; }
 
@@ -292,12 +362,29 @@ const deleteAnn = (id: string) => {
 .table-card { padding: 0; overflow: hidden; }
 
 .title-cell { display: flex; align-items: center; }
-
-.ann-title { font-weight: 600; color: var(--text-main); }
+.ann-title  { font-weight: 600; color: var(--text-main); }
 
 .content-preview {
   font-size: 12px; color: var(--text-muted);
-  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+
+/* ── Rich text editor in dialog ── */
+.wang-editor-wrap {
+  border: 1px solid #dcdfe6;
+  border-radius: 8px;
   overflow: hidden;
+  width: 100%;
+}
+
+.wang-toolbar {
+  border-bottom: 1px solid #e2e8f0 !important;
+  background: #f8fafc !important;
+}
+
+.wang-editor-body {
+  height: 260px !important;
+  overflow-y: auto;
+  font-size: 14px;
 }
 </style>
