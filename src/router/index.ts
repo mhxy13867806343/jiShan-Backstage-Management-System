@@ -84,6 +84,24 @@ const routes: Array<RouteRecordRaw> = [
         name: 'UserAgreement',
         component: () => import('@/views/agreement/User.vue'),
         meta: { title: '用户协议', icon: 'FileSignature', breadcrumbs: ['系统配置', '用户协议管理'] }
+      },
+      {
+        path: 'announcement/single',
+        name: 'AnnouncementSingle',
+        component: () => import('@/views/announcement/Single.vue'),
+        meta: { title: '单公告管理', breadcrumbs: ['公告管理', '单公告'] }
+      },
+      {
+        path: 'announcement/list',
+        name: 'AnnouncementList',
+        component: () => import('@/views/announcement/List.vue'),
+        meta: { title: '公告列表', breadcrumbs: ['公告管理', '公告列表'] }
+      },
+      {
+        path: 'version',
+        name: 'VersionList',
+        component: () => import('@/views/version/List.vue'),
+        meta: { title: '版本管理', breadcrumbs: ['版本管理', '版本列表'] }
       }
     ]
   },

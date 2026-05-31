@@ -1,0 +1,303 @@
+<template>
+  <div class="ann-list-container">
+
+    <!-- Header -->
+    <div class="page-header premium-card">
+      <div class="header-left">
+        <h2>公告列表</h2>
+        <p>管理所有 App 内推送公告，支持新增、编辑、上下架操作。</p>
+      </div>
+      <el-button type="primary" icon="Plus" @click="openDialog()">新增公告</el-button>
+    </div>
+
+    <!-- Filter Bar -->
+    <div class="filter-bar premium-card">
+      <el-input v-model="searchKw" placeholder="搜索标题/内容" prefix-icon="Search" clearable style="width: 220px" />
+      <el-select v-model="filterType" placeholder="类型" clearable style="width: 130px">
+        <el-option label="普通通知" value="info" />
+        <el-option label="重要提醒" value="warning" />
+        <el-option label="紧急公告" value="danger" />
+      </el-select>
+      <el-select v-model="filterStatus" placeholder="状态" clearable style="width: 120px">
+        <el-option label="已发布" value="active" />
+        <el-option label="已停用" value="inactive" />
+      </el-select>
+      <el-button icon="RefreshLeft" @click="resetFilters">重置</el-button>
+    </div>
+
+    <!-- Table -->
+    <div class="table-card premium-card">
+      <el-table :data="filteredList" stripe style="width: 100%">
+
+        <el-table-column label="类型" width="100" align="center">
+          <template #default="{ row }">
+            <el-tag :type="typeTagMap[row.type]" effect="light">{{ typeLabel(row.type) }}</el-tag>
+          </template>
+        </el-table-column>
+
+        <el-table-column label="公告标题" min-width="200">
+          <template #default="{ row }">
+            <div class="title-cell">
+              <span class="ann-title">{{ row.title }}</span>
+              <el-tag v-if="row.pinned" size="small" type="warning" effect="plain" style="margin-left:6px">置顶</el-tag>
+            </div>
+          </template>
+        </el-table-column>
+
+        <el-table-column label="公告内容" min-width="240">
+          <template #default="{ row }">
+            <span class="content-preview">{{ row.content }}</span>
+          </template>
+        </el-table-column>
+
+        <el-table-column label="生效时间" width="160" align="center" prop="startTime" />
+        <el-table-column label="结束时间" width="160" align="center">
+          <template #default="{ row }">
+            <span>{{ row.endTime || '--' }}</span>
+          </template>
+        </el-table-column>
+
+        <el-table-column label="状态" width="90" align="center">
+          <template #default="{ row }">
+            <el-tag :type="row.status === 'active' ? 'success' : 'info'" round>
+              {{ row.status === 'active' ? '已发布' : '已停用' }}
+            </el-tag>
+          </template>
+        </el-table-column>
+
+        <el-table-column label="操作" width="230" align="center" fixed="right">
+          <template #default="{ row }">
+            <el-button size="small" icon="Edit" @click="openDialog(row)">编辑</el-button>
+            <el-button
+              size="small"
+              :type="row.status === 'active' ? 'warning' : 'success'"
+              :icon="row.status === 'active' ? 'VideoPause' : 'VideoPlay'"
+              @click="toggleStatus(row)"
+            >
+              {{ row.status === 'active' ? '停用' : '发布' }}
+            </el-button>
+            <el-popconfirm title="确认删除该公告？" @confirm="deleteAnn(row.id)">
+              <template #reference>
+                <el-button size="small" type="danger" icon="Delete" />
+              </template>
+            </el-popconfirm>
+          </template>
+        </el-table-column>
+      </el-table>
+    </div>
+
+    <!-- Add/Edit Dialog -->
+    <el-dialog v-model="dialogVisible" :title="editingId ? '编辑公告' : '新增公告'" width="580px" destroy-on-close>
+      <el-form :model="form" :rules="rules" ref="formRef" label-width="90px">
+
+        <el-form-item label="公告标题" prop="title">
+          <el-input v-model="form.title" maxlength="50" show-word-limit placeholder="请输入公告标题" />
+        </el-form-item>
+
+        <el-form-item label="公告类型" prop="type">
+          <el-radio-group v-model="form.type">
+            <el-radio-button value="info">普通通知</el-radio-button>
+            <el-radio-button value="warning">重要提醒</el-radio-button>
+            <el-radio-button value="danger">紧急公告</el-radio-button>
+          </el-radio-group>
+        </el-form-item>
+
+        <el-form-item label="是否置顶">
+          <el-switch v-model="form.pinned" active-text="置顶" inactive-text="不置顶" />
+        </el-form-item>
+
+        <el-form-item label="跳转链接">
+          <el-input v-model="form.link" placeholder="可选，点击跳转链接" clearable />
+        </el-form-item>
+
+        <el-form-item label="生效时间">
+          <el-date-picker v-model="form.startTime" type="datetime" placeholder="开始时间" format="YYYY-MM-DD HH:mm" value-format="YYYY-MM-DD HH:mm" style="width: 200px" />
+        </el-form-item>
+
+        <el-form-item label="结束时间">
+          <el-date-picker v-model="form.endTime" type="datetime" placeholder="不填则永久有效" format="YYYY-MM-DD HH:mm" value-format="YYYY-MM-DD HH:mm" style="width: 200px" />
+        </el-form-item>
+
+        <el-form-item label="公告内容" prop="content">
+          <el-input v-model="form.content" type="textarea" :rows="4" maxlength="500" show-word-limit placeholder="请输入公告正文" />
+        </el-form-item>
+
+        <el-form-item label="发布状态">
+          <el-switch v-model="form.statusActive" active-text="立即发布" inactive-text="保存草稿" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="dialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="saving" @click="handleSubmit">
+          {{ editingId ? '保存修改' : '创建公告' }}
+        </el-button>
+      </template>
+    </el-dialog>
+
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, reactive, computed } from 'vue'
+import { ElMessage } from 'element-plus'
+import type { FormInstance } from 'element-plus'
+
+// ── Types ───────────────────────────────────────────────────────
+interface AnnItem {
+  id: string
+  title: string
+  type: 'info' | 'warning' | 'danger'
+  content: string
+  link: string
+  pinned: boolean
+  startTime: string
+  endTime: string
+  status: 'active' | 'inactive'
+}
+
+// ── Mock data ────────────────────────────────────────────────────
+const list = ref<AnnItem[]>([
+  {
+    id: 'N001',
+    title: '【系统通知】即闪 App 6 月服务升级公告',
+    type: 'info',
+    content: '我们将于 2026-06-01 凌晨 2:00-4:00 进行服务器维护升级，届时部分功能短暂不可用。',
+    link: '',
+    pinned: true,
+    startTime: '2026-05-31 00:00',
+    endTime: '2026-06-02 00:00',
+    status: 'active',
+  },
+  {
+    id: 'N002',
+    title: '【安全提醒】谨防虚假刷单诈骗',
+    type: 'warning',
+    content: '近期出现冒充即闪平台的虚假刷单诈骗，请勿相信任何要求充值的信息，注意保护财产安全。',
+    link: 'https://jishanapp.com/safety',
+    pinned: false,
+    startTime: '2026-05-20 10:00',
+    endTime: '',
+    status: 'active',
+  },
+  {
+    id: 'N003',
+    title: '五一假期活动公告',
+    type: 'info',
+    content: '五一假期即闪将开展特别活动，参与活动可获得专属徽章，欢迎积极参与！',
+    link: '',
+    pinned: false,
+    startTime: '2026-04-28 00:00',
+    endTime: '2026-05-06 23:59',
+    status: 'inactive',
+  },
+])
+
+// ── Filters ──────────────────────────────────────────────────────
+const searchKw = ref('')
+const filterType = ref('')
+const filterStatus = ref('')
+
+const filteredList = computed(() => {
+  const kw = searchKw.value.toLowerCase()
+  return list.value.filter(a => {
+    const matchKw = !kw || a.title.toLowerCase().includes(kw) || a.content.toLowerCase().includes(kw)
+    const matchType = !filterType.value || a.type === filterType.value
+    const matchStatus = !filterStatus.value || a.status === filterStatus.value
+    return matchKw && matchType && matchStatus
+  })
+})
+
+const resetFilters = () => { searchKw.value = ''; filterType.value = ''; filterStatus.value = '' }
+
+// ── Helpers ──────────────────────────────────────────────────────
+const typeTagMap: Record<string, string> = { info: '', warning: 'warning', danger: 'danger' }
+const typeLabel = (t: string) => ({ info: '普通通知', warning: '重要提醒', danger: '紧急公告' }[t] || t)
+
+// ── CRUD ─────────────────────────────────────────────────────────
+const dialogVisible = ref(false)
+const editingId = ref('')
+const saving = ref(false)
+const formRef = ref<FormInstance>()
+
+const blankForm = () => ({
+  title: '', type: 'info' as const, content: '',
+  link: '', pinned: false,
+  startTime: new Date().toISOString().slice(0, 16).replace('T', ' '),
+  endTime: '', statusActive: true,
+})
+
+const form = reactive(blankForm())
+
+const rules = {
+  title: [{ required: true, message: '请输入公告标题', trigger: 'blur' }],
+  content: [{ required: true, message: '请输入公告内容', trigger: 'blur' }],
+}
+
+const openDialog = (row?: AnnItem) => {
+  editingId.value = row?.id || ''
+  if (row) {
+    Object.assign(form, { ...row, statusActive: row.status === 'active' })
+  } else {
+    Object.assign(form, blankForm())
+  }
+  dialogVisible.value = true
+}
+
+const handleSubmit = async () => {
+  const valid = await formRef.value?.validate().catch(() => false)
+  if (!valid) return
+  saving.value = true
+  setTimeout(() => {
+    if (editingId.value) {
+      const item = list.value.find(a => a.id === editingId.value)
+      if (item) Object.assign(item, { ...form, status: form.statusActive ? 'active' : 'inactive' })
+      ElMessage.success('公告已更新')
+    } else {
+      list.value.unshift({
+        id: 'N' + Date.now().toString().slice(-4),
+        ...form,
+        status: form.statusActive ? 'active' : 'inactive',
+      })
+      ElMessage.success('公告已创建')
+    }
+    dialogVisible.value = false
+    saving.value = false
+  }, 300)
+}
+
+const toggleStatus = (row: AnnItem) => {
+  row.status = row.status === 'active' ? 'inactive' : 'active'
+  ElMessage.success(row.status === 'active' ? '公告已发布' : '公告已停用')
+}
+
+const deleteAnn = (id: string) => {
+  list.value = list.value.filter(a => a.id !== id)
+  ElMessage.success('已删除')
+}
+</script>
+
+<style scoped>
+.ann-list-container { display: flex; flex-direction: column; gap: 16px; }
+
+.page-header {
+  display: flex; justify-content: space-between; align-items: center; padding: 20px 24px;
+}
+.header-left h2 { font-size: 20px; font-weight: 700; color: var(--text-main); margin-bottom: 3px; }
+.header-left p  { font-size: 13px; color: var(--text-muted); }
+
+.filter-bar {
+  display: flex; align-items: center; gap: 12px; padding: 14px 20px; flex-wrap: wrap;
+}
+
+.table-card { padding: 0; overflow: hidden; }
+
+.title-cell { display: flex; align-items: center; }
+
+.ann-title { font-weight: 600; color: var(--text-main); }
+
+.content-preview {
+  font-size: 12px; color: var(--text-muted);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+</style>

@@ -53,6 +53,28 @@
           <template #title>账号管理</template>
         </el-menu-item>
 
+        <!-- Announcement Management -->
+        <el-sub-menu index="/announcement">
+          <template #title>
+            <el-icon><Bell /></el-icon>
+            <span>公告管理</span>
+          </template>
+          <el-menu-item index="/announcement/single">
+            <el-icon><Promotion /></el-icon>
+            <span>单公告</span>
+          </el-menu-item>
+          <el-menu-item index="/announcement/list">
+            <el-icon><List /></el-icon>
+            <span>公告列表</span>
+          </el-menu-item>
+        </el-sub-menu>
+
+        <!-- Version Management -->
+        <el-menu-item index="/version">
+          <el-icon><Upload /></el-icon>
+          <template #title>版本管理</template>
+        </el-menu-item>
+
         <!-- System Configurations Submenu -->
         <el-sub-menu index="/system">
           <template #title>
