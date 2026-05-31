@@ -1,89 +1,32 @@
-<template>
-  <div class="region-management-container">
-    <!-- Header banner -->
-    <div class="header-action-bar premium-card">
-      <div class="header-text-info">
-        <h2>地区与定位配置管理</h2>
-        <p>配置即闪 App 动态发布可选的定位列表。支持通过全国四级行政区划目录展示查阅，也可以快捷自定义常用地标。</p>
-      </div>
-    </div>
+import os
 
-    <!-- Main Tabs -->
-    <el-tabs v-model="activeTab" @tab-click="handleTabClick" class="region-tabs premium-card">
-      <!-- TAB 1: ACTIVE LOCATIONS -->
-      <el-tab-pane name="active_regions">
-        <template #label>
-          <span class="tab-label-custom">
-            <el-icon><Location /></el-icon> 📍 常用定位地标 (App 激活)
-          </span>
-        </template>
-        
-        <div class="tab-content-wrapper">
-          <div class="toolbar-header">
-            <div class="panel-title">当前已激活的 App 可选位置</div>
-            <!-- Quick add inline form -->
-            <div class="quick-add-form">
-              <el-input 
-                v-model="newRegionName" 
-                placeholder="地标名称（例如：广州·天河）" 
-                clearable 
-                style="width: 240px; margin-right: 12px;"
-                @keyup.enter="handleCreateRegion"
-              >
-                <template #prefix>
-                  <el-icon class="prefix-loc-icon"><Location /></el-icon>
-                </template>
-              </el-input>
-              <el-button type="primary" icon="Plus" @click="handleCreateRegion">新增地区</el-button>
-            </div>
-          </div>
+region_path = "/Users/hooksvue/Desktop/jiShan Backstage Management System/src/views/region/List.vue"
 
-          <!-- Regions Card Grid -->
-          <div class="regions-grid-wrapper">
-            <el-row :gutter="20">
-              <el-col 
-                v-for="region in regions" 
-                :key="region.regionId || region.name" 
-                :xs="24" :sm="12" :md="8" :lg="6"
-              >
-                <el-card class="region-card hover-transform" shadow="never">
-                  <div class="region-card-content">
-                    <div class="region-meta">
-                      <div class="loc-icon-badge">
-                        <el-icon><LocationInformation /></el-icon>
-                      </div>
-                      <div class="region-info">
-                        <h3 class="region-title">{{ region.name }}</h3>
-                        <span class="region-usage-count">
-                          已选发布 <b class="count-num">{{ getRegionPostCount(region.name) }}</b> 篇动态
-                        </span>
-                      </div>
-                    </div>
+with open(region_path, 'r', encoding='utf-8') as f:
+    content = f.read()
 
-                    <!-- Action button -->
-                    <el-button 
-                      type="danger" 
-                      plain 
-                      size="small" 
-                      icon="Delete"
-                      class="delete-btn"
-                      @click="handleDeleteRegion(region.name)"
-                    >
-                      删除
-                    </el-button>
-                  </div>
-                </el-card>
-              </el-col>
+# Let's replace the tab nationwide_cascader completely
+# Start marker: <!-- TAB 2: NATIONWIDE 4-LEVEL REGION BROWSER (FLAT CATALOG TABLE WITH A-Z FILTER) -->
+# End marker: </el-tab-pane> (the second one)
+# Let's find the exact block for nationwide_cascader tab
+start_marker = "<!-- TAB 2: NATIONWIDE 4-LEVEL REGION BROWSER (FLAT CATALOG TABLE WITH A-Z FILTER) -->"
+end_marker = "</el-tab-pane>"
 
-              <el-col v-if="!regions.length" :span="24">
-                <el-empty description="暂无可选地标，请在右上方快捷增加或从全国区划导入" />
-              </el-col>
-            </el-row>
-          </div>
-        </div>
-      </el-tab-pane>
+start_idx = content.find(start_marker)
+if start_idx == -1:
+    print("Could not find start marker in template!")
+    exit(1)
 
-      <!-- TAB 2: THREE-LEVEL REGION TREE TABLE WITH A-Z FILTER -->
+# Find the next </el-tab-pane> after start_marker
+end_idx = content.find(end_marker, start_idx)
+if end_idx == -1:
+    print("Could not find end marker in template!")
+    exit(1)
+
+# Ensure we include the closing tag </el-tab-pane>
+end_idx += len(end_marker)
+
+replacement_tab = """<!-- TAB 2: THREE-LEVEL REGION TREE TABLE WITH A-Z FILTER -->
       <el-tab-pane name="nationwide_cascader">
         <template #label>
           <span class="tab-label-custom">
@@ -188,13 +131,22 @@
             />
           </div>
         </div>
-      </el-tab-pane>
-    </el-tabs>
-  </div>
-</template>
+      </el-tab-pane>"""
 
-<script setup lang="ts">
-import { ref, reactive, computed, onMounted, watch, onActivated } from 'vue'
+# Replace in template
+template_replaced = content[:start_idx] + replacement_tab + content[end_idx:]
+
+# Let's find script block in template_replaced
+script_start = template_replaced.find("<script setup")
+script_end = template_replaced.find("</script>") + len("</script>")
+
+if script_start == -1 or script_end == -1:
+    print("Could not find script block!")
+    exit(1)
+
+# Replacement script setup
+replacement_script = """<script setup lang="ts">
+import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useMockDataStore } from '@/store/mockData'
 import { adminApi } from '@/api/admin'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -202,7 +154,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 const mockStore = useMockDataStore()
 const activeTab = ref('active_regions')
 const newRegionName = ref('')
-const regions = ref<any[]>([])
+const regions = ref<string[]>([])
 
 const fetchRegions = async () => {
   try {
@@ -214,14 +166,6 @@ const fetchRegions = async () => {
 
 onMounted(() => {
   fetchRegions()
-})
-
-onActivated(() => {
-  if (activeTab.value === 'nationwide_cascader') {
-    fetchAddressTree()
-  } else {
-    fetchRegions()
-  }
 })
 
 // Calculate usage of this location in content text
@@ -341,11 +285,10 @@ const fetchAddressTree = async () => {
       else levelLabel = '第三级 (区/县)'
       
       const nodeName = node.name || node.label || ''
-      const isAlreadyActive = regions.value.some(r => {
-        const name = typeof r === 'string' ? r : (r.name || '')
-        return name.includes(nodeName) || 
-          (nodeName.length > 1 && name.includes(nodeName.replace('区', '').replace('县', '').replace('市', '')))
-      })
+      const isAlreadyActive = regions.value.some(r => 
+        r.includes(nodeName) || 
+        (nodeName.length > 1 && r.includes(nodeName.replace('区', '').replace('县', '').replace('市', '')))
+      )
       
       return {
         code: node.code || node.value,
@@ -368,22 +311,10 @@ const fetchAddressTree = async () => {
   }
 }
 
-const handleTabClick = (pane: any) => {
-  const name = pane.props.name
-  console.log('Region tab clicked:', name)
-  if (name === 'nationwide_cascader') {
-    fetchAddressTree()
-  } else if (name === 'active_regions') {
-    fetchRegions()
-  }
-}
-
 // Watch active tab to fetch data on demand when switching tabs
 watch(activeTab, (newTab) => {
   if (newTab === 'nationwide_cascader') {
     fetchAddressTree()
-  } else if (newTab === 'active_regions') {
-    fetchRegions()
   }
 })
 
@@ -471,245 +402,11 @@ const getLevelTagType = (level: number) => {
   if (level === 2) return 'warning'
   return 'success'
 }
-</script>
+</script>"""
 
-<style scoped>
-.region-management-container {
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
-}
+final_content = template_replaced[:script_start] + replacement_script + template_replaced[script_end:]
 
-.header-action-bar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 18px 24px;
-}
+with open(region_path, 'w', encoding='utf-8') as f:
+    f.write(final_content)
 
-.header-text-info h2 {
-  font-size: 20px;
-  font-weight: 700;
-  color: var(--text-main);
-  margin-bottom: 4px;
-}
-
-.header-text-info p {
-  font-size: 13px;
-  color: var(--text-muted);
-}
-
-.region-tabs {
-  padding: 20px 24px;
-  border-radius: 4px;
-  box-shadow: 0 1px 4px rgba(0,21,41,.08);
-}
-
-.tab-label-custom {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-weight: 700;
-  font-size: 14px;
-}
-
-.tab-content-wrapper {
-  padding: 15px 0 5px 0;
-}
-
-.toolbar-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-  border-bottom: 1px solid #e8e8e8;
-  padding-bottom: 15px;
-}
-
-.panel-title {
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--text-main);
-  border-left: 3px solid var(--primary);
-  padding-left: 8px;
-}
-
-.quick-add-form {
-  display: flex;
-  align-items: center;
-}
-
-.prefix-loc-icon {
-  color: var(--primary);
-  font-size: 14px;
-}
-
-/* Card Grid Styles */
-.regions-grid-wrapper {
-  margin-top: 10px;
-}
-
-.region-card {
-  margin-bottom: 20px;
-  border: 1px solid var(--border-color) !important;
-  background-color: white;
-  border-radius: 8px !important;
-}
-
-.region-card-content {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 4px 0;
-}
-
-.region-meta {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.loc-icon-badge {
-  width: 36px;
-  height: 36px;
-  background-color: #fff7ed;
-  color: #ea580c;
-  border: 1px solid #ffedd5;
-  font-size: 18px;
-  font-weight: bold;
-  border-radius: 8px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-.region-info {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.region-title {
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--text-main);
-  margin: 0;
-}
-
-.region-usage-count {
-  font-size: 11px;
-  color: var(--text-muted);
-}
-
-.count-num {
-  color: #ea580c;
-  font-weight: bold;
-}
-
-.delete-btn {
-  flex-shrink: 0;
-}
-
-.hover-transform {
-  transition: transform 0.25s, box-shadow 0.25s;
-}
-
-.hover-transform:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
-}
-
-.ruoyi-form-inline :deep(.el-form-item) {
-  margin-bottom: 0 !important;
-  margin-right: 20px !important;
-}
-
-.ruoyi-form-inline :deep(.el-form-item__label) {
-  font-weight: 700;
-  color: #606266;
-}
-
-.ruoyi-badge {
-  display: inline-block;
-  padding: 2px 8px;
-  font-size: 11px;
-  font-weight: 700;
-  border-radius: 12px;
-  text-align: center;
-}
-
-.badge-success {
-  background-color: #e6f7ff;
-  color: #1890ff;
-  border: 1px solid #91d5ff;
-}
-
-.badge-info {
-  background-color: #f5f5f5;
-  color: #8c8c8c;
-  border: 1px solid #d9d9d9;
-}
-
-.font-mono {
-  font-family: var(--font-mono);
-  font-weight: 600;
-}
-
-/* Alphabet Filter Bar Styles */
-.alphabet-filter-bar {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 6px;
-  background-color: #f8fafc;
-  padding: 12px 18px;
-  border-radius: 8px;
-  border: 1px solid var(--border-color);
-  margin-bottom: 15px;
-}
-
-.alphabet-label {
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--text-muted);
-  margin-right: 10px;
-}
-
-.alphabet-letters {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-}
-
-.letter-pill {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  font-size: 12px;
-  font-weight: 700;
-  cursor: pointer;
-  user-select: none;
-  transition: all 0.2s ease;
-  color: var(--text-regular);
-}
-
-.letter-pill:hover:not(.is-disabled):not(.is-active) {
-  background-color: #e2e8f0;
-  color: var(--primary);
-}
-
-.letter-pill.is-active {
-  background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
-  color: white;
-  box-shadow: 0 2px 8px rgba(88, 86, 214, 0.3);
-}
-
-.letter-pill.is-disabled {
-  color: #cbd5e1;
-  cursor: not-allowed;
-  font-weight: 400;
-}
-</style>
+print("List.vue updated successfully with address tree table!")

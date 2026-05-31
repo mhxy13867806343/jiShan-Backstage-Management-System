@@ -409,8 +409,7 @@ export const adminApi = {
       res = await request.get<any>('/api/admin/tags', { limit: 100 })
     }
 
-    const currentList = res.data?.list || []
-    return currentList.map((t: any) => t.name)
+    return res.data?.list || []
   },
 
   addTag(name: string) {
@@ -446,8 +445,7 @@ export const adminApi = {
       res = await request.get<any>('/api/admin/regions', { limit: 100 })
     }
 
-    const currentList = res.data?.list || []
-    return currentList.map((r: any) => r.name)
+    return res.data?.list || []
   },
 
   addRegion(name: string) {

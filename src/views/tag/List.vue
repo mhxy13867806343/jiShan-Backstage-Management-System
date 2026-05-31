@@ -9,7 +9,7 @@
     </div>
 
     <!-- Main Tabs Wrap -->
-    <el-tabs v-model="activeTab" class="tag-tabs premium-card">
+    <el-tabs v-model="activeTab" @tab-click="handleTabClick" class="tag-tabs premium-card">
       <!-- TAB 1: TOPIC CONFIGURATION & ANTI-FRAUD -->
       <el-tab-pane name="config">
         <template #label>
@@ -46,7 +46,7 @@
             <el-row :gutter="20">
               <el-col 
                 v-for="tag in tags" 
-                :key="tag" 
+                :key="tag.tagId || tag.name" 
                 :xs="24" :sm="12" :md="8" :lg="6"
               >
                 <el-card class="tag-card premium-card hover-transform" shadow="never">
@@ -54,13 +54,13 @@
                     <div class="tag-meta">
                       <div class="hash-icon-badge">#</div>
                       <div class="tag-info">
-                        <h3 class="tag-title">{{ tag }}</h3>
+                        <h3 class="tag-title">{{ tag.name }}</h3>
                         <span class="tag-usage-count">
-                          已关联 <b class="count-num">{{ getTagPostCount(tag) }}</b> 篇动态
+                          已关联 <b class="count-num">{{ tag.postCount !== undefined ? tag.postCount : getTagPostCount(tag.name) }}</b> 篇动态
                         </span>
                         <span class="tag-usage-count" style="margin-top: 4px; display: block; color: var(--danger);">
                           <el-icon style="vertical-align: middle; margin-right: 2px;"><Warning /></el-icon>
-                          被骗关联次数：<b class="scam-num">{{ getTagScamCount(tag) }}</b> 次
+                          被骗关联次数：<b class="scam-num">{{ tag.scamCount !== undefined ? tag.scamCount : getTagScamCount(tag.name) }}</b> 次
                         </span>
                       </div>
                     </div>
@@ -72,7 +72,7 @@
                       size="small" 
                       icon="Delete"
                       class="delete-btn"
-                      @click="handleDeleteTag(tag)"
+                      @click="handleDeleteTag(tag.name)"
                     >
                       删除
                     </el-button>
@@ -154,7 +154,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch, onActivated } from 'vue'
 import { useMockDataStore } from '@/store/mockData'
 import { adminApi } from '@/api/admin'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -162,7 +162,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 const mockStore = useMockDataStore()
 const activeTab = ref('config')
 const newTagName = ref('')
-const tags = ref<string[]>([])
+const tags = ref<any[]>([])
 
 const fetchTags = async () => {
   try {
@@ -173,6 +173,20 @@ const fetchTags = async () => {
 }
 
 onMounted(() => {
+  fetchTags()
+})
+
+onActivated(() => {
+  fetchTags()
+})
+
+const handleTabClick = (pane: any) => {
+  console.log('Tag tab clicked:', pane.props.name)
+  fetchTags()
+}
+
+// Watch active tab to fetch fresh data on demand when switching tabs
+watch(activeTab, () => {
   fetchTags()
 })
 
@@ -201,17 +215,28 @@ const getTagScamCount = (tag: string) => {
   return (hash % 12) + 1
 }
 
+const getTagSearchCountFallback = (tag: string) => {
+  let hash = 0
+  for (let i = 0; i < tag.length; i++) {
+    hash += tag.charCodeAt(i) * (i + 3)
+  }
+  return (hash % 8500) + 1200
+}
+
 // Compute dynamic, highly realistic user search statistics
 const sortedSearchStats = computed(() => {
-  const list = tags.value.map(tag => {
+  const list = tags.value.map(tagItem => {
+    const tag = tagItem.name
+    const postCount = tagItem.postCount !== undefined ? tagItem.postCount : getTagPostCount(tag)
+    const scamCount = tagItem.scamCount !== undefined ? tagItem.scamCount : getTagScamCount(tag)
+    const searchCount = tagItem.searchCount !== undefined ? tagItem.searchCount : getTagSearchCountFallback(tag)
+    
+    let trendType: 'danger' | 'warning' | 'info' | 'success' = 'info'
+    let trendText = '➡️ 平稳表现'
     let hash = 0
     for (let i = 0; i < tag.length; i++) {
       hash += tag.charCodeAt(i) * (i + 3)
     }
-    const searchCount = (hash % 8500) + 1200
-    
-    let trendType: 'danger' | 'warning' | 'info' | 'success' = 'info'
-    let trendText = '➡️ 平稳表现'
     const trendMod = hash % 4
     if (trendMod === 0) {
       trendType = 'danger'
@@ -229,8 +254,8 @@ const sortedSearchStats = computed(() => {
 
     return {
       tag,
-      postCount: getTagPostCount(tag),
-      scamCount: getTagScamCount(tag),
+      postCount,
+      scamCount,
       searchCount,
       trendType,
       trendText
