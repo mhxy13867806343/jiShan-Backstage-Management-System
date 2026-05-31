@@ -470,6 +470,11 @@ export const adminApi = {
     throw new Error('Region not found')
   },
 
+  // ── Address tree Public Configuration ──
+  getAddressTree() {
+    return request.get<any>('/api/address/tree')
+  },
+
   // ── Dictionary Configuration ──
   getDictById(dictId: string) {
     return request.get<any>(`/api/admin/dictionaries/${dictId}`)

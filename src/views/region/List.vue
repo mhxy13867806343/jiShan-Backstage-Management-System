@@ -83,18 +83,18 @@
         </div>
       </el-tab-pane>
 
-      <!-- TAB 2: NATIONWIDE 4-LEVEL REGION BROWSER (FLAT CATALOG TABLE WITH A-Z FILTER) -->
+      <!-- TAB 2: THREE-LEVEL REGION TREE TABLE WITH A-Z FILTER -->
       <el-tab-pane name="nationwide_cascader">
         <template #label>
           <span class="tab-label-custom">
-            <el-icon><MapLocation /></el-icon> 🇨🇳 全国四级行政区划 (系统预置)
+            <el-icon><MapLocation /></el-icon> 🇨🇳 三级地区树 (系统预置)
           </span>
         </template>
         
         <div class="tab-content-wrapper">
           <!-- A-Z Alphabetical Index Filter Bar -->
           <div class="alphabet-filter-bar">
-            <span class="alphabet-label">按拼音首字母检索：</span>
+            <span class="alphabet-label">按拼音首字母检索省份：</span>
             <div class="alphabet-letters">
               <span 
                 v-for="letter in alphabet" 
@@ -114,21 +114,12 @@
           <!-- Search Panel -->
           <div class="nationwide-search-bar" style="margin-bottom: 15px;">
             <el-form :inline="true" :model="nationwideQuery" class="ruoyi-form-inline">
-              <el-form-item label="省份名称">
+              <el-form-item label="地区名称">
                 <el-input 
                   v-model="nationwideQuery.province" 
-                  placeholder="请输入省份关键字 (如: 广东)" 
+                  placeholder="请输入地区名称关键字 (如: 广东、广州、天河)" 
                   clearable 
-                  style="width: 220px;"
-                  @keyup.enter="handleNationwideQuery"
-                />
-              </el-form-item>
-              <el-form-item label="街道/乡镇">
-                <el-input 
-                  v-model="nationwideQuery.street" 
-                  placeholder="请输入街道关键字 (如: 五山)" 
-                  clearable 
-                  style="width: 220px;"
+                  style="width: 320px;"
                   @keyup.enter="handleNationwideQuery"
                 />
               </el-form-item>
@@ -139,23 +130,38 @@
             </el-form>
           </div>
 
-          <!-- Flat Catalog Table -->
-          <el-table :data="paginatedNationwideList" style="width: 100%;" border>
-            <el-table-column label="行政区划代码" prop="value" width="160" align="center">
+          <!-- Tree Table for Three-level Address Tree -->
+          <el-table 
+            v-loading="treeLoading"
+            :data="paginatedTreeList" 
+            row-key="code"
+            :tree-props="{ children: 'children', hasChildren: 'hasChildren' }"
+            style="width: 100%;" 
+            border
+          >
+            <el-table-column label="地区名称" prop="name" align="left" header-align="center" width="320">
               <template #default="{ row }">
-                <span class="font-mono text-muted">{{ row.value }}</span>
+                <span class="region-name-cell" style="display: inline-flex; align-items: center; gap: 8px;">
+                  <el-icon v-if="row.level === 1" style="color: #409eff;"><Grid /></el-icon>
+                  <el-icon v-else-if="row.level === 2" style="color: #e6a23c;"><OfficeBuilding /></el-icon>
+                  <el-icon v-else style="color: #67c23a;"><Location /></el-icon>
+                  {{ row.name }}
+                </span>
               </template>
             </el-table-column>
-            <el-table-column label="省份 / 直辖市" prop="province" align="center" />
-            <el-table-column label="地级市" prop="city" align="center" />
-            <el-table-column label="区 / 县" prop="district" align="center" />
-            <el-table-column label="街道 / 乡镇" prop="street" align="center" />
-            <el-table-column label="行政级别" prop="level" width="180" align="center">
+            <el-table-column label="行政区划代码" prop="code" width="220" align="center">
               <template #default="{ row }">
-                <el-tag type="info" size="small">{{ row.level }}</el-tag>
+                <span class="font-mono text-muted">{{ row.code }}</span>
               </template>
             </el-table-column>
-            <el-table-column label="数据状态" width="160" align="center">
+            <el-table-column label="行政级别" prop="levelLabel" width="220" align="center">
+              <template #default="{ row }">
+                <el-tag :type="getLevelTagType(row.level)" size="small">
+                  {{ row.levelLabel }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="数据状态" width="180" align="center">
               <template #default="{ row }">
                 <span 
                   class="ruoyi-badge" 
@@ -188,7 +194,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useMockDataStore } from '@/store/mockData'
 import { adminApi } from '@/api/admin'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -260,12 +266,11 @@ const handleDeleteRegion = (region: string) => {
 }
 
 // ----------------------------------------------------
-// TAB 2: NATIONWIDE 4-LEVEL REGION TABLE LIST IMPLEMENTATION WITH A-Z FILTER
+// TAB 2: THREE-LEVEL REGION TREE TABLE IMPLEMENTATION
 // ----------------------------------------------------
 
 const nationwideQuery = reactive({
-  province: '',
-  street: ''
+  province: ''
 })
 const nationwidePage = ref(1)
 const nationwidePageSize = ref(10)
@@ -278,247 +283,149 @@ const provinceLetterMap: Record<string, string> = {
   '北京市': 'B',
   '广东省': 'G',
   '四川省': 'S',
-  '浙江省': 'Z'
+  '浙江省': 'Z',
+  '天津市': 'T',
+  '上海市': 'S',
+  '重庆市': 'C',
+  '河北省': 'H',
+  '山西省': 'S',
+  '辽宁省': 'L',
+  '吉林省': 'J',
+  '黑龙江省': 'H',
+  '江苏省': 'J',
+  '安徽省': 'A',
+  '福建省': 'F',
+  '江西省': 'J',
+  '山东省': 'S',
+  '河南省': 'H',
+  '湖北省': 'H',
+  '湖南省': 'H',
+  '海南省': 'H',
+  '贵州省': 'G',
+  '云南省': 'Y',
+  '陕西省': 'S',
+  '甘肃省': 'G',
+  '青海省': 'Q',
+  '台湾省': 'T',
+  '内蒙古自治区': 'N',
+  '广西壮族自治区': 'G',
+  '西藏自治区': 'X',
+  '宁夏回族自治区': 'N',
+  '新疆维吾尔自治区': 'X',
+  '香港特别行政区': 'X',
+  '澳门特别行政区': 'A'
 }
 
-// Initial 4-level region data representing Provinces, Cities, Districts, and Streets in China
-const nationwideRegions = ref<any[]>([
-  {
-    value: '110000',
-    label: '北京市',
-    children: [
-      {
-        value: '110100',
-        label: '北京市市辖区',
-        children: [
-          {
-            value: '110105',
-            label: '朝阳区',
-            children: [
-              { value: '110105001', label: '建外街道' },
-              { value: '110105002', label: '朝外街道' },
-              { value: '110105003', label: '三里屯街道' },
-              { value: '110105004', label: '望京街道' }
-            ]
-          },
-          {
-            value: '110101',
-            label: '东城区',
-            children: [
-              { value: '110101001', label: '东华门街道' },
-              { value: '110101002', label: '景山街道' },
-              { value: '110101003', label: '交道口街道' }
-            ]
-          }
-        ]
-      }
-    ]
-  },
-  {
-    value: '440000',
-    label: '广东省',
-    children: [
-      {
-        value: '440100',
-        label: '广州市',
-        children: [
-          {
-            value: '440106',
-            label: '天河区',
-            children: [
-              { value: '440106001', label: '石牌街道' },
-              { value: '440106002', label: '五山街道' },
-              { value: '440106003', label: '员村街道' },
-              { value: '440106004', label: '沙河街道' }
-            ]
-          },
-          {
-            value: '440105',
-            label: '海珠区',
-            children: [
-              { value: '440105001', label: '赤岗街道' },
-              { value: '440105002', label: '新港街道' },
-              { value: '440105003', label: '昌岗街道' }
-            ]
-          }
-        ]
-      },
-      {
-        value: '440300',
-        label: '深圳市',
-        children: [
-          {
-            value: '440304',
-            label: '福田区',
-            children: [
-              { value: '440304001', label: '沙头街道' },
-              { value: '440304002', label: '莲花街道' },
-              { value: '440304003', label: '华强北街道' },
-              { value: '440304004', label: '福田街道' }
-            ]
-          },
-          {
-            value: '440305',
-            label: '南山区',
-            children: [
-              { value: '440305001', label: '粤海街道' },
-              { value: '440305002', label: '桃源街道' },
-              { value: '440305003', label: '西丽街道' }
-            ]
-          }
-        ]
-      }
-    ]
-  },
-  {
-    value: '510000',
-    label: '四川省',
-    children: [
-      {
-        value: '510100',
-        label: '成都市',
-        children: [
-          {
-            value: '510107',
-            label: '武侯区',
-            children: [
-              { value: '510107001', label: '火车南站街道' },
-              { value: '510107002', label: '浆洗街街道' },
-              { value: '510107003', label: '双楠街道' },
-              { value: '510107004', label: '望江路街道' }
-            ]
-          },
-          {
-            value: '510105',
-            label: '青羊区',
-            children: [
-              { value: '510105001', label: '草市街街道' },
-              { value: '510105002', label: '西御河街道' },
-              { value: '510105003', label: '少城街道' }
-            ]
-          }
-        ]
-      }
-    ]
-  },
-  {
-    value: '330000',
-    label: '浙江省',
-    children: [
-      {
-        value: '330100',
-        label: '杭州市',
-        children: [
-          {
-            value: '330106',
-            label: '西湖区',
-            children: [
-              { value: '330106001', label: '翠苑街道' },
-              { value: '330106002', label: '古荡街道' },
-              { value: '330106003', label: '转塘街道' },
-              { value: '330106004', label: '留下街道' }
-            ]
-          },
-          {
-            value: '330102',
-            label: '上城区',
-            children: [
-              { value: '330102001', label: '清波街道' },
-              { value: '330102002', label: '湖滨街道' },
-              { value: '330102003', label: '小营街道' }
-            ]
-          }
-        ]
-      }
-    ]
-  }
-])
+const treeLoading = ref(false)
+const addressTree = ref<any[]>([])
 
-// Dynamically flatten the 4-level region tree
-const flatNationwideList = computed(() => {
-  const result: any[] = []
-  
-  const traverse = (node: any, province = '', city = '', district = '') => {
-    if (!node.children || node.children.length === 0) {
-      // Map active tag pattern, e.g., "天河·五山"
-      const distName = district.replace('区', '').replace('县', '')
-      const strName = node.label.replace('街道', '').replace('镇', '')
-      const appLocationFormat = `${distName}·${strName}`
-      const isAlreadyActive = regions.value.includes(appLocationFormat)
+const fetchAddressTree = async () => {
+  treeLoading.value = true
+  try {
+    const res = await adminApi.getAddressTree()
+    const rawTree = res.data || []
+    
+    // Parse the tree to enrich it with levels and activation status
+    const enrichNode = (node: any, level = 1): any => {
+      let levelLabel = ''
+      if (level === 1) levelLabel = '第一级 (省份/直辖市)'
+      else if (level === 2) levelLabel = '第二级 (地级市)'
+      else levelLabel = '第三级 (区/县)'
       
-      result.push({
-        value: node.value,
-        province,
-        city: city || '市辖区',
-        district,
-        street: node.label,
-        level: '四级 (街道/乡镇)',
-        status: isAlreadyActive ? '1' : '0'
-      })
-    } else {
-      node.children.forEach((child: any) => {
-        let nextProvince = province
-        let nextCity = city
-        let nextDistrict = district
-        
-        if (!province) {
-          nextProvince = node.label
-        } else if (!city) {
-          nextCity = node.label
-        } else if (!district) {
-          nextDistrict = node.label
-        }
-        
-        traverse(child, nextProvince, nextCity, nextDistrict)
-      })
+      const nodeName = node.name || node.label || ''
+      const isAlreadyActive = regions.value.some(r => 
+        r.includes(nodeName) || 
+        (nodeName.length > 1 && r.includes(nodeName.replace('区', '').replace('县', '').replace('市', '')))
+      )
+      
+      return {
+        code: node.code || node.value,
+        name: nodeName,
+        value: node.value || node.code,
+        label: node.label || node.name,
+        level,
+        levelLabel,
+        status: isAlreadyActive ? '1' : '0',
+        children: (node.children || []).map((child: any) => enrichNode(child, level + 1))
+      }
     }
+    
+    addressTree.value = rawTree.map((item: any) => enrichNode(item, 1))
+  } catch (err) {
+    console.error('Fetch address tree failed', err)
+    ElMessage.error('获取地区树数据失败')
+  } finally {
+    treeLoading.value = false
   }
-  
-  nationwideRegions.value.forEach(prov => {
-    traverse(prov)
-  })
-  
-  return result
+}
+
+// Watch active tab to fetch data on demand when switching tabs
+watch(activeTab, (newTab) => {
+  if (newTab === 'nationwide_cascader') {
+    fetchAddressTree()
+  }
 })
 
-// Dynamic computation of active searchable letters (based on preloaded data)
+// Dynamic computation of active searchable letters (based on fetched provinces)
 const activeLetters = computed(() => {
   const letters = new Set<string>()
-  flatNationwideList.value.forEach(item => {
-    const letter = provinceLetterMap[item.province]
+  addressTree.value.forEach(item => {
+    const letter = provinceLetterMap[item.name]
     if (letter) letters.add(letter)
   })
   return Array.from(letters)
 })
 
-// Apply searches, filters & Alphabetical letter index
-const filteredNationwideList = computed(() => {
-  let list = [...flatNationwideList.value]
+// Apply searches, A-Z letter index filtering and recursive children matches
+const filteredTreeList = computed(() => {
+  if (!addressTree.value || addressTree.value.length === 0) return []
+  
+  let list = addressTree.value
   
   // Filter by Alphabetical index letter
   if (selectedLetter.value !== 'ALL') {
     list = list.filter(item => {
-      const letter = provinceLetterMap[item.province]
+      const letter = provinceLetterMap[item.name] || 'A'
       return letter === selectedLetter.value
     })
   }
   
-  // Filter by Search Query
-  if (nationwideQuery.province) {
-    list = list.filter(item => item.province.includes(nationwideQuery.province))
-  }
-  if (nationwideQuery.street) {
-    list = list.filter(item => item.street.includes(nationwideQuery.street))
+  const query = nationwideQuery.province.trim()
+  if (!query) return list
+  
+  const filterNode = (node: any): any | null => {
+    const selfMatches = node.name.includes(query)
+    
+    if (selfMatches) {
+      return { ...node }
+    }
+    
+    if (node.children && node.children.length > 0) {
+      const matchedChildren = node.children
+        .map((child: any) => filterNode(child))
+        .filter((child: any) => child !== null)
+      
+      if (matchedChildren.length > 0) {
+        return {
+          ...node,
+          children: matchedChildren
+        }
+      }
+    }
+    
+    return null
   }
   
   return list
+    .map(node => filterNode(node))
+    .filter(node => node !== null)
 })
 
-const nationwideTotal = computed(() => filteredNationwideList.value.length)
+const nationwideTotal = computed(() => filteredTreeList.value.length)
 
-const paginatedNationwideList = computed(() => {
+const paginatedTreeList = computed(() => {
   const start = (nationwidePage.value - 1) * nationwidePageSize.value
-  return filteredNationwideList.value.slice(start, start + nationwidePageSize.value)
+  return filteredTreeList.value.slice(start, start + nationwidePageSize.value)
 })
 
 const handleNationwideQuery = () => {
@@ -533,10 +440,15 @@ const selectLetter = (letter: string) => {
 
 const resetNationwideQuery = () => {
   nationwideQuery.province = ''
-  nationwideQuery.street = ''
   selectedLetter.value = 'ALL'
   nationwidePage.value = 1
   ElMessage.success('筛选过滤条件已重置')
+}
+
+const getLevelTagType = (level: number) => {
+  if (level === 1) return 'primary'
+  if (level === 2) return 'warning'
+  return 'success'
 }
 </script>
 
