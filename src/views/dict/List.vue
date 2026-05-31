@@ -459,6 +459,12 @@ const handleAdd = () => {
   dialogVisible.value = true
 }
 
+const stripParentPrefix = (remark: string) => {
+  if (!remark) return ''
+  const match = remark.match(/^parent:[^|]+\|(.*)$/)
+  return match ? match[1] : remark
+}
+
 const handleUpdate = () => {
   if (selectedRows.value.length !== 1) return
   handleEditRow(selectedRows.value[0])
@@ -475,7 +481,7 @@ const handleEditRow = async (row: any) => {
       value: freshDetail.value,
       dictSort: freshDetail.sort || 1,
       status: freshDetail.status === 'enabled' ? '0' : '1',
-      remark: freshDetail.remark || ''
+      remark: stripParentPrefix(freshDetail.remark || '')
     })
     dialogVisible.value = true
   } catch (err) {
@@ -664,7 +670,7 @@ const handleChildEdit = async (row: any) => {
       value: freshDetail.value,
       dictSort: freshDetail.sort || 1,
       status: freshDetail.status === 'enabled' ? '0' : '1',
-      remark: freshDetail.remark || ''
+      remark: stripParentPrefix(freshDetail.remark || '')
     })
     childFormVisible.value = true
   } catch (err) {
