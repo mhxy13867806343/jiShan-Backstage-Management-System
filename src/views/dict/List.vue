@@ -84,6 +84,12 @@
         
         <el-table-column label="字典编码" prop="dictCode" width="100" align="center" />
         
+        <el-table-column label="字典名称" prop="dictTypeLabel" align="center" width="160">
+          <template #default="{ row }">
+            <el-tag size="small" type="primary" effect="plain">{{ row.dictTypeLabel }}</el-tag>
+          </template>
+        </el-table-column>
+        
         <el-table-column label="字典标签" prop="label" align="center" />
         
         <el-table-column label="字典键值" prop="value" align="center">
@@ -166,8 +172,18 @@
       destroy-on-close
     >
       <el-form :model="form" ref="formRef" :rules="rules" label-width="100px" class="ruoyi-dialog-form">
-        <el-form-item label="字典类型">
-          <el-input :value="queryParams.dictType" disabled />
+        <el-form-item label="字典类型" prop="type">
+          <el-select 
+            v-if="!queryParams.dictType && !isEditState" 
+            v-model="form.type" 
+            placeholder="请选择字典类型" 
+            style="width: 100%;"
+          >
+            <el-option label="用户账号状态 (user_status)" value="user_status" />
+            <el-option label="内容发布状态 (post_status)" value="post_status" />
+            <el-option label="动态发布可见性 (post_visibility)" value="post_visibility" />
+          </el-select>
+          <el-input v-else :value="getDictTypeLabel(isEditState ? form.type : queryParams.dictType)" disabled />
         </el-form-item>
         
         <el-form-item label="字典标签" prop="label">
@@ -321,6 +337,7 @@ const loading = ref(false)
 
 // RuoYi mock dictionary types
 const dictTypes = [
+  { value: '', label: '所有字典' },
   { value: 'user_status', label: '用户账号状态' },
   { value: 'post_status', label: '内容发布状态' },
   { value: 'post_visibility', label: '动态发布可见性' }
@@ -328,7 +345,7 @@ const dictTypes = [
 
 // Search filters matching RuoYi layout
 const queryParams = reactive({
-  dictType: 'user_status',
+  dictType: '',
   dictLabel: '',
   status: ''
 })
@@ -358,20 +375,30 @@ const fetchDicts = async (bypassFilters = false) => {
 const formatDictList = (list: any[], parentIndexPrefix = ''): any[] => {
   return list.map((item, index) => {
     const code = item.dictCode || (parentIndexPrefix ? `${parentIndexPrefix}-${index + 1}` : index + 1)
+    const typeLabel = dictTypes.find(d => d.value === item.type)?.label || item.type || '--'
     return {
       dictCode: code,
       label: item.label,
       value: item.value,
       dictSort: item.dictSort || (index + 1),
       status: item.status || '0',
-      remark: item.remark || `${dictTypes.find(d => d.value === queryParams.dictType)?.label || '字典'} - ${item.label}`,
+      remark: item.remark || `${dictTypes.find(d => d.value === (item.type || queryParams.dictType))?.label || '字典'} - ${item.label}`,
       createTime: item.createTime || '2026-05-26 11:04:08',
+      dictTypeLabel: typeLabel,
+      type: item.type,
       children: item.children && item.children.length ? formatDictList(item.children, String(code)) : []
     }
   })
 }
 
 const dictList = computed(() => {
+  if (!queryParams.dictType) {
+    const allRaw: ApiDictItem[] = []
+    Object.values(dictsState.value).forEach(list => {
+      allRaw.push(...list)
+    })
+    return formatDictList(allRaw)
+  }
   const rawList = dictsState.value[queryParams.dictType] || []
   return formatDictList(rawList)
 })
@@ -435,6 +462,7 @@ const dialogTitle = ref('')
 const isEditState = ref(false)
 const formRef = ref()
 const form = reactive({
+  type: 'user_status',
   label: '',
   value: '',
   dictSort: 1,
@@ -455,6 +483,7 @@ const handleAdd = () => {
   isEditState.value = false
   dialogTitle.value = '新增字典数据'
   Object.assign(form, {
+    type: queryParams.dictType || 'user_status',
     label: '',
     value: '',
     dictSort: dictList.value.length + 1,
@@ -470,6 +499,15 @@ const stripParentPrefix = (remark: string) => {
   return match ? match[1] : remark
 }
 
+const getDictTypeLabel = (type: string) => {
+  const map: Record<string, string> = {
+    user_status: '用户账号状态 (user_status)',
+    post_status: '内容发布状态 (post_status)',
+    post_visibility: '动态发布可见性 (post_visibility)'
+  }
+  return map[type] || type
+}
+
 const handleUpdate = () => {
   if (selectedRows.value.length !== 1) return
   handleEditRow(selectedRows.value[0])
@@ -482,6 +520,7 @@ const handleEditRow = async (row: any) => {
     const res = await adminApi.getDictById(row.dictCode)
     const freshDetail = res.data
     Object.assign(form, {
+      type: freshDetail.type || row.type || 'user_status',
       label: freshDetail.label,
       value: freshDetail.value,
       dictSort: freshDetail.sort || 1,
@@ -500,9 +539,10 @@ const submitForm = () => {
     if (!valid) return
     
     try {
+      const targetType = queryParams.dictType || form.type
       if (isEditState.value) {
         // Modify
-        await adminApi.updateDictItem(queryParams.dictType, form.value, {
+        await adminApi.updateDictItem(targetType, form.value, {
           label: form.label,
           dictSort: form.dictSort,
           status: form.status as '0' | '1',
@@ -515,7 +555,7 @@ const submitForm = () => {
       } else {
         // Add
         await adminApi.addDictItem(
-          queryParams.dictType, 
+          targetType, 
           {
             value: form.value,
             label: form.label,
@@ -554,7 +594,8 @@ const handleDeleteRow = (row: any) => {
     }
   ).then(async () => {
     try {
-      await adminApi.deleteDictItem(queryParams.dictType, row.value)
+      const targetType = queryParams.dictType || row.type
+      await adminApi.deleteDictItem(targetType, row.value)
       ElMessage.success('字典项已成功移除！')
       selectedRows.value = []
       fetchDicts()
@@ -588,7 +629,8 @@ const handleBatchDelete = () => {
     loading.value = true
     try {
       for (const row of selectedRows.value) {
-        await adminApi.deleteDictItem(queryParams.dictType, row.value)
+        const targetType = queryParams.dictType || row.type
+        await adminApi.deleteDictItem(targetType, row.value)
       }
       ElMessage.success('批量删除成功！')
       selectedRows.value = []
