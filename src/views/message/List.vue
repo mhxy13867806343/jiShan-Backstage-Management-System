@@ -69,11 +69,11 @@
           v-if="hasDrafts"
           type="success" 
           plain 
-          :disabled="selectedIds.length === 0"
+          :disabled="selectedDrafts.length === 0"
           @click="handleBatchPublish"
         >
           <el-icon><Finished /></el-icon>
-          <span>批量推送发布</span>
+          <span>批量推送发布 ({{ selectedDrafts.length }})</span>
         </el-button>
       </div>
       <div class="right-stats">
@@ -93,7 +93,7 @@
         border
         class="custom-table"
       >
-        <el-table-column type="selection" width="50" align="center" :selectable="checkSelectable" />
+        <el-table-column type="selection" width="50" align="center" />
         
         <el-table-column prop="message_id" label="消息编号" width="90" align="center" />
         
@@ -347,6 +347,10 @@ const hasDrafts = computed(() => {
   return messagesList.value.some(item => item.status === '0')
 })
 
+const selectedDrafts = computed(() => {
+  return messagesList.value.filter(item => selectedIds.value.includes(item.message_id) && item.status === '0')
+})
+
 // Helpers for tags UI representation
 const getTypeLabel = (type: string) => {
   const map: Record<string, string> = {
@@ -392,9 +396,7 @@ const resetQuery = () => {
 }
 
 // Table events
-const checkSelectable = (row: MessageItem) => {
-  return row.status === '0'
-}
+// All rows are selectable to support batch deletion
 
 const handleSelectionChange = (selection: MessageItem[]) => {
   selectedIds.value = selection.map(item => item.message_id)
@@ -482,9 +484,10 @@ const handleBatchDelete = () => {
 }
 
 const handleBatchPublish = () => {
-  if (selectedIds.value.length === 0) return
+  if (selectedDrafts.value.length === 0) return
+  const draftIds = selectedDrafts.value.map(item => item.message_id)
   ElMessageBox.confirm(
-    `确定要批量将这 ${selectedIds.value.length} 条草稿状态的消息立即推送至前台 App 吗？`,
+    `确定要批量将这 ${draftIds.length} 条草稿状态的消息立即推送至前台 App 吗？`,
     '推送确认',
     {
       confirmButtonText: '确认发布',
@@ -493,7 +496,7 @@ const handleBatchPublish = () => {
     }
   ).then(async () => {
     try {
-      for (const id of selectedIds.value) {
+      for (const id of draftIds) {
         await adminApi.updateMessage(id, { status: '1', pubTime: new Date().toISOString().replace('T', ' ').substring(0, 19) })
       }
       ElMessage.success('批量推送发布成功')
