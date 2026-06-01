@@ -7,7 +7,10 @@
         <h2>账号管理</h2>
         <p>管理后台子账号，为每个账号分配角色与操作权限。</p>
       </div>
-      <el-button type="primary" icon="Plus" @click="openAddDialog">新增账号</el-button>
+      <div style="display: flex; gap: 10px;">
+        <el-button type="success" icon="Setting" @click="openRoleDialog">角色管理</el-button>
+        <el-button type="primary" icon="Plus" @click="openAddDialog">新增账号</el-button>
+      </div>
     </div>
 
     <!-- ── Role Stats Cards ───────────────────────────── -->
@@ -36,17 +39,21 @@
         prefix-icon="Search"
         clearable
         style="width: 240px"
+        @keyup.enter="handleSearch"
       />
       <el-select v-model="filterRole" placeholder="角色筛选" clearable style="width: 140px">
-        <el-option label="超级管理员" value="superadmin" />
-        <el-option label="管理员" value="admin" />
-        <el-option label="运营员" value="operator" />
-        <el-option label="观察员" value="viewer" />
+        <el-option
+          v-for="r in rolesList"
+          :key="r.key"
+          :label="r.label"
+          :value="r.key"
+        />
       </el-select>
       <el-select v-model="filterStatus" placeholder="状态筛选" clearable style="width: 130px">
         <el-option label="正常" value="active" />
         <el-option label="已禁用" value="disabled" />
       </el-select>
+      <el-button type="primary" icon="Search" @click="handleSearch">查询</el-button>
       <el-button @click="resetFilters" icon="RefreshLeft">重置</el-button>
     </div>
 
@@ -185,17 +192,8 @@
 
         <el-form-item label="角色" prop="role">
           <el-radio-group v-model="form.role" @change="onRoleChange">
-            <el-radio-button value="superadmin">
-              <el-icon><StarFilled /></el-icon> 超级管理员
-            </el-radio-button>
-            <el-radio-button value="admin">
-              <el-icon><UserFilled /></el-icon> 管理员
-            </el-radio-button>
-            <el-radio-button value="operator">
-              <el-icon><Setting /></el-icon> 运营员
-            </el-radio-button>
-            <el-radio-button value="viewer">
-              <el-icon><View /></el-icon> 观察员
+            <el-radio-button v-for="r in rolesList" :key="r.key" :value="r.key">
+              <el-icon v-if="r.icon"><component :is="r.icon" /></el-icon> {{ r.label }}
             </el-radio-button>
           </el-radio-group>
         </el-form-item>
@@ -251,25 +249,323 @@
       </template>
     </el-dialog>
 
+    <!-- ── Role Management Dialog ────────────────────────── -->
+    <el-dialog
+      v-model="roleDialogVisible"
+      title="角色类型配置管理"
+      width="680px"
+      destroy-on-close
+    >
+      <div class="role-dialog-content" style="padding: 10px 0;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+          <span style="font-size: 13px; color: var(--text-muted);">
+            配置系统中可用的角色身份。默认角色不可删除，可新增自定义角色。
+          </span>
+          <el-button type="primary" size="small" icon="Plus" @click="handleOpenAddRole">新增角色</el-button>
+        </div>
+
+        <!-- Add Role Form inline card -->
+        <el-card v-if="showAddRoleForm" shadow="never" style="margin-bottom: 16px; background: rgba(103,194,58,0.04); border-color: rgba(103,194,58,0.2);">
+          <el-form :model="newRoleForm" :rules="roleRules" ref="newRoleFormRef" label-width="100px" size="small">
+            <el-row :gutter="10">
+              <el-col :span="8">
+                <el-form-item label="角色标识" prop="key">
+                  <el-input v-model="newRoleForm.key" placeholder="如: hr_admin" />
+                </el-form-item>
+              </el-col>
+              <el-col :span="8">
+                <el-form-item label="角色名称" prop="label">
+                  <el-input v-model="newRoleForm.label" placeholder="如: 人事管理员" />
+                </el-form-item>
+              </el-col>
+              <el-col :span="8">
+                <el-form-item label="选用图标" prop="icon">
+                  <el-select v-model="newRoleForm.icon" placeholder="选择图标">
+                    <el-option label="星标 (StarFilled)" value="StarFilled" />
+                    <el-option label="用户 (UserFilled)" value="UserFilled" />
+                    <el-option label="配置 (Setting)" value="Setting" />
+                    <el-option label="视角 (View)" value="View" />
+                    <el-option label="趋势 (TrendCharts)" value="TrendCharts" />
+                    <el-option label="公文 (Briefcase)" value="Briefcase" />
+                  </el-select>
+                </el-form-item>
+              </el-col>
+            </el-row>
+            <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px;">
+              <el-button size="small" @click="showAddRoleForm = false">取消</el-button>
+              <el-button type="success" size="small" @click="submitAddRole">确认新增</el-button>
+            </div>
+          </el-form>
+        </el-card>
+
+        <!-- Roles Table List -->
+        <el-table :data="rolesList" border stripe size="small" style="width: 100%">
+          <el-table-column label="角色标识" prop="key" width="130" />
+          <el-table-column label="角色名称" prop="label" min-width="140" />
+          <el-table-column label="角色图标" width="90" align="center">
+            <template #default="{ row }">
+              <el-icon v-if="row.icon" style="font-size: 16px;"><component :is="row.icon" /></el-icon>
+              <span v-else>-</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="类型" width="110" align="center">
+            <template #default="{ row }">
+              <el-tag :type="row.isDefault ? 'info' : 'success'" size="small" effect="light">
+                {{ row.isDefault ? '系统默认' : '自定义' }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="90" align="center">
+            <template #default="{ $index, row }">
+              <el-button
+                v-if="!row.isDefault"
+                size="small"
+                type="danger"
+                icon="Delete"
+                @click="handleDeleteRole($index)"
+              />
+              <span v-else style="font-size: 12px; color: var(--text-muted);">系统只读</span>
+            </template>
+          </el-table-column>
+        </el-table>
+      </div>
+      <template #footer>
+        <el-button @click="roleDialogVisible = false">关闭</el-button>
+      </template>
+    </el-dialog>
+
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
 import { adminApi, type ApiAdminAccount } from '@/api/admin'
+import { useMenuStore } from '@/store/menu'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
 
 type AdminAccount = ApiAdminAccount
-type AdminRole = 'superadmin' | 'admin' | 'operator' | 'viewer'
+type AdminRole = string
 
 const accountsList = ref<AdminAccount[]>([])
+const allAccountsList = ref<AdminAccount[]>([])
 const loading = ref(false)
 
+const menuStore = useMenuStore()
+
+// ── Cache local helper for dynamic menus ─────────────────────────
+// Fetch dynamic menu tree if not already present, utilizing cache
+onMounted(async () => {
+  if (menuStore.menuTree.length === 0) {
+    await menuStore.fetchMenuTree()
+  }
+})
+
+// ── All Dynamic permissions derived from Menu Tree ────────────────
+const allPermissions = computed(() => {
+  const list: { key: string; label: string }[] = []
+  const traversedPaths = new Set<string>()
+
+  const traverse = (node: any) => {
+    if (node.path) {
+      const pathClean = node.path.replace(/^\//, '')
+      const firstSegment = pathClean.split('/')[0]
+      if (firstSegment && !traversedPaths.has(firstSegment)) {
+        traversedPaths.add(firstSegment)
+        let label = node.title
+        if (firstSegment === 'agreement') {
+          label = '协议管理'
+        } else if (firstSegment === 'announcement') {
+          label = '公告管理'
+        }
+        list.push({
+          key: firstSegment,
+          label: label
+        })
+      }
+    }
+    if (node.children && node.children.length > 0) {
+      node.children.forEach(traverse)
+    }
+  }
+
+  traverse({ children: menuStore.menuTree })
+  return list
+})
+
+const permLabelMap = computed(() => {
+  return Object.fromEntries(allPermissions.value.map(p => [p.key, p.label]))
+})
+
+// ── Custom Dynamic Roles Configuration ──────────────────────────
+interface AdminRoleItem {
+  key: string
+  label: string
+  icon: string
+  isDefault?: boolean
+}
+
+const defaultRoles: AdminRoleItem[] = [
+  { key: 'superadmin', label: '超级管理员', icon: 'StarFilled', isDefault: true },
+  { key: 'admin', label: '管理员', icon: 'UserFilled', isDefault: true },
+  { key: 'operator', label: '运营员', icon: 'Setting', isDefault: true },
+  { key: 'viewer', label: '观察员', icon: 'View', isDefault: true },
+]
+
+const getStoredRoles = (): AdminRoleItem[] => {
+  const cached = localStorage.getItem('admin_custom_roles')
+  if (cached) {
+    try {
+      return JSON.parse(cached)
+    } catch (e) {
+      console.error('Failed to parse cached roles', e)
+    }
+  }
+  return [...defaultRoles]
+}
+
+const rolesList = ref<AdminRoleItem[]>(getStoredRoles())
+
+const saveStoredRoles = (list: AdminRoleItem[]) => {
+  localStorage.setItem('admin_custom_roles', JSON.stringify(list))
+}
+
+const ROLE_LABEL = computed<Record<string, string>>(() => {
+  const map: Record<string, string> = {}
+  rolesList.value.forEach(r => {
+    map[r.key] = r.label
+  })
+  return map
+})
+
+const ROLE_TAG = computed<Record<string, string>>(() => {
+  const map: Record<string, string> = {}
+  rolesList.value.forEach(r => {
+    if (r.key === 'superadmin') map[r.key] = 'danger'
+    else if (r.key === 'admin') map[r.key] = 'warning'
+    else if (r.key === 'operator') map[r.key] = ''
+    else if (r.key === 'viewer') map[r.key] = 'info'
+    else map[r.key] = 'success'
+  })
+  return map
+})
+
+const roleLabel = (role: string) => ROLE_LABEL.value[role] || role
+const roleTagType = (role: string) => ROLE_TAG.value[role] || 'success'
+
+const avatarColor = (username: string) => {
+  const colors = ['#f56c6c', '#e6a23c', '#409eff', '#67c23a', '#909399', '#9b59b6', '#34495e', '#1abc9c', '#e67e22', '#2ecc71']
+  let hash = 0
+  for (let i = 0; i < username.length; i++) {
+    hash = username.charCodeAt(i) + ((hash << 5) - hash)
+  }
+  const index = Math.abs(hash) % colors.length
+  return colors[index]
+}
+
+// Default permissions per role dynamically matched
+const roleDefaultPerms = computed<Record<string, string[]>>(() => {
+  const map: Record<string, string[]> = {}
+  rolesList.value.forEach(r => {
+    if (r.key === 'superadmin') {
+      map[r.key] = allPermissions.value.map(p => p.key)
+    } else if (r.key === 'admin') {
+      map[r.key] = ['dashboard', 'user', 'content', 'comment', 'tag', 'region', 'message'].filter(k => allPermissions.value.some(p => p.key === k))
+    } else if (r.key === 'operator') {
+      map[r.key] = ['dashboard', 'content', 'comment', 'tag'].filter(k => allPermissions.value.some(p => p.key === k))
+    } else if (r.key === 'viewer') {
+      map[r.key] = ['dashboard'].filter(k => allPermissions.value.some(p => p.key === k))
+    } else {
+      map[r.key] = ['dashboard'].filter(k => allPermissions.value.some(p => p.key === k))
+    }
+  })
+  return map
+})
+
+// ── Role Management Dialog State ────────────────────────────────
+const roleDialogVisible = ref(false)
+const showAddRoleForm = ref(false)
+const newRoleForm = ref({
+  key: '',
+  label: '',
+  icon: 'UserFilled'
+})
+const newRoleFormRef = ref<any>(null)
+
+const roleRules = {
+  key: [
+    { required: true, message: '请输入角色标识名', trigger: 'blur' },
+    { pattern: /^[a-z_]+$/, message: '标识仅能包含小写英文和下划线', trigger: 'blur' },
+    { validator: (_rule: any, value: any, callback: any) => {
+        if (rolesList.value.some(r => r.key === value)) {
+          callback(new Error('角色标识已存在'))
+        } else {
+          callback()
+        }
+      },
+      trigger: 'blur'
+    }
+  ],
+  label: [{ required: true, message: '请输入角色显示名称', trigger: 'blur' }]
+}
+
+const openRoleDialog = () => {
+  roleDialogVisible.value = true
+  showAddRoleForm.value = false
+}
+
+const handleOpenAddRole = () => {
+  showAddRoleForm.value = true
+  newRoleForm.value = {
+    key: '',
+    label: '',
+    icon: 'UserFilled'
+  }
+}
+
+const handleSaveRoles = () => {
+  saveStoredRoles(rolesList.value)
+  ElMessage.success('角色配置已更新保存')
+}
+
+const submitAddRole = () => {
+  newRoleFormRef.value?.validate((valid: boolean) => {
+    if (valid) {
+      rolesList.value.push({
+        key: newRoleForm.value.key,
+        label: newRoleForm.value.label,
+        icon: newRoleForm.value.icon,
+        isDefault: false
+      })
+      handleSaveRoles()
+      showAddRoleForm.value = false
+    }
+  })
+}
+
+const handleDeleteRole = (index: number) => {
+  const role = rolesList.value[index]
+  if (role.isDefault) return
+  
+  ElMessageBox.confirm(
+    `确定要删除自定义角色 "<b>${role.label}</b>" 吗？`,
+    '确认删除',
+    { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning', dangerouslyUseHTMLString: true }
+  ).then(() => {
+    rolesList.value.splice(index, 1)
+    handleSaveRoles()
+  }).catch(() => {})
+}
+
+// ── Fetch Account Actions ───────────────────────────────────────
 const fetchAccounts = async () => {
   loading.value = true
   try {
-    accountsList.value = await adminApi.getAdminAccounts()
+    accountsList.value = await adminApi.getAdminAccounts({
+      keyword: searchKw.value || undefined,
+      role: filterRole.value || undefined,
+      status: filterStatus.value || undefined
+    })
   } catch (err) {
     console.error('Fetch accounts failed', err)
   } finally {
@@ -277,87 +573,46 @@ const fetchAccounts = async () => {
   }
 }
 
+const fetchAllAccounts = async () => {
+  try {
+    allAccountsList.value = await adminApi.getAdminAccounts()
+  } catch (err) {
+    console.error('Fetch all accounts failed', err)
+  }
+}
+
 onMounted(() => {
   fetchAccounts()
+  fetchAllAccounts()
 })
 
-// ── All permission modules ───────────────────────────────────────
-const allPermissions = [
-  { key: 'dashboard', label: '数据看板' },
-  { key: 'user', label: '用户管理' },
-  { key: 'content', label: '内容管理' },
-  { key: 'comment', label: '评论管理' },
-  { key: 'tag', label: '标签管理' },
-  { key: 'region', label: '地区管理' },
-  { key: 'dict', label: '字典管理' },
-  { key: 'message', label: '系统消息' },
-  { key: 'agreement', label: '协议管理' },
-  { key: 'account', label: '账号管理' },
-]
-
-// Pre-built Map for O(1) lookup — avoids Array.find() on every cell render
-const permLabelMap: Record<string, string> = Object.fromEntries(
-  allPermissions.map(p => [p.key, p.label])
-)
-
-// Default permissions per role
-const roleDefaultPerms: Record<AdminRole, string[]> = {
-  superadmin: allPermissions.map(p => p.key),
-  admin: ['dashboard', 'user', 'content', 'comment', 'tag', 'region', 'message'],
-  operator: ['dashboard', 'content', 'comment', 'tag'],
-  viewer: ['dashboard'],
-}
-
-// ── Letter-avatar color (deterministic, no network request) ──────
-const AVATAR_COLORS = [
-  '#5b6af0', '#f0855b', '#52c41a', '#faad14',
-  '#13c2c2', '#722ed1', '#eb2f96', '#fa541c',
-]
-const avatarColor = (username: string) => {
-  let hash = 0
-  for (let i = 0; i < username.length; i++) hash = username.charCodeAt(i) + ((hash << 5) - hash)
-  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length]
-}
-
-// ── Filters ──────────────────────────────────────────────────────
+// ── Filters & Card Stats ─────────────────────────────────────────
 const searchKw = ref('')
 const filterRole = ref('')
 const filterStatus = ref('')
 
-const filteredAccounts = computed(() => {
-  const kw = searchKw.value.toLowerCase()
-  const role = filterRole.value
-  const status = filterStatus.value
-  return accountsList.value.filter(a => {
-    const matchKw = !kw || a.username.includes(kw) || a.nickname.includes(kw) || a.email.includes(kw)
-    const matchRole = !role || a.role === role
-    const matchStatus = !status || a.status === status
-    return matchKw && matchRole && matchStatus
-  })
-})
+const filteredAccounts = computed(() => accountsList.value)
 
 const resetFilters = () => {
   searchKw.value = ''
   filterRole.value = ''
   filterStatus.value = ''
+  fetchAccounts()
 }
 
-// ── Role stats cards (use reactive ref directly) ──────────────────
-const roleStats = computed(() => {
-  const all = accountsList.value
-  return [
-    { key: 'superadmin', label: '超级管理员', icon: 'StarFilled', count: all.filter(a => a.role === 'superadmin').length },
-    { key: 'admin',      label: '管理员',     icon: 'UserFilled', count: all.filter(a => a.role === 'admin').length },
-    { key: 'operator',   label: '运营员',     icon: 'Setting',    count: all.filter(a => a.role === 'operator').length },
-    { key: 'viewer',     label: '观察员',     icon: 'View',       count: all.filter(a => a.role === 'viewer').length },
-  ]
-})
+const handleSearch = () => {
+  fetchAccounts()
+}
 
-// ── Helpers ──────────────────────────────────────────────────────
-const ROLE_LABEL: Record<AdminRole, string> = { superadmin: '超级管理员', admin: '管理员', operator: '运营员', viewer: '观察员' }
-const ROLE_TAG:   Record<AdminRole, string> = { superadmin: 'danger', admin: 'warning', operator: '', viewer: 'info' }
-const roleLabel   = (role: AdminRole) => ROLE_LABEL[role]
-const roleTagType = (role: AdminRole) => ROLE_TAG[role]
+const roleStats = computed(() => {
+  const all = allAccountsList.value
+  return rolesList.value.map(r => ({
+    key: r.key,
+    label: r.label,
+    icon: r.icon,
+    count: all.filter(a => a.role === r.key).length
+  }))
+})
 
 // ── Dialog state ─────────────────────────────────────────────────
 const dialogVisible = ref(false)
@@ -374,7 +629,7 @@ const blankForm = () => ({
   email: '',
   phone: '',
   role: 'admin' as AdminRole,
-  permissions: [...roleDefaultPerms['admin']],
+  permissions: roleDefaultPerms.value ? [...roleDefaultPerms.value['admin']] : [],
   statusActive: true,
   remark: '',
 })
@@ -409,15 +664,15 @@ const formRules: FormRules = {
 }
 
 const onRoleChange = (role: AdminRole) => {
-  form.permissions = [...roleDefaultPerms[role]]
+  form.permissions = roleDefaultPerms.value[role] ? [...roleDefaultPerms.value[role]] : []
 }
 
 // ── Select-all logic ──────────────────────────────────────
-const allPermKeys = allPermissions.map(p => p.key)
-const isAllSelected = computed(() => form.permissions.length === allPermKeys.length)
-const isIndeterminate = computed(() => form.permissions.length > 0 && form.permissions.length < allPermKeys.length)
+const allPermKeys = computed(() => allPermissions.value.map(p => p.key))
+const isAllSelected = computed(() => form.permissions.length === allPermKeys.value.length)
+const isIndeterminate = computed(() => form.permissions.length > 0 && form.permissions.length < allPermKeys.value.length)
 const handleSelectAll = (val: boolean) => {
-  form.permissions = val ? [...allPermKeys] : []
+  form.permissions = val ? [...allPermKeys.value] : []
 }
 
 const openAddDialog = () => {
@@ -451,13 +706,13 @@ const handleSubmit = async () => {
 
   submitLoading.value = true
   try {
-    const perms = form.role === 'superadmin' ? allPermissions.map(p => p.key) : [...form.permissions]
+    const perms = form.role === 'superadmin' ? allPermissions.value.map(p => p.key) : [...form.permissions]
     if (isEdit.value) {
       await adminApi.updateAdminAccount(editingId.value, {
         nickname: form.nickname,
         email: form.email,
         phone: form.phone,
-        role: form.role,
+        role: form.role as any,
         permissions: perms,
         status: form.statusActive ? 'active' : 'disabled',
         remark: form.remark,
@@ -468,7 +723,7 @@ const handleSubmit = async () => {
         username: form.username,
         nickname: form.nickname,
         avatar: '',
-        role: form.role,
+        role: form.role as any,
         permissions: perms,
         status: form.statusActive ? 'active' : 'disabled',
         email: form.email,
@@ -479,6 +734,7 @@ const handleSubmit = async () => {
     }
     dialogVisible.value = false
     fetchAccounts()
+    fetchAllAccounts()
   } catch (err) {
     console.error(err)
   } finally {
@@ -491,6 +747,7 @@ const handleDelete = async (id: string) => {
     await adminApi.deleteAdminAccount(id)
     ElMessage.success('账号已删除')
     fetchAccounts()
+    fetchAllAccounts()
   } catch (err) {
     console.error(err)
   }
@@ -567,7 +824,7 @@ const handleResetPwd = (row: AdminAccount) => {
   align-items: center;
   gap: 16px;
   padding: 20px 24px;
-  border-left: 4px solid transparent;
+  border-left: 4px solid #67c23a;
   transition: transform 0.2s;
 }
 
@@ -585,6 +842,7 @@ const handleResetPwd = (row: AdminAccount) => {
   display: flex;
   align-items: center;
   justify-content: center;
+  background: rgba(103,194,58,0.12);
 }
 
 .role-superadmin .role-icon-wrap { background: rgba(245,108,108,0.12); }
@@ -592,7 +850,7 @@ const handleResetPwd = (row: AdminAccount) => {
 .role-operator   .role-icon-wrap { background: rgba(64,158,255,0.12); }
 .role-viewer     .role-icon-wrap { background: rgba(144,147,153,0.12); }
 
-.role-big-icon { font-size: 24px; }
+.role-big-icon { font-size: 24px; color: #67c23a; }
 
 .role-superadmin .role-big-icon { color: #f56c6c; }
 .role-admin      .role-big-icon { color: #e6a23c; }

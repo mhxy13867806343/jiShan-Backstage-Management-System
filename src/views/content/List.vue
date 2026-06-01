@@ -164,7 +164,7 @@
       <el-pagination
         v-model:current-page="currentPage"
         v-model:page-size="pageSize"
-        :page-sizes="[5, 10, 15]"
+        :page-sizes="GLOBAL_PAGE_SIZES"
         layout="total, sizes, prev, pager, next, jumper"
         :total="totalCount"
         background
@@ -217,13 +217,13 @@
         </div>
 
         <div class="drawer-actions-container">
-          <el-button type="primary" icon="ChatLineSquare" style="width: 100%; margin-bottom: 12px;" @click="gotoComments(selectedPost.post_id)">
+          <el-button v-if="hasCommentRoute" type="primary" icon="ChatLineSquare" style="width: 100%; margin-bottom: 12px;" @click="gotoComments(selectedPost.post_id)">
             查看并监管本内容的全部评论
           </el-button>
-          <el-button v-if="selectedPost.status === 'online'" type="danger" plain style="width: 100%; margin-left: 0;" icon="Compass" @click="handleOffline(selectedPost)">
+          <el-button v-if="selectedPost.status === 'online'" type="danger" plain style="width: 100%; margin-left: 0;" :style="{ marginTop: hasCommentRoute ? '0' : '12px' }" icon="Compass" @click="handleOffline(selectedPost)">
             下架本条不合规内容
           </el-button>
-          <el-button v-else type="success" plain style="width: 100%; margin-left: 0;" icon="Refresh" @click="handleRestore(selectedPost)">
+          <el-button v-else type="success" plain style="width: 100%; margin-left: 0;" :style="{ marginTop: hasCommentRoute ? '0' : '12px' }" icon="Refresh" @click="handleRestore(selectedPost)">
             恢复本条内容上架显示
           </el-button>
         </div>
@@ -236,16 +236,39 @@
 import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useMockDataStore } from '@/store/mockData'
+import { useMenuStore } from '@/store/menu'
 import { adminApi } from '@/api/admin'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
+import { GLOBAL_PAGE_SIZE, GLOBAL_PAGE_SIZES } from '@/hooks/usePagination'
+
 const route = useRoute()
 const router = useRouter()
+const menuStore = useMenuStore()
+
+const hasRoute = (path: string) => {
+  const check = (nodes: any[]): boolean => {
+    for (const node of nodes) {
+      if (node.path === path || node.path === path.replace(/^\//, '') || node.path?.endsWith(path)) {
+        return true
+      }
+      if (node.children && node.children.length > 0) {
+        if (check(node.children)) {
+          return true
+        }
+      }
+    }
+    return false
+  }
+  return check(menuStore.menuTree)
+}
+
+const hasCommentRoute = computed(() => hasRoute('/comment'))
 const mockStore = useMockDataStore()
 const tableData = ref<any[]>([])
 const totalCount = ref(0)
 const currentPage = ref(1)
-const pageSize = ref(5)
+const pageSize = ref(GLOBAL_PAGE_SIZE)
 const activeTab = ref('all')
 
 const searchForm = reactive({

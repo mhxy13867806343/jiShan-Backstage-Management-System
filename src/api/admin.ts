@@ -1,4 +1,5 @@
 import { request } from '@/utils/request'
+import { GLOBAL_PAGE_SIZE } from '@/hooks/usePagination'
 
 // ─────────────────────────────────────────────────────────────────
 // 1. Data Models Interfaces (snake_case match frontend expectations)
@@ -118,6 +119,20 @@ export interface ApiAdminAccount {
   createTime: string
   lastLogin: string
   remark: string
+}
+
+export interface ApiMenuItem {
+  menuId: string
+  parentId: string | null
+  title: string
+  name: string
+  path: string
+  component: string
+  icon: string
+  sort: number
+  status: 'active' | 'inactive' | 'enabled' | 'disabled'
+  breadcrumbs?: string[]
+  children?: ApiMenuItem[]
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -411,7 +426,7 @@ export const adminApi = {
 
   // ── Tag Configuration ──
   async getTags() {
-    let res = await request.get<any>('/api/admin/tags', { limit: 100 })
+    let res = await request.get<any>('/api/admin/tags', { limit: GLOBAL_PAGE_SIZE })
     const rawList = res.data?.list || []
     
     if (rawList.length === 0) {
@@ -419,7 +434,7 @@ export const adminApi = {
       for (const name of defaultTags) {
         await request.post('/api/admin/tags', { name, sort: 1, status: 'enabled' })
       }
-      res = await request.get<any>('/api/admin/tags', { limit: 100 })
+      res = await request.get<any>('/api/admin/tags', { limit: GLOBAL_PAGE_SIZE })
     }
 
     return res.data?.list || []
@@ -430,7 +445,7 @@ export const adminApi = {
   },
 
   async deleteTag(name: string) {
-    const res = await request.get<any>('/api/admin/tags', { limit: 100 })
+    const res = await request.get<any>('/api/admin/tags', { limit: GLOBAL_PAGE_SIZE })
     const rawList = res.data?.list || []
     const match = rawList.find((t: any) => t.name === name)
     if (match) {
@@ -441,7 +456,7 @@ export const adminApi = {
 
   // ── Region Configuration ──
   async getRegions() {
-    let res = await request.get<any>('/api/admin/regions', { limit: 100 })
+    let res = await request.get<any>('/api/admin/regions', { limit: GLOBAL_PAGE_SIZE })
     const rawList = res.data?.list || []
     
     if (rawList.length === 0) {
@@ -455,7 +470,7 @@ export const adminApi = {
           status: 'enabled'
         })
       }
-      res = await request.get<any>('/api/admin/regions', { limit: 100 })
+      res = await request.get<any>('/api/admin/regions', { limit: GLOBAL_PAGE_SIZE })
     }
 
     return res.data?.list || []
@@ -472,7 +487,7 @@ export const adminApi = {
   },
 
   async deleteRegion(name: string) {
-    const res = await request.get<any>('/api/admin/regions', { limit: 100 })
+    const res = await request.get<any>('/api/admin/regions', { limit: GLOBAL_PAGE_SIZE })
     const rawList = res.data?.list || []
     const match = rawList.find((r: any) => r.name === name)
     if (match) {
@@ -492,7 +507,7 @@ export const adminApi = {
   },
 
   async getDicts(params?: { type?: string; label?: string; status?: string }) {
-    const queryParams: any = { limit: 1000 }
+    const queryParams: any = { limit: GLOBAL_PAGE_SIZE }
     if (params?.type) queryParams.type = params.type
     if (params?.label) queryParams.keyword = params.label
     if (params?.status) {
@@ -503,7 +518,7 @@ export const adminApi = {
     const rawList = res.data?.list || []
     
     if (rawList.length === 0 && !params?.label && !params?.status) {
-      const checkRes = await request.get<any>('/api/admin/dictionaries', { limit: 1 })
+      const checkRes = await request.get<any>('/api/admin/dictionaries', { limit: GLOBAL_PAGE_SIZE })
       const checkList = checkRes.data?.list || []
       if (checkList.length === 0) {
         const defaultDicts = [
@@ -627,7 +642,7 @@ export const adminApi = {
   },
 
   async deleteDictItem(key: string, value: string) {
-    const res = await request.get<any>('/api/admin/dictionaries', { limit: 100 })
+    const res = await request.get<any>('/api/admin/dictionaries', { limit: GLOBAL_PAGE_SIZE })
     const rawList = res.data?.list || []
     const match = rawList.find((d: any) => d.type === key && d.value === value)
     if (match) {
@@ -637,7 +652,7 @@ export const adminApi = {
   },
 
   async updateDictItem(key: string, value: string, updatedFields: Partial<ApiDictItem>) {
-    const res = await request.get<any>('/api/admin/dictionaries', { limit: 100 })
+    const res = await request.get<any>('/api/admin/dictionaries', { limit: GLOBAL_PAGE_SIZE })
     const rawList = res.data?.list || []
     const match = rawList.find((d: any) => d.type === key && d.value === value)
     if (!match) throw new Error('Dictionary item not found')
@@ -815,9 +830,8 @@ export const adminApi = {
     }
   },
 
-  // ── Admin Accounts ──
-  async getAdminAccounts() {
-    const res = await request.get<ApiAdminAccount[]>('/api/admin/accounts')
+  async getAdminAccounts(params?: { keyword?: string; role?: string; status?: string }) {
+    const res = await request.get<ApiAdminAccount[]>('/api/admin/accounts', params)
     return res.data
   },
 
@@ -835,5 +849,39 @@ export const adminApi = {
 
   resetAdminPassword(id: string) {
     return request.post<any>(`/api/admin/accounts/${id}/reset-password`)
+  },
+
+  // ── Menu Management ──
+  async getMenus(params?: { keyword?: string; status?: string }) {
+    const res = await request.get<ApiMenuItem[]>('/api/admin/menus', params)
+    return res.data
+  },
+
+  async getMenuTree(params?: { onlyActive?: boolean }) {
+    const res = await request.get<ApiMenuItem[]>('/api/admin/menus/tree', params)
+    return res.data
+  },
+
+  async getMenuRoutes() {
+    const res = await request.get<ApiMenuItem[]>('/api/admin/menus/routes')
+    return res.data
+  },
+
+  async getMenuById(id: string) {
+    const res = await request.get<ApiMenuItem>(`/api/admin/menus/${id}`)
+    return res.data
+  },
+
+  addMenu(menu: Omit<ApiMenuItem, 'menuId'>) {
+    return request.post<any>('/api/admin/menus', menu)
+  },
+
+  updateMenu(id: string, menu: Partial<ApiMenuItem>) {
+    return request.put<any>(`/api/admin/menus/${id}`, menu)
+  },
+
+  deleteMenu(id: string) {
+    return request.delete<any>(`/api/admin/menus/${id}`)
   }
 }
+

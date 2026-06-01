@@ -111,6 +111,19 @@ export interface VersionItem {
   releaseTime: string
 }
 
+export interface MenuItem {
+  menuId: string
+  parentId: string | null
+  title: string
+  name: string
+  path: string
+  component: string
+  icon: string
+  sort: number
+  status: 'active' | 'inactive' | 'enabled' | 'disabled'
+  breadcrumbs?: string[]
+}
+
 export const useMockDataStore = defineStore('mockData', () => {
   // Initialize mock messages
   const messages = ref<MessageItem[]>([
@@ -768,7 +781,7 @@ export const useMockDataStore = defineStore('mockData', () => {
     result.sort((a, b) => new Date(b.pubTime).getTime() - new Date(a.pubTime).getTime())
 
     const page = params.page || 1
-    const limit = params.limit || 5
+    const limit = params.limit || 10
     const total = result.length
     const start = (page - 1) * limit
     const list = result.slice(start, start + limit)
@@ -1209,7 +1222,22 @@ export const useMockDataStore = defineStore('mockData', () => {
     }
   ])
 
-  const getAdminAccounts = () => adminAccounts.value
+  const getAdminAccounts = (params?: { keyword?: string; role?: string; status?: string }) => {
+    let result = [...adminAccounts.value]
+    if (params) {
+      if (params.keyword) {
+        const kw = params.keyword.toLowerCase()
+        result = result.filter(a => a.username.toLowerCase().includes(kw) || a.nickname.toLowerCase().includes(kw) || a.email.toLowerCase().includes(kw))
+      }
+      if (params.role) {
+        result = result.filter(a => a.role === params.role)
+      }
+      if (params.status) {
+        result = result.filter(a => a.status === params.status)
+      }
+    }
+    return result
+  }
 
   const addAdminAccount = (item: Omit<AdminAccount, 'account_id' | 'createTime' | 'lastLogin'>) => {
     const newAccount: AdminAccount = {
@@ -1407,6 +1435,339 @@ export const useMockDataStore = defineStore('mockData', () => {
     return true
   }
 
+  // --- MENU MANAGEMENT STATE & ACTIONS ---
+  const menus = ref<MenuItem[]>([
+    {
+      menuId: '1',
+      parentId: null,
+      title: '数据看板',
+      name: 'Dashboard',
+      path: '/dashboard',
+      component: 'dashboard/Index.vue',
+      icon: 'Odometer',
+      sort: 1,
+      status: 'active',
+      breadcrumbs: ['控制台', '数据看板']
+    },
+    {
+      menuId: '2',
+      parentId: null,
+      title: '运营管理',
+      name: 'Operations',
+      path: '/operations',
+      component: '',
+      icon: 'Share',
+      sort: 2,
+      status: 'active'
+    },
+    {
+      menuId: '3',
+      parentId: '2',
+      title: '用户管理',
+      name: 'UserList',
+      path: '/user',
+      component: 'user/List.vue',
+      icon: 'User',
+      sort: 1,
+      status: 'active',
+      breadcrumbs: ['运营管理', '用户列表']
+    },
+    {
+      menuId: '4',
+      parentId: '2',
+      title: 'App 仿真模拟',
+      name: 'AppSimulator',
+      path: '/simulator',
+      component: 'simulator/Index.vue',
+      icon: 'Smartphone',
+      sort: 2,
+      status: 'active',
+      breadcrumbs: ['运营管理', 'App 仿真模拟']
+    },
+    {
+      menuId: '5',
+      parentId: null,
+      title: '内容监管',
+      name: 'ContentSupervision',
+      path: '/content_supervision',
+      component: '',
+      icon: 'Warning',
+      sort: 3,
+      status: 'active'
+    },
+    {
+      menuId: '6',
+      parentId: '5',
+      title: '内容管理',
+      name: 'ContentList',
+      path: '/content',
+      component: 'content/List.vue',
+      icon: 'Document',
+      sort: 1,
+      status: 'active',
+      breadcrumbs: ['内容监管', '内容列表']
+    },
+    {
+      menuId: '7',
+      parentId: '5',
+      title: '评论管理',
+      name: 'CommentList',
+      path: '/comment',
+      component: 'comment/List.vue',
+      icon: 'ChatLineSquare',
+      sort: 2,
+      status: 'active',
+      breadcrumbs: ['内容监管', '评论列表']
+    },
+    {
+      menuId: '8',
+      parentId: null,
+      title: '账号管理',
+      name: 'AccountList',
+      path: '/account',
+      component: 'account/List.vue',
+      icon: 'UserFilled',
+      sort: 4,
+      status: 'active',
+      breadcrumbs: ['系统管理', '账号权限管理']
+    },
+    {
+      menuId: '9',
+      parentId: null,
+      title: '公告管理',
+      name: 'Announcement',
+      path: '/announcement',
+      component: '',
+      icon: 'Bell',
+      sort: 5,
+      status: 'active'
+    },
+    {
+      menuId: '10',
+      parentId: '9',
+      title: '单公告',
+      name: 'AnnouncementSingle',
+      path: '/announcement/single',
+      component: 'announcement/Single.vue',
+      icon: 'Promotion',
+      sort: 1,
+      status: 'active',
+      breadcrumbs: ['公告管理', '单公告']
+    },
+    {
+      menuId: '11',
+      parentId: '9',
+      title: '公告列表',
+      name: 'AnnouncementList',
+      path: '/announcement/list',
+      component: 'announcement/List.vue',
+      icon: 'List',
+      sort: 2,
+      status: 'active',
+      breadcrumbs: ['公告管理', '公告列表']
+    },
+    {
+      menuId: '12',
+      parentId: null,
+      title: '版本管理',
+      name: 'VersionList',
+      path: '/version',
+      component: 'version/List.vue',
+      icon: 'Upload',
+      sort: 6,
+      status: 'active',
+      breadcrumbs: ['版本管理', '版本列表']
+    },
+    {
+      menuId: '13',
+      parentId: null,
+      title: '系统配置',
+      name: 'System',
+      path: '/system',
+      component: '',
+      icon: 'Setting',
+      sort: 7,
+      status: 'active'
+    },
+    {
+      menuId: '14',
+      parentId: '13',
+      title: '标签管理',
+      name: 'TagList',
+      path: '/tag',
+      component: 'tag/List.vue',
+      icon: 'PriceTag',
+      sort: 1,
+      status: 'active',
+      breadcrumbs: ['系统配置', '标签管理']
+    },
+    {
+      menuId: '15',
+      parentId: '13',
+      title: '地区管理',
+      name: 'RegionList',
+      path: '/region',
+      component: 'region/List.vue',
+      icon: 'Location',
+      sort: 2,
+      status: 'active',
+      breadcrumbs: ['系统配置', '地区管理']
+    },
+    {
+      menuId: '16',
+      parentId: '13',
+      title: '字典管理',
+      name: 'DictList',
+      path: '/dict',
+      component: 'dict/List.vue',
+      icon: 'Memo',
+      sort: 3,
+      status: 'active',
+      breadcrumbs: ['系统配置', '字典管理']
+    },
+    {
+      menuId: '17',
+      parentId: '13',
+      title: '系统消息',
+      name: 'SysMessage',
+      path: '/message',
+      component: 'message/List.vue',
+      icon: 'Message',
+      sort: 4,
+      status: 'active',
+      breadcrumbs: ['系统配置', '系统消息']
+    },
+    {
+      menuId: '18',
+      parentId: '13',
+      title: '隐私协议',
+      name: 'PrivacyAgreement',
+      path: '/agreement/privacy',
+      component: 'agreement/Privacy.vue',
+      icon: 'Lock',
+      sort: 5,
+      status: 'active',
+      breadcrumbs: ['系统配置', '隐私协议管理']
+    },
+    {
+      menuId: '19',
+      parentId: '13',
+      title: '用户协议',
+      name: 'UserAgreement',
+      path: '/agreement/user',
+      component: 'agreement/User.vue',
+      icon: 'Checked',
+      sort: 6,
+      status: 'active',
+      breadcrumbs: ['系统配置', '用户协议管理']
+    },
+    {
+      menuId: '20',
+      parentId: '13',
+      title: '菜单管理',
+      name: 'MenuList',
+      path: '/menu',
+      component: 'menu/List.vue',
+      icon: 'Grid',
+      sort: 7,
+      status: 'active',
+      breadcrumbs: ['系统配置', '菜单管理']
+    }
+  ])
+
+  const getMenus = (params?: { keyword?: string; status?: string }) => {
+    let result = [...menus.value]
+    if (params?.keyword) {
+      const kw = params.keyword.toLowerCase()
+      result = result.filter(m => m.title.toLowerCase().includes(kw) || m.name.toLowerCase().includes(kw))
+    }
+    if (params?.status) {
+      result = result.filter(m => m.status === params.status)
+    }
+    // Sort flat list by parentId and then sort order
+    result.sort((a, b) => {
+      if (a.parentId === b.parentId) {
+        return a.sort - b.sort
+      }
+      return String(a.parentId).localeCompare(String(b.parentId))
+    })
+    return result
+  }
+
+  const getMenuTree = (onlyActive = false) => {
+    let list = menus.value.map(m => ({ ...m, children: [] as any[] }))
+    if (onlyActive) {
+      list = list.filter(m => m.status === 'active')
+    }
+    list.sort((a, b) => a.sort - b.sort)
+
+    const map = new Map<string, any>()
+    list.forEach(m => map.set(m.menuId, m))
+
+    const tree: any[] = []
+    list.forEach(m => {
+      if (m.parentId) {
+        const parent = map.get(m.parentId)
+        if (parent) {
+          parent.children.push(m)
+        } else {
+          tree.push(m)
+        }
+      } else {
+        tree.push(m)
+      }
+    })
+    return tree
+  }
+
+  const getMenuRoutes = () => {
+    return menus.value.filter(m => m.status === 'active' && m.component)
+  }
+
+  const getMenuById = (menuId: string) => {
+    return menus.value.find(m => m.menuId === menuId) || null
+  }
+
+  const addMenu = (item: Omit<MenuItem, 'menuId'>) => {
+    const newId = String(menus.value.length ? Math.max(...menus.value.map(m => Number(m.menuId))) + 1 : 1)
+    const newItem: MenuItem = {
+      menuId: newId,
+      parentId: item.parentId || null,
+      title: item.title,
+      name: item.name,
+      path: item.path,
+      component: item.component || '',
+      icon: item.icon || '',
+      sort: Number(item.sort) || 1,
+      status: item.status || 'active',
+      breadcrumbs: item.breadcrumbs || []
+    }
+    menus.value.push(newItem)
+    return newItem
+  }
+
+  const updateMenu = (menuId: string, updatedFields: Partial<MenuItem>) => {
+    const item = menus.value.find(m => m.menuId === menuId)
+    if (item) {
+      Object.assign(item, {
+        ...updatedFields,
+        parentId: updatedFields.parentId || null,
+        sort: updatedFields.sort !== undefined ? Number(updatedFields.sort) : item.sort
+      })
+      return true
+    }
+    return false
+  }
+
+  const deleteMenu = (menuId: string) => {
+    const idx = menus.value.findIndex(m => m.menuId === menuId)
+    if (idx !== -1) {
+      menus.value = menus.value.filter(m => m.menuId !== menuId && m.parentId !== menuId)
+      return true
+    }
+    return false
+  }
+
   return {
     users,
     posts,
@@ -1465,6 +1826,14 @@ export const useMockDataStore = defineStore('mockData', () => {
     deleteVersion,
     deprecateVersion,
     batchDeprecateVersions,
-    batchDeleteVersions
+    batchDeleteVersions,
+    menus,
+    getMenus,
+    getMenuTree,
+    getMenuRoutes,
+    getMenuById,
+    addMenu,
+    updateMenu,
+    deleteMenu
   }
 })

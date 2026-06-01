@@ -1,6 +1,8 @@
 import { createRouter, createWebHashHistory, type RouteRecordRaw } from 'vue-router'
 import { useAuthStore } from '@/store/auth'
 
+import { useMenuStore } from '@/store/menu'
+
 const routes: Array<RouteRecordRaw> = [
   {
     path: '/login',
@@ -10,104 +12,10 @@ const routes: Array<RouteRecordRaw> = [
   },
   {
     path: '/',
+    name: 'Layout',
     component: () => import('@/views/layout/Index.vue'),
     redirect: '/dashboard',
-    children: [
-      {
-        path: 'dashboard',
-        name: 'Dashboard',
-        component: () => import('@/views/dashboard/Index.vue'),
-        meta: { title: '数据看板', icon: 'LayoutDashboard', breadcrumbs: ['控制台', '数据看板'] }
-      },
-      {
-        path: 'user',
-        name: 'UserList',
-        component: () => import('@/views/user/List.vue'),
-        meta: { title: '用户管理', icon: 'Users', breadcrumbs: ['运营管理', '用户列表'] }
-      },
-      {
-        path: 'content',
-        name: 'ContentList',
-        component: () => import('@/views/content/List.vue'),
-        meta: { title: '内容管理', icon: 'FileText', breadcrumbs: ['内容监管', '内容列表'] }
-      },
-      {
-        path: 'comment',
-        name: 'CommentList',
-        component: () => import('@/views/comment/List.vue'),
-        meta: { title: '评论管理', icon: 'MessageSquare', breadcrumbs: ['内容监管', '评论列表'] }
-      },
-      {
-        path: 'simulator',
-        name: 'AppSimulator',
-        component: () => import('@/views/simulator/Index.vue'),
-        meta: { title: 'App 仿真模拟', icon: 'Smartphone', breadcrumbs: ['运营管理', 'App 仿真模拟'] }
-      },
-      {
-        path: 'account',
-        name: 'AccountList',
-        component: () => import('@/views/account/List.vue'),
-        meta: { title: '账号管理', icon: 'UserFilled', breadcrumbs: ['系统管理', '账号权限管理'] }
-      },
-      {
-        path: 'tag',
-        name: 'TagList',
-        component: () => import('@/views/tag/List.vue'),
-        meta: { title: '标签管理', icon: 'PriceTag', breadcrumbs: ['系统配置', '标签管理'] }
-      },
-      {
-        path: 'region',
-        name: 'RegionList',
-        component: () => import('@/views/region/List.vue'),
-        meta: { title: '地区管理', icon: 'Location', breadcrumbs: ['系统配置', '地区管理'] }
-      },
-      {
-        path: 'dict',
-        name: 'DictList',
-        component: () => import('@/views/dict/List.vue'),
-        meta: { title: '字典管理', icon: 'Memo', breadcrumbs: ['系统配置', '字典管理'] }
-      },
-      {
-        path: 'message',
-        name: 'SysMessage',
-        component: () => import('@/views/message/List.vue'),
-        meta: { title: '系统消息', icon: 'Message', breadcrumbs: ['系统配置', '系统消息'] }
-      },
-      {
-        path: 'agreement/privacy',
-        name: 'PrivacyAgreement',
-        component: () => import('@/views/agreement/Privacy.vue'),
-        meta: { title: '隐私协议', icon: 'ShieldCheck', breadcrumbs: ['系统配置', '隐私协议管理'] }
-      },
-      {
-        path: 'agreement/user',
-        name: 'UserAgreement',
-        component: () => import('@/views/agreement/User.vue'),
-        meta: { title: '用户协议', icon: 'FileSignature', breadcrumbs: ['系统配置', '用户协议管理'] }
-      },
-      {
-        path: 'announcement/single',
-        name: 'AnnouncementSingle',
-        component: () => import('@/views/announcement/Single.vue'),
-        meta: { title: '单公告管理', breadcrumbs: ['公告管理', '单公告'] }
-      },
-      {
-        path: 'announcement/list',
-        name: 'AnnouncementList',
-        component: () => import('@/views/announcement/List.vue'),
-        meta: { title: '公告列表', breadcrumbs: ['公告管理', '公告列表'] }
-      },
-      {
-        path: 'version',
-        name: 'VersionList',
-        component: () => import('@/views/version/List.vue'),
-        meta: { title: '版本管理', breadcrumbs: ['版本管理', '版本列表'] }
-      }
-    ]
-  },
-  {
-    path: '/:pathMatch(.*)*',
-    redirect: '/'
+    children: []
   }
 ]
 
@@ -117,8 +25,9 @@ const router = createRouter({
 })
 
 // Route Guards
-router.beforeEach((to, _from, next) => {
+router.beforeEach(async (to, _from, next) => {
   const authStore = useAuthStore()
+  const menuStore = useMenuStore()
   
   // Set window title
   if (to.meta.title) {
@@ -129,12 +38,27 @@ router.beforeEach((to, _from, next) => {
 
   const isAuth = authStore.isAuthenticated()
 
-  if (to.meta.guestOnly && isAuth) {
-    next({ name: 'Dashboard' })
-  } else if (!to.meta.guestOnly && !to.meta.guest && !isAuth) {
-    next({ name: 'Login' })
+  if (isAuth) {
+    if (to.name === 'Login') {
+      next({ path: '/dashboard' })
+    } else {
+      // Dynamic routes loading
+      if (!menuStore.isRoutesLoaded) {
+        await menuStore.generateRoutes(router)
+        await menuStore.fetchMenuTree()
+        // Retry navigation with newly registered routes
+        next({ ...to, replace: true })
+      } else {
+        next()
+      }
+    }
   } else {
-    next()
+    // If not authenticated, guestOnly pages (like login) are allowed, otherwise redirect to login
+    if (to.meta.guestOnly) {
+      next()
+    } else {
+      next({ name: 'Login' })
+    }
   }
 })
 

@@ -1,8 +1,13 @@
 import { ref } from 'vue'
 
-export function usePagination(defaultPageSize = 10) {
+// 全局统一分页配置
+export const GLOBAL_PAGE_SIZE = 10
+export const GLOBAL_PAGE_SIZES = [10, 20, 50, 100]
+
+export function usePagination(defaultPageSize = GLOBAL_PAGE_SIZE) {
   const currentPage = ref(1)
   const pageSize = ref(defaultPageSize)
+  const pageSizes = ref(GLOBAL_PAGE_SIZES)
 
   const handleSizeChange = (val: number) => {
     pageSize.value = val
@@ -25,9 +30,11 @@ export function usePagination(defaultPageSize = 10) {
   return {
     currentPage,
     pageSize,
+    pageSizes,
     handleSizeChange,
     handleCurrentChange,
     resetPagination,
     getPaginatedList
   }
 }
+

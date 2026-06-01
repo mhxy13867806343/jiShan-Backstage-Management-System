@@ -232,13 +232,13 @@
     </el-card>
 
     <!-- Bottom Lists Row (Standard Admin analysis details) -->
-    <div class="bottom-tables-row">
+    <div class="bottom-tables-row" :class="{ 'full-width-tables': !(hasUserRoute || hasContentRoute || hasAgreementRoute) }">
       <!-- Left: Hot content ranked -->
       <el-card class="list-card-panel" shadow="never">
         <template #header>
           <div class="card-header-flex">
             <span>实时运营内容热度榜</span>
-            <el-button type="primary" link @click="router.push('/content')">查看更多</el-button>
+            <el-button type="primary" link @click="router.push('/content')" v-if="hasContentRoute">查看更多</el-button>
           </div>
         </template>
 
@@ -260,7 +260,7 @@
       </el-card>
 
       <!-- Right: Shortcut Actions -->
-      <el-card class="list-card-panel" shadow="never">
+      <el-card class="list-card-panel" shadow="never" v-if="hasUserRoute || hasContentRoute || hasAgreementRoute">
         <template #header>
           <div>
             <span>快捷管理入口</span>
@@ -268,7 +268,7 @@
         </template>
 
         <div class="action-shortcut-list">
-          <div class="shortcut-box" @click="router.push('/user')">
+          <div class="shortcut-box" @click="router.push('/user')" v-if="hasUserRoute">
             <el-icon class="icon-user"><User /></el-icon>
             <div class="text-meta">
               <h4>用户安全审查</h4>
@@ -276,7 +276,7 @@
             </div>
           </div>
 
-          <div class="shortcut-box" @click="router.push('/content')">
+          <div class="shortcut-box" @click="router.push('/content')" v-if="hasContentRoute">
             <el-icon class="icon-content"><Document /></el-icon>
             <div class="text-meta">
               <h4>内容上下架</h4>
@@ -284,7 +284,7 @@
             </div>
           </div>
 
-          <div class="shortcut-box" @click="router.push('/agreement/privacy')">
+          <div class="shortcut-box" @click="router.push('/agreement/privacy')" v-if="hasAgreementRoute">
             <el-icon class="icon-agree"><Lock /></el-icon>
             <div class="text-meta">
               <h4>协议与条款配置</h4>
@@ -298,12 +298,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { adminApi } from '@/api/admin'
+import { useMenuStore } from '@/store/menu'
 import { Calendar } from '@element-plus/icons-vue'
 
 const router = useRouter()
+const menuStore = useMenuStore()
 const chartTimeTab = ref('today')
 const activeChartType = ref('traffic')
 const currentTimeString = ref('')
@@ -349,6 +351,27 @@ const updateCurrentTime = () => {
   const minutes = String(now.getMinutes()).padStart(2, '0')
   currentTimeString.value = `${year}年${month}月${day}日 ${hours}:${minutes}`
 }
+
+const hasRoute = (path: string) => {
+  const check = (nodes: any[]): boolean => {
+    for (const node of nodes) {
+      if (node.path === path || node.path === path.replace(/^\//, '') || node.path?.endsWith(path)) {
+        return true
+      }
+      if (node.children && node.children.length > 0) {
+        if (check(node.children)) {
+          return true
+        }
+      }
+    }
+    return false
+  }
+  return check(menuStore.menuTree)
+}
+
+const hasUserRoute = computed(() => hasRoute('/user'))
+const hasContentRoute = computed(() => hasRoute('/content'))
+const hasAgreementRoute = computed(() => hasRoute('/agreement/privacy') || hasRoute('/agreement/user'))
 
 onMounted(() => {
   updateCurrentTime()
@@ -571,6 +594,10 @@ onMounted(() => {
   display: grid;
   grid-template-columns: 1.3fr 0.7fr;
   gap: 20px;
+}
+
+.bottom-tables-row.full-width-tables {
+  grid-template-columns: 1fr !important;
 }
 
 @media (max-width: 900px) {

@@ -462,7 +462,7 @@
         <!-- Simulator Action logs terminal -->
         <div class="panel-card premium-card terminal-card">
           <div class="column-title">
-            <el-icon><Terminal /></el-icon>
+            <el-icon><Cpu /></el-icon>
             <span>模拟器核心交互实时日志 (Simulator Action Logs)</span>
           </div>
 

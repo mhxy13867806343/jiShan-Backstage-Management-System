@@ -17,95 +17,29 @@
         router
         :collapse-transition="true"
       >
-        <!-- Dashboard -->
-        <el-menu-item index="/dashboard">
-          <el-icon><Odometer /></el-icon>
-          <template #title>数据看板</template>
-        </el-menu-item>
+        <template v-for="item in menuStore.menuTree" :key="item.menuId">
+          <!-- Sub-menu (Directory) -->
+          <el-sub-menu v-if="item.children && item.children.length > 0" :index="item.path">
+            <template #title>
+              <el-icon v-if="item.icon"><component :is="item.icon" /></el-icon>
+              <span>{{ item.title }}</span>
+            </template>
+            <el-menu-item 
+              v-for="sub in item.children" 
+              :key="sub.menuId" 
+              :index="sub.path"
+            >
+              <el-icon v-if="sub.icon"><component :is="sub.icon" /></el-icon>
+              <span>{{ sub.title }}</span>
+            </el-menu-item>
+          </el-sub-menu>
 
-        <!-- User Management -->
-        <el-menu-item index="/user">
-          <el-icon><User /></el-icon>
-          <template #title>用户管理</template>
-        </el-menu-item>
-
-        <!-- Content Management -->
-        <el-menu-item index="/content">
-          <el-icon><Document /></el-icon>
-          <template #title>内容管理</template>
-        </el-menu-item>
-
-        <!-- Comment Management -->
-        <el-menu-item index="/comment">
-          <el-icon><ChatLineSquare /></el-icon>
-          <template #title>评论管理</template>
-        </el-menu-item>
-
-        <!-- App Simulator -->
-        <el-menu-item index="/simulator">
-          <el-icon><Smartphone /></el-icon>
-          <template #title>App 仿真模拟</template>
-        </el-menu-item>
-
-        <!-- Account Management -->
-        <el-menu-item index="/account">
-          <el-icon><UserFilled /></el-icon>
-          <template #title>账号管理</template>
-        </el-menu-item>
-
-        <!-- Announcement Management -->
-        <el-sub-menu index="/announcement">
-          <template #title>
-            <el-icon><Bell /></el-icon>
-            <span>公告管理</span>
-          </template>
-          <el-menu-item index="/announcement/single">
-            <el-icon><Promotion /></el-icon>
-            <span>单公告</span>
+          <!-- Single menu item -->
+          <el-menu-item v-else :index="item.path">
+            <el-icon v-if="item.icon"><component :is="item.icon" /></el-icon>
+            <template #title>{{ item.title }}</template>
           </el-menu-item>
-          <el-menu-item index="/announcement/list">
-            <el-icon><List /></el-icon>
-            <span>公告列表</span>
-          </el-menu-item>
-        </el-sub-menu>
-
-        <!-- Version Management -->
-        <el-menu-item index="/version">
-          <el-icon><Upload /></el-icon>
-          <template #title>版本管理</template>
-        </el-menu-item>
-
-        <!-- System Configurations Submenu -->
-        <el-sub-menu index="/system">
-          <template #title>
-            <el-icon><Setting /></el-icon>
-            <span>系统配置</span>
-          </template>
-          <el-menu-item index="/tag">
-            <el-icon><PriceTag /></el-icon>
-            <span>标签管理</span>
-          </el-menu-item>
-          <el-menu-item index="/region">
-            <el-icon><Location /></el-icon>
-            <span>地区管理</span>
-          </el-menu-item>
-          <el-menu-item index="/dict">
-            <el-icon><Memo /></el-icon>
-            <span>字典管理</span>
-          </el-menu-item>
-          <el-menu-item index="/message">
-            <el-icon><Message /></el-icon>
-            <span>系统消息</span>
-          </el-menu-item>
-          <el-menu-item index="/agreement/privacy">
-            <el-icon><Lock /></el-icon>
-            <span>隐私协议</span>
-          </el-menu-item>
-          <el-menu-item index="/agreement/user">
-            <el-icon><Checked /></el-icon>
-            <span>用户协议</span>
-          </el-menu-item>
-        </el-sub-menu>
+        </template>
       </el-menu>
       
       <!-- Toggle collapse footer -->
@@ -181,7 +115,7 @@
                   </div>
                 </div>
               </div>
-              <div class="notification-footer">
+              <div class="notification-footer" v-if="hasMessageMenu">
                 <el-button type="primary" link @click="gotoMessageCenter">查看全部消息</el-button>
               </div>
             </div>
@@ -288,6 +222,7 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/store/auth'
+import { useMenuStore } from '@/store/menu'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { adminApi } from '@/api/admin'
 
@@ -300,6 +235,7 @@ interface TagItem {
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+const menuStore = useMenuStore()
 
 const isCollapse = ref(false)
 const adminName = computed(() => authStore.adminName || '管理员')
@@ -373,6 +309,7 @@ const handleCommand = (command: string) => {
       }
     ).then(() => {
       authStore.logout()
+      menuStore.resetMenu()
       ElMessage.success('已成功退出登录')
       router.push('/login')
     }).catch(() => {})
@@ -523,6 +460,23 @@ const handleMarkAllRead = async () => {
     console.error('标记全部已读失败', err)
   }
 }
+
+const hasMessageMenu = computed(() => {
+  const checkHasPath = (nodes: any[]): boolean => {
+    for (const node of nodes) {
+      if (node.path === '/message' || node.path === 'message' || node.path?.endsWith('/message')) {
+        return true
+      }
+      if (node.children && node.children.length > 0) {
+        if (checkHasPath(node.children)) {
+          return true
+        }
+      }
+    }
+    return false
+  }
+  return checkHasPath(menuStore.menuTree)
+})
 
 const gotoMessageCenter = () => {
   router.push('/message')

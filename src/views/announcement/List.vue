@@ -133,7 +133,7 @@
         <el-pagination
           v-model:current-page="currentPage"
           v-model:page-size="pageSize"
-          :page-sizes="[10, 20, 50, 100, 200, 300]"
+          :page-sizes="pageSizes"
           layout="total, sizes, prev, pager, next, jumper"
           :total="totalCount"
           background
@@ -261,37 +261,57 @@ const stripHtml = (html: string) => {
 // ── API State & Loader ───────────────────────────────────────────
 const list = ref<AnnItem[]>([])
 const loading = ref(false)
+const totalCount = ref(0)
 
-const fetchAnnouncements = async (queryParams?: { keyword?: string; type?: string; status?: string }) => {
+// ── Shared Composable hooks: Pagination ───────────────────────────
+const {
+  currentPage,
+  pageSize,
+  pageSizes,
+  handleSizeChange,
+  handleCurrentChange
+} = usePagination(10) // default 10 per page
+
+const fetchAnnouncements = async () => {
   loading.value = true
   try {
-    const params: Record<string, any> = { page: 1, limit: 9999 }
-    if (queryParams?.keyword) params.keyword = queryParams.keyword
-    if (queryParams?.type) params.type = queryParams.type
-    if (queryParams?.status) params.status = queryParams.status
+    const params: Record<string, any> = {
+      page: currentPage.value,
+      limit: pageSize.value
+    }
+    if (searchKw.value) params.keyword = searchKw.value
+    if (filterType.value) params.type = filterType.value
+    if (filterStatus.value) params.status = filterStatus.value
     const res = await adminApi.getAnnouncements(params)
     // 兼容后端直接返回数组 或 { list, total } 两种格式
     if (Array.isArray(res)) {
       list.value = res
+      totalCount.value = res.length
     } else {
       list.value = res?.list ?? []
+      totalCount.value = res?.total ?? 0
     }
-    currentPage.value = 1
   } catch (err) {
     console.error('Fetch announcements failed', err)
     list.value = []
+    totalCount.value = 0
   } finally {
     loading.value = false
   }
 }
 
-// 点击查询按钮 → 带当前筛选条件调用后端接口
+// ── Watch pagination changes to fetch new page ──
+watch([currentPage, pageSize], () => {
+  fetchAnnouncements()
+})
+
+// 点击查询按钮
 const handleSearch = () => {
-  fetchAnnouncements({
-    keyword: searchKw.value,
-    type: filterType.value,
-    status: filterStatus.value
-  })
+  if (currentPage.value === 1) {
+    fetchAnnouncements()
+  } else {
+    currentPage.value = 1
+  }
 }
 
 onMounted(() => {
@@ -303,29 +323,18 @@ const searchKw = ref('')
 const filterType = ref('')
 const filterStatus = ref('')
 
-// API 已在后端筛选，filteredList 直接返回结果即可
-const filteredList = computed(() => list.value)
-
 const resetFilters = () => {
   searchKw.value = ''
   filterType.value = ''
   filterStatus.value = ''
-  currentPage.value = 1
-  fetchAnnouncements() // 重置后重新加载全量数据
+  if (currentPage.value === 1) {
+    fetchAnnouncements()
+  } else {
+    currentPage.value = 1
+  }
 }
 
-// ── Shared Composable hooks: Pagination ───────────────────────────
-const {
-  currentPage,
-  pageSize,
-  handleSizeChange,
-  handleCurrentChange,
-  getPaginatedList
-} = usePagination(10) // default 10 per page
-
-const totalCount = computed(() => filteredList.value.length)
-
-const paginatedList = computed(() => getPaginatedList(filteredList.value))
+const paginatedList = computed(() => list.value)
 
 // ── Shared Composable hooks: Table Selection ─────────────────────
 const {

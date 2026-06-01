@@ -186,7 +186,7 @@
         <el-pagination
           v-model:current-page="currentPage"
           v-model:page-size="pageSize"
-          :page-sizes="[5, 10, 20]"
+          :page-sizes="GLOBAL_PAGE_SIZES"
           layout="total, sizes, prev, pager, next, jumper"
           :total="total"
           @size-change="handleSizeChange"
@@ -278,9 +278,11 @@ const dialogType = ref<'create' | 'edit'>('create')
 const selectedIds = ref<string[]>([])
 const messagesList = ref<MessageItem[]>([])
 
+import { GLOBAL_PAGE_SIZE, GLOBAL_PAGE_SIZES } from '@/hooks/usePagination'
+
 // Pagination
 const currentPage = ref(1)
-const pageSize = ref(10)
+const pageSize = ref(GLOBAL_PAGE_SIZE)
 
 // Query params
 const queryParams = reactive({

@@ -85,7 +85,11 @@
             <div class="user-profile-cell">
               <el-avatar :size="40" :src="row.avatar" />
               <div class="user-info-text">
-                <span class="user-nickname user-nickname-link" title="点击查看用户发布动态" @click="gotoUserPosts(row)">
+                <span 
+                  :class="{ 'user-nickname': true, 'user-nickname-link': hasContentRoute }" 
+                  :title="hasContentRoute ? '点击查看用户发布动态' : undefined" 
+                  @click="hasContentRoute ? gotoUserPosts(row) : undefined"
+                >
                   {{ row.nickname }}
                 </span>
                 <span class="user-bio-preview">{{ row.bio || '暂无个人简介' }}</span>
@@ -126,7 +130,7 @@
       <el-pagination
         v-model:current-page="currentPage"
         v-model:page-size="pageSize"
-        :page-sizes="[5, 10, 20]"
+        :page-sizes="GLOBAL_PAGE_SIZES"
         layout="total, sizes, prev, pager, next, jumper"
         :total="totalCount"
         background
@@ -148,9 +152,15 @@
         </div>
 
         <div class="metrics-summary-grid">
-          <div class="detail-metric-item clickable-metric" title="点击查看该用户发布动态" @click="gotoUserPosts(selectedUser)">
+          <div 
+            :class="{ 'detail-metric-item': true, 'clickable-metric': hasContentRoute }" 
+            :title="hasContentRoute ? '点击查看该用户发布动态' : undefined" 
+            @click="hasContentRoute ? gotoUserPosts(selectedUser) : undefined"
+          >
             <span class="metric-num text-gradient">{{ selectedUser.postCount }}</span>
-            <span class="metric-name link-text-badge">发布内容数 ➔</span>
+            <span class="metric-name">
+              发布内容数<span v-if="hasContentRoute" class="link-text-badge"> ➔</span>
+            </span>
           </div>
           <div class="detail-metric-item">
             <span class="metric-num text-gradient">{{ selectedUser.commentCount }}</span>
@@ -183,15 +193,38 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMockDataStore } from '@/store/mockData'
+import { useMenuStore } from '@/store/menu'
 import { adminApi } from '@/api/admin'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
+import { GLOBAL_PAGE_SIZE, GLOBAL_PAGE_SIZES } from '@/hooks/usePagination'
+
 const router = useRouter()
+const menuStore = useMenuStore()
+
+const hasRoute = (path: string) => {
+  const check = (nodes: any[]): boolean => {
+    for (const node of nodes) {
+      if (node.path === path || node.path === path.replace(/^\//, '') || node.path?.endsWith(path)) {
+        return true
+      }
+      if (node.children && node.children.length > 0) {
+        if (check(node.children)) {
+          return true
+        }
+      }
+    }
+    return false
+  }
+  return check(menuStore.menuTree)
+}
+
+const hasContentRoute = computed(() => hasRoute('/content'))
 const mockStore = useMockDataStore()
 const tableData = ref<any[]>([])
 const totalCount = ref(0)
 const currentPage = ref(1)
-const pageSize = ref(10)
+const pageSize = ref(GLOBAL_PAGE_SIZE)
 
 const searchForm = reactive({
   user_id: '',
