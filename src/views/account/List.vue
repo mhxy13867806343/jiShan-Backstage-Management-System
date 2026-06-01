@@ -412,35 +412,21 @@ const permLabelMap = computed(() => {
 
 // ── Custom Dynamic Roles Configuration ──────────────────────────
 interface AdminRoleItem {
+  roleId: string
   key: string
   label: string
   icon: string
   isDefault?: boolean
 }
 
-const defaultRoles: AdminRoleItem[] = [
-  { key: 'superadmin', label: '超级管理员', icon: 'StarFilled', isDefault: true },
-  { key: 'admin', label: '管理员', icon: 'UserFilled', isDefault: true },
-  { key: 'operator', label: '运营员', icon: 'Setting', isDefault: true },
-  { key: 'viewer', label: '观察员', icon: 'View', isDefault: true },
-]
+const rolesList = ref<AdminRoleItem[]>([])
 
-const getStoredRoles = (): AdminRoleItem[] => {
-  const cached = localStorage.getItem('admin_custom_roles')
-  if (cached) {
-    try {
-      return JSON.parse(cached)
-    } catch (e) {
-      console.error('Failed to parse cached roles', e)
-    }
+const fetchRoles = async () => {
+  try {
+    rolesList.value = await adminApi.getRoles()
+  } catch (err) {
+    console.error('Fetch roles failed', err)
   }
-  return [...defaultRoles]
-}
-
-const rolesList = ref<AdminRoleItem[]>(getStoredRoles())
-
-const saveStoredRoles = (list: AdminRoleItem[]) => {
-  localStorage.setItem('admin_custom_roles', JSON.stringify(list))
 }
 
 const ROLE_LABEL = computed<Record<string, string>>(() => {
@@ -537,22 +523,25 @@ const handleOpenAddRole = () => {
   }
 }
 
-const handleSaveRoles = () => {
-  saveStoredRoles(rolesList.value)
-  ElMessage.success('角色配置已更新保存')
-}
-
 const submitAddRole = () => {
-  newRoleFormRef.value?.validate((valid: boolean) => {
+  newRoleFormRef.value?.validate(async (valid: boolean) => {
     if (valid) {
-      rolesList.value.push({
-        key: newRoleForm.value.key,
-        label: newRoleForm.value.label,
-        icon: newRoleForm.value.icon,
-        isDefault: false
-      })
-      handleSaveRoles()
-      showAddRoleForm.value = false
+      try {
+        await adminApi.addRole({
+          roleKey: newRoleForm.value.key,
+          label: newRoleForm.value.label,
+          icon: newRoleForm.value.icon,
+          permissions: [],
+          sort: rolesList.value.length + 1,
+          status: 'enabled',
+          remark: ''
+        })
+        ElMessage.success('角色创建成功')
+        await fetchRoles()
+        showAddRoleForm.value = false
+      } catch (err: any) {
+        ElMessage.error(err.message || '新增角色失败')
+      }
     }
   })
 }
@@ -565,9 +554,14 @@ const handleDeleteRole = (index: number) => {
     `确定要删除自定义角色 "<b>${role.label}</b>" 吗？`,
     '确认删除',
     { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning', dangerouslyUseHTMLString: true }
-  ).then(() => {
-    rolesList.value.splice(index, 1)
-    handleSaveRoles()
+  ).then(async () => {
+    try {
+      await adminApi.deleteRole(role.roleId)
+      ElMessage.success('角色已成功删除')
+      await fetchRoles()
+    } catch (err: any) {
+      ElMessage.error(err.message || '删除角色失败')
+    }
   }).catch(() => {})
 }
 
@@ -595,7 +589,8 @@ const fetchAllAccounts = async () => {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
+  await fetchRoles()
   fetchAccounts()
   fetchAllAccounts()
 })

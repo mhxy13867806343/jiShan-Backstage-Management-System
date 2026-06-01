@@ -135,6 +135,20 @@ export interface ApiMenuItem {
   children?: ApiMenuItem[]
 }
 
+export interface ApiAdminRole {
+  roleId: string
+  roleKey: string
+  label: string
+  icon: string
+  permissions: string[]
+  sort: number
+  status: 'enabled' | 'disabled'
+  isDefault: boolean
+  remark: string
+  createdAt?: string
+  updatedAt?: string
+}
+
 // ─────────────────────────────────────────────────────────────────
 // 2. Data Adapters (Adapting camelCase backend -> snake_case frontend)
 // ─────────────────────────────────────────────────────────────────
@@ -888,6 +902,35 @@ export const adminApi = {
 
   deleteMenu(id: string) {
     return request.delete<any>(`/api/admin/menus/${id}`)
+  },
+
+  // ── Role Management ──
+  async getRoles(params?: { keyword?: string; status?: string }) {
+    const res = await request.get<any>('/api/admin/roles', params)
+    const list = res.data?.list || res.data || []
+    return list.map((r: any) => ({
+      roleId: r.roleId || r.id || '',
+      key: r.roleKey || r.key || '',
+      label: r.label || '',
+      icon: r.icon || 'UserFilled',
+      permissions: r.permissions || [],
+      sort: Number(r.sort || 0),
+      status: r.status || 'enabled',
+      isDefault: Boolean(r.isDefault),
+      remark: r.remark || ''
+    }))
+  },
+
+  addRole(role: { roleKey: string; label: string; icon: string; permissions?: string[]; sort?: number; status?: string; remark?: string }) {
+    return request.post<any>('/api/admin/roles', role)
+  },
+
+  updateRole(id: string, role: { roleKey: string; label: string; icon: string; permissions?: string[]; sort?: number; status?: string; remark?: string }) {
+    return request.put<any>(`/api/admin/roles/${id}`, role)
+  },
+
+  deleteRole(id: string) {
+    return request.delete<any>(`/api/admin/roles/${id}`)
   }
 }
 
