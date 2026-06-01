@@ -481,9 +481,10 @@ const roleDefaultPerms = computed<Record<string, string[]>>(() => {
   const map: Record<string, string[]> = {}
   rolesList.value.forEach(r => {
     if (r.key === 'superadmin') {
-      map[r.key] = allPermissions.value.map(p => p.key)
+      map[r.key] = [...allPermissions.value.map(p => p.key), 'user:query', 'user:add', 'user:edit', 'user:delete']
     } else if (r.key === 'admin') {
-      map[r.key] = ['dashboard', 'user', 'content', 'comment', 'tag', 'region', 'message'].filter(k => allPermissions.value.some(p => p.key === k))
+      const base = ['dashboard', 'user', 'content', 'comment', 'tag', 'region', 'message'].filter(k => allPermissions.value.some(p => p.key === k))
+      map[r.key] = [...base, 'user:query', 'user:add', 'user:edit', 'user:delete']
     } else if (r.key === 'operator') {
       map[r.key] = ['dashboard', 'content', 'comment', 'tag'].filter(k => allPermissions.value.some(p => p.key === k))
     } else if (r.key === 'viewer') {
@@ -696,18 +697,35 @@ const handleSelectAll = (val: boolean) => {
 }
 
 // ── Watcher: Clean up User sub-permissions if User Management module is unchecked ──
+let lastHadUser = false
+
+// ── Watcher: Clean up User sub-permissions if User Management module is unchecked ──
 watch(() => form.permissions, (newVal) => {
-  if (!newVal.includes('user')) {
+  const hasUser = newVal.includes('user')
+  
+  if (hasUser && !lastHadUser) {
+    const hasAnySub = newVal.some(p => p.startsWith('user:'))
+    if (!hasAnySub) {
+      if (form.role === 'superadmin' || form.role === 'admin') {
+        form.permissions = [...newVal, 'user:query', 'user:add', 'user:edit', 'user:delete']
+      } else {
+        form.permissions = [...newVal, 'user:query']
+      }
+    }
+  } else if (!hasUser && lastHadUser) {
     const hasSubPerms = newVal.some(p => p.startsWith('user:'))
     if (hasSubPerms) {
       form.permissions = newVal.filter(p => !p.startsWith('user:'))
     }
   }
+  
+  lastHadUser = hasUser
 }, { deep: true })
 
 const openAddDialog = () => {
   isEdit.value = false
   Object.assign(form, blankForm())
+  lastHadUser = form.permissions.includes('user')
   dialogVisible.value = true
 }
 
@@ -726,6 +744,7 @@ const openEditDialog = (row: AdminAccount) => {
     statusActive: row.status === 'active',
     remark: row.remark,
   })
+  lastHadUser = form.permissions.includes('user')
   dialogVisible.value = true
 }
 
