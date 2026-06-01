@@ -307,7 +307,12 @@ const handleCommand = (command: string) => {
         type: 'warning',
         confirmButtonClass: 'el-button--danger'
       }
-    ).then(() => {
+    ).then(async () => {
+      try {
+        await adminApi.logout()
+      } catch (err) {
+        console.error('Logout API failed:', err)
+      }
       authStore.logout()
       menuStore.resetMenu()
       ElMessage.success('已成功退出登录')

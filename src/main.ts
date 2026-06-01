@@ -7,6 +7,7 @@ import * as ElementPlusIconsVue from '@element-plus/icons-vue'
 import App from './App.vue'
 import router from './router'
 import './style.css'
+import { useAuthStore } from '@/store/auth'
 
 const app = createApp(App)
 const pinia = createPinia()
@@ -19,6 +20,25 @@ for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
 app.use(pinia)
 app.use(router)
 app.use(ElementPlus)
+
+// Register custom permission directive (v-permission)
+app.directive('permission', {
+  mounted(el, binding) {
+    const { value } = binding
+    const authStore = useAuthStore()
+    
+    // Superadmin automatically bypasses all permission checks
+    if (authStore.role === 'superadmin') return
+
+    if (value) {
+      const requiredPermissions = Array.isArray(value) ? value : [value]
+      const hasPermission = requiredPermissions.some(perm => authStore.permissions.includes(perm))
+      if (!hasPermission) {
+        el.parentNode && el.parentNode.removeChild(el)
+      }
+    }
+  }
+})
 
 app.mount('#app')
 

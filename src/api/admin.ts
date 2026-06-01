@@ -200,6 +200,12 @@ export const adminApi = {
   login(username: string, password: string) {
     return request.post<{ token: string; username: string }>('/api/admin/auth/login', { username, password })
   },
+  logout() {
+    return request.post('/api/admin/auth/logout')
+  },
+  clientLogout() {
+    return request.post('/api/app/auth/logout')
+  },
 
   // ── Dashboard Metrics ──
   async getDashboardMetrics() {

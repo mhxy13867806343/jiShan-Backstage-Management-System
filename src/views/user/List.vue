@@ -19,7 +19,7 @@
             <el-option label="已禁用" value="banned" />
           </el-select>
         </el-form-item>
-        <el-form-item>
+        <el-form-item v-permission="'user:query'">
           <el-button type="primary" icon="Search" @click="handleSearch">搜索</el-button>
           <el-button icon="Refresh" @click="handleReset">重置</el-button>
         </el-form-item>
@@ -32,16 +32,17 @@
       <!-- Toolbar -->
       <div class="table-toolbar">
         <div class="toolbar-left">
-          <el-button type="danger" plain icon="Lock" :disabled="selectedIds.length === 0" @click="handleBatchBan">
+          <el-button v-permission="'user:edit'" type="danger" plain icon="Lock" :disabled="selectedIds.length === 0" @click="handleBatchBan">
             批量禁用 <span v-if="selectedIds.length > 0">({{ selectedIds.length }})</span>
           </el-button>
-          <el-button type="success" plain icon="Unlock" :disabled="selectedIds.length === 0" @click="handleBatchUnban">
+          <el-button v-permission="'user:edit'" type="success" plain icon="Unlock" :disabled="selectedIds.length === 0" @click="handleBatchUnban">
             批量解禁 <span v-if="selectedIds.length > 0">({{ selectedIds.length }})</span>
           </el-button>
         </div>
         <div class="toolbar-right">
           <!-- Import -->
           <el-upload
+            v-permission="'user:add'"
             :show-file-list="false"
             accept=".json"
             :before-upload="handleImport"
@@ -49,7 +50,7 @@
             <el-button icon="Upload">导入用户</el-button>
           </el-upload>
           <!-- Export -->
-          <el-button icon="Download" @click="handleExport">导出用户</el-button>
+          <el-button v-permission="'user:query'" icon="Download" @click="handleExport">导出用户</el-button>
         </div>
       </div>
 
@@ -119,9 +120,9 @@
 
         <el-table-column label="操作" width="220" align="center" fixed="right">
           <template #default="{ row }">
-            <el-button size="small" type="primary" plain icon="View" @click="handleViewDetail(row)">详情</el-button>
-            <el-button v-if="row.status === 'normal'" size="small" type="danger" plain icon="Lock" @click="handleToggleStatus(row, 'banned')">禁用</el-button>
-            <el-button v-else size="small" type="success" plain icon="Unlock" @click="handleToggleStatus(row, 'normal')">解禁</el-button>
+            <el-button v-permission="'user:query'" size="small" type="primary" plain icon="View" @click="handleViewDetail(row)">详情</el-button>
+            <el-button v-permission="'user:edit'" v-if="row.status === 'normal'" size="small" type="danger" plain icon="Lock" @click="handleToggleStatus(row, 'banned')">禁用</el-button>
+            <el-button v-permission="'user:edit'" v-else size="small" type="success" plain icon="Unlock" @click="handleToggleStatus(row, 'normal')">解禁</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -181,8 +182,8 @@
         </div>
 
         <div class="drawer-action-block">
-          <el-button v-if="selectedUser.status === 'normal'" type="danger" style="width: 100%;" icon="Lock" @click="handleToggleStatus(selectedUser, 'banned')">禁用该用户账号</el-button>
-          <el-button v-else type="success" style="width: 100%;" icon="Unlock" @click="handleToggleStatus(selectedUser, 'normal')">解除禁用限制</el-button>
+          <el-button v-permission="'user:edit'" v-if="selectedUser.status === 'normal'" type="danger" style="width: 100%;" icon="Lock" @click="handleToggleStatus(selectedUser, 'banned')">禁用该用户账号</el-button>
+          <el-button v-permission="'user:edit'" v-else type="success" style="width: 100%;" icon="Unlock" @click="handleToggleStatus(selectedUser, 'normal')">解除禁用限制</el-button>
         </div>
       </div>
     </el-drawer>

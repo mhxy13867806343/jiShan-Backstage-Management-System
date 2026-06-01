@@ -382,6 +382,13 @@ const allPermissions = computed(() => {
           key: firstSegment,
           label: label
         })
+
+        if (firstSegment === 'user') {
+          list.push({ key: 'user:query', label: '用户管理 - 查询' })
+          list.push({ key: 'user:add', label: '用户管理 - 新增/导入' })
+          list.push({ key: 'user:edit', label: '用户管理 - 修改/禁用' })
+          list.push({ key: 'user:delete', label: '用户管理 - 删除/批量操作' })
+        }
       }
     }
     if (node.children && node.children.length > 0) {

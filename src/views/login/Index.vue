@@ -98,7 +98,12 @@ const handleLogin = async () => {
       try {
         const res = await adminApi.login(loginForm.username, loginForm.password)
         if (res.code === 200 && res.data) {
-          authStore.login(res.data.username || loginForm.username, res.data.token)
+          authStore.login(
+            res.data.username || loginForm.username,
+            res.data.token,
+            (res.data as any).role || 'admin',
+            (res.data as any).permissions || []
+          )
           ElMessage.success('欢迎回来，运营管理员！')
           router.push('/dashboard')
         } else {
