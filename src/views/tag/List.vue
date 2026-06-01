@@ -154,7 +154,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch, onActivated } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useMockDataStore } from '@/store/mockData'
 import { adminApi } from '@/api/admin'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -176,19 +176,9 @@ onMounted(() => {
   fetchTags()
 })
 
-onActivated(() => {
-  fetchTags()
-})
-
-const handleTabClick = (pane: any) => {
-  console.log('Tag tab clicked:', pane.props.name)
+const handleTabClick = (_pane: any) => {
   fetchTags()
 }
-
-// Watch active tab to fetch fresh data on demand when switching tabs
-watch(activeTab, () => {
-  fetchTags()
-})
 
 // Calculate usage count of this tag across mock posts
 const getTagPostCount = (tag: string) => {

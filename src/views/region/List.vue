@@ -194,7 +194,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, watch, onActivated } from 'vue'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useMockDataStore } from '@/store/mockData'
 import { adminApi } from '@/api/admin'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -214,14 +214,6 @@ const fetchRegions = async () => {
 
 onMounted(() => {
   fetchRegions()
-})
-
-onActivated(() => {
-  if (activeTab.value === 'nationwide_cascader') {
-    fetchAddressTree()
-  } else {
-    fetchRegions()
-  }
 })
 
 // Calculate usage of this location in content text
