@@ -34,7 +34,7 @@
                   <el-icon class="prefix-loc-icon"><Location /></el-icon>
                 </template>
               </el-input>
-              <el-button type="primary" icon="Plus" @click="handleCreateRegion">新增地区</el-button>
+              <el-button v-role="['superadmin', 'admin']" type="primary" icon="Plus" @click="handleCreateRegion">新增地区</el-button>
             </div>
           </div>
 
@@ -62,6 +62,7 @@
 
                     <!-- Action button -->
                     <el-button 
+                      v-role="['superadmin', 'admin']"
                       type="danger" 
                       plain 
                       size="small" 

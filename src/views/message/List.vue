@@ -7,7 +7,7 @@
         <p class="subtitle-text">管理即闪 App 的公告板、系统预警、安全防骗提醒与新手指引通知。</p>
       </div>
       <div class="header-right">
-        <el-button type="primary" class="push-btn" @click="handleCreate">
+        <el-button v-role="['superadmin', 'admin']" type="primary" class="push-btn" @click="handleCreate">
           <el-icon><Position /></el-icon>
           <span>新增推送公告</span>
         </el-button>
@@ -57,6 +57,7 @@
     <div class="toolbar-box">
       <div class="left-actions">
         <el-button 
+          v-role="['superadmin', 'admin']"
           type="danger" 
           plain 
           :disabled="selectedIds.length === 0" 
@@ -66,6 +67,7 @@
           <span>批量删除 ({{ selectedIds.length }})</span>
         </el-button>
         <el-button 
+          v-role="['superadmin', 'admin']"
           v-if="hasDrafts"
           type="success" 
           plain 
@@ -141,6 +143,7 @@
             <div class="operation-actions">
               <!-- Switch Status (Publish/Retract) -->
               <el-button 
+                v-role="['superadmin', 'admin']"
                 v-if="row.status === '0'"
                 type="success" 
                 link 
@@ -150,6 +153,7 @@
                 <el-icon class="btn-icon"><Position /></el-icon>推送
               </el-button>
               <el-button 
+                v-role="['superadmin', 'admin']"
                 v-else
                 type="warning" 
                 link 
@@ -160,6 +164,7 @@
               </el-button>
 
               <el-button 
+                v-role="['superadmin', 'admin']"
                 type="primary" 
                 link 
                 size="small" 
@@ -169,6 +174,7 @@
               </el-button>
 
               <el-button 
+                v-role="['superadmin', 'admin']"
                 type="danger" 
                 link 
                 size="small" 

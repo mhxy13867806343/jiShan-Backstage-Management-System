@@ -7,7 +7,7 @@
           <el-icon class="title-icon"><Grid /></el-icon>
           <span class="title-text">菜单与路由管理</span>
         </div>
-        <el-button type="primary" class="add-btn" @click="handleCreate">
+        <el-button v-role="['superadmin', 'admin']" type="primary" class="add-btn" @click="handleCreate">
           <el-icon style="margin-right: 4px;"><Plus /></el-icon>新增根菜单
         </el-button>
       </div>
@@ -108,6 +108,7 @@
         <el-table-column label="操作" width="220" align="center" fixed="right">
           <template #default="scope">
             <el-button 
+              v-role="['superadmin', 'admin']"
               v-if="!scope.row.component"
               type="primary" 
               link 
@@ -117,6 +118,7 @@
               <el-icon><Plus /></el-icon>新增子项
             </el-button>
             <el-button 
+              v-role="['superadmin', 'admin']"
               type="warning" 
               link 
               size="small" 
@@ -125,6 +127,7 @@
               <el-icon><Edit /></el-icon>编辑
             </el-button>
             <el-button 
+              v-role="['superadmin', 'admin']"
               type="danger" 
               link 
               size="small" 

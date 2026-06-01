@@ -37,7 +37,7 @@
                   <span class="prefix-hash">#</span>
                 </template>
               </el-input>
-              <el-button type="primary" icon="Plus" @click="handleCreateTag">新增标签</el-button>
+              <el-button v-role="['superadmin', 'admin']" type="primary" icon="Plus" @click="handleCreateTag">新增标签</el-button>
             </div>
           </div>
 
@@ -67,6 +67,7 @@
 
                     <!-- Action button -->
                     <el-button 
+                      v-role="['superadmin', 'admin']"
                       type="danger" 
                       plain 
                       size="small" 

@@ -40,6 +40,22 @@ app.directive('permission', {
   }
 })
 
+// Register custom role directive (v-role)
+app.directive('role', {
+  mounted(el, binding) {
+    const { value } = binding
+    const authStore = useAuthStore()
+
+    if (value) {
+      const requiredRoles = Array.isArray(value) ? value : [value]
+      const hasRole = requiredRoles.includes(authStore.role)
+      if (!hasRole) {
+        el.parentNode && el.parentNode.removeChild(el)
+      }
+    }
+  }
+})
+
 app.mount('#app')
 
 // 生产环境安全防护：禁用右键及开发者工具快捷键，并重定向至百度

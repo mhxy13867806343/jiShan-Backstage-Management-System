@@ -7,7 +7,7 @@
         <h2>公告列表</h2>
         <p>管理所有 App 内推送公告，支持新增、编辑、批量上下架操作。</p>
       </div>
-      <el-button type="primary" icon="Plus" @click="openDialog()">新增公告</el-button>
+      <el-button v-role="['superadmin', 'admin']" type="primary" icon="Plus" @click="openDialog()">新增公告</el-button>
     </div>
 
     <!-- Filter Bar -->
@@ -32,13 +32,13 @@
       <!-- Toolbar -->
       <div class="table-toolbar">
         <div class="toolbar-left">
-          <el-button type="success" plain icon="VideoPlay" :disabled="selectedIds.length === 0" @click="handleBatchPublish">
+          <el-button v-role="['superadmin', 'admin']" type="success" plain icon="VideoPlay" :disabled="selectedIds.length === 0" @click="handleBatchPublish">
             批量发布 <span v-if="selectedIds.length > 0">({{ selectedIds.length }})</span>
           </el-button>
-          <el-button type="warning" plain icon="VideoPause" :disabled="selectedIds.length === 0" @click="handleBatchDisable">
+          <el-button v-role="['superadmin', 'admin']" type="warning" plain icon="VideoPause" :disabled="selectedIds.length === 0" @click="handleBatchDisable">
             批量停用 <span v-if="selectedIds.length > 0">({{ selectedIds.length }})</span>
           </el-button>
-          <el-button type="danger" plain icon="Delete" :disabled="selectedIds.length === 0" @click="handleBatchDelete">
+          <el-button v-role="['superadmin', 'admin']" type="danger" plain icon="Delete" :disabled="selectedIds.length === 0" @click="handleBatchDelete">
             批量删除 <span v-if="selectedIds.length > 0">({{ selectedIds.length }})</span>
           </el-button>
         </div>
@@ -110,8 +110,9 @@
 
         <el-table-column label="操作" width="230" align="center" fixed="right">
           <template #default="{ row }">
-            <el-button size="small" icon="Edit" @click="openDialog(row)">编辑</el-button>
+            <el-button v-role="['superadmin', 'admin']" size="small" icon="Edit" @click="openDialog(row)">编辑</el-button>
             <el-button
+              v-role="['superadmin', 'admin']"
               size="small"
               :type="row.status === 'active' ? 'warning' : 'success'"
               :icon="row.status === 'active' ? 'VideoPause' : 'VideoPlay'"
@@ -119,7 +120,7 @@
             >
               {{ row.status === 'active' ? '停用' : '发布' }}
             </el-button>
-            <el-popconfirm title="确认删除该公告？" @confirm="deleteAnn(row.id)">
+            <el-popconfirm v-role="['superadmin', 'admin']" title="确认删除该公告？" @confirm="deleteAnn(row.id)">
               <template #reference>
                 <el-button size="small" type="danger" icon="Delete" />
               </template>

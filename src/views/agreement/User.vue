@@ -6,7 +6,7 @@
         <h2>用户服务协议配置</h2>
         <p>使用富文本编辑器编写即闪 App 的用户服务协议条款，右侧实时预览手机端效果，保存后即时生效。</p>
       </div>
-      <div class="action-buttons">
+      <div class="action-buttons" v-role="['superadmin', 'admin']">
         <el-button icon="RefreshLeft" @click="handleCancel" :disabled="saveLoading">重置内容</el-button>
         <el-button type="success" icon="Check" :loading="saveLoading" @click="handleSave">
           保存并发布
@@ -38,8 +38,7 @@
             @onCreated="handleCreated"
           />
         </div>
-        <!-- Bottom action bar -->
-        <div class="editor-footer-bar">
+        <div class="editor-footer-bar" v-role="['superadmin', 'admin']">
           <el-button icon="RefreshLeft" @click="handleCancel" :disabled="saveLoading">重置内容</el-button>
           <el-button type="success" icon="Check" :loading="saveLoading" @click="handleSave">
             保存并发布

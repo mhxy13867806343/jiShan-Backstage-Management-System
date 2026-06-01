@@ -38,7 +38,7 @@
       <div class="batch-action-bar" v-if="selectedIds.length > 0">
         <el-icon><InfoFilled /></el-icon>
         <span>已选 <b>{{ selectedIds.length }}</b> 条（支持跨页选择）</span>
-        <el-button type="danger" size="small" icon="Delete" @click="handleBatchDelete">
+        <el-button v-role="['superadmin', 'admin']" type="danger" size="small" icon="Delete" @click="handleBatchDelete">
           批量删除
         </el-button>
         <el-button size="small" @click="selectedIds = []">取消选择</el-button>
@@ -143,6 +143,7 @@
               详情
             </el-button>
             <el-button
+              v-role="['superadmin', 'admin']"
               v-if="row.status === 'online'"
               size="small" type="danger" plain icon="Compass"
               @click="handleOffline(row)"
@@ -150,6 +151,7 @@
               下架
             </el-button>
             <el-button
+              v-role="['superadmin', 'admin']"
               v-else
               size="small" type="success" plain icon="Refresh"
               @click="handleRestore(row)"
@@ -220,10 +222,10 @@
           <el-button v-if="hasCommentRoute" type="primary" icon="ChatLineSquare" style="width: 100%; margin-bottom: 12px;" @click="gotoComments(selectedPost.post_id)">
             查看并监管本内容的全部评论
           </el-button>
-          <el-button v-if="selectedPost.status === 'online'" type="danger" plain style="width: 100%; margin-left: 0;" :style="{ marginTop: hasCommentRoute ? '0' : '12px' }" icon="Compass" @click="handleOffline(selectedPost)">
+          <el-button v-role="['superadmin', 'admin']" v-if="selectedPost.status === 'online'" type="danger" plain style="width: 100%; margin-left: 0;" :style="{ marginTop: hasCommentRoute ? '0' : '12px' }" icon="Compass" @click="handleOffline(selectedPost)">
             下架本条不合规内容
           </el-button>
-          <el-button v-else type="success" plain style="width: 100%; margin-left: 0;" :style="{ marginTop: hasCommentRoute ? '0' : '12px' }" icon="Refresh" @click="handleRestore(selectedPost)">
+          <el-button v-role="['superadmin', 'admin']" v-else type="success" plain style="width: 100%; margin-left: 0;" :style="{ marginTop: hasCommentRoute ? '0' : '12px' }" icon="Refresh" @click="handleRestore(selectedPost)">
             恢复本条内容上架显示
           </el-button>
         </div>

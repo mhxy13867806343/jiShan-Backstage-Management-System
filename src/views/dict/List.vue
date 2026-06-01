@@ -46,10 +46,11 @@
     <!-- RuoYi Action Toolbar Bar -->
     <div class="table-card premium-card">
       <div class="toolbar-actions-row">
-        <button type="button" class="ruoyi-action-btn btn-add" @click="handleAdd">
+        <button v-role="['superadmin', 'admin']" type="button" class="ruoyi-action-btn btn-add" @click="handleAdd">
           <el-icon><Plus /></el-icon> 新增
         </button>
         <button 
+          v-role="['superadmin', 'admin']"
           type="button" 
           class="ruoyi-action-btn btn-edit" 
           :disabled="selectedRows.length !== 1"
@@ -58,6 +59,7 @@
           <el-icon><Edit /></el-icon> 修改
         </button>
         <button 
+          v-role="['superadmin', 'admin']"
           type="button" 
           class="ruoyi-action-btn btn-delete" 
           :disabled="selectedRows.length === 0"
@@ -118,6 +120,7 @@
         <el-table-column label="操作" width="220" align="center">
           <template #default="{ row }">
             <el-button 
+              v-role="['superadmin', 'admin']"
               size="small" 
               type="primary" 
               link
@@ -127,6 +130,7 @@
               编辑
             </el-button>
             <el-button 
+              v-role="['superadmin', 'admin']"
               size="small" 
               type="success" 
               link
@@ -136,6 +140,7 @@
               加个下级
             </el-button>
             <el-button 
+              v-role="['superadmin', 'admin']"
               size="small" 
               type="danger" 
               link
@@ -227,6 +232,7 @@
       <div class="sub-manager-content">
         <div class="sub-toolbar" style="margin-bottom: 12px; display: flex; gap: 8px;">
           <el-button 
+            v-role="['superadmin', 'admin']"
             type="primary" 
             size="small" 
             icon="Plus" 
@@ -259,6 +265,7 @@
           <el-table-column label="操作" width="160" align="center">
             <template #default="{ row }">
               <el-button 
+                v-role="['superadmin', 'admin']"
                 size="small" 
                 type="primary" 
                 link 
@@ -268,6 +275,7 @@
                 编辑
               </el-button>
               <el-button 
+                v-role="['superadmin', 'admin']"
                 size="small" 
                 type="danger" 
                 link 

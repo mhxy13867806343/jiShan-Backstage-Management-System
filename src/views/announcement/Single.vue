@@ -129,7 +129,7 @@
     </div>
 
     <!-- Bottom Action Bar -->
-    <div class="bottom-action-bar">
+    <div class="bottom-action-bar" v-role="['superadmin', 'admin']">
       <div class="action-bar-inner">
         <el-button icon="RefreshLeft" @click="handleReset">重置</el-button>
         <el-button type="primary" icon="Check" :loading="saving" @click="handleSave">保存并发布</el-button>

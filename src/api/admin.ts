@@ -204,7 +204,7 @@ export const adminApi = {
     return request.post('/api/admin/auth/logout')
   },
   clientLogout() {
-    return request.post('/api/app/auth/logout')
+    return request.post('/api/auth/logout')
   },
 
   // ── Dashboard Metrics ──

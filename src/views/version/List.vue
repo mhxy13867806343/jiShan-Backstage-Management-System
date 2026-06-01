@@ -7,7 +7,7 @@
         <h2>版本管理</h2>
         <p>管理 iOS / Android / HarmonyOS 客户端版本，配置强制更新与灰度发布。</p>
       </div>
-      <el-button type="primary" icon="Plus" @click="openDialog()">新增版本</el-button>
+      <el-button v-role="['superadmin', 'admin']" type="primary" icon="Plus" @click="openDialog()">新增版本</el-button>
     </div>
 
     <!-- Version Cards (Latest) -->
@@ -60,10 +60,10 @@
       <!-- Toolbar -->
       <div class="table-toolbar">
         <div class="toolbar-left">
-          <el-button type="warning" plain icon="SwitchButton" :disabled="selectedIds.length === 0" @click="handleBatchDeprecate">
+          <el-button v-role="['superadmin', 'admin']" type="warning" plain icon="SwitchButton" :disabled="selectedIds.length === 0" @click="handleBatchDeprecate">
             批量下线 <span v-if="selectedIds.length > 0">({{ selectedIds.length }})</span>
           </el-button>
-          <el-button type="danger" plain icon="Delete" :disabled="selectedIds.length === 0" @click="handleBatchDelete">
+          <el-button v-role="['superadmin', 'admin']" type="danger" plain icon="Delete" :disabled="selectedIds.length === 0" @click="handleBatchDelete">
             批量删除 <span v-if="selectedIds.length > 0">({{ selectedIds.length }})</span>
           </el-button>
         </div>
@@ -177,13 +177,14 @@
 
         <el-table-column label="操作" width="200" align="center" fixed="right">
           <template #default="{ row }">
-            <el-button size="small" icon="Edit" @click="openDialog(row)">编辑</el-button>
+            <el-button v-role="['superadmin', 'admin']" size="small" icon="Edit" @click="openDialog(row)">编辑</el-button>
             <el-button
+              v-role="['superadmin', 'admin']"
               v-if="row.status !== 'deprecated'"
               size="small" type="warning" icon="SwitchButton"
               @click="deprecate(row)"
             >下线</el-button>
-            <el-popconfirm title="确认删除该版本记录？" @confirm="deleteVersion(row.id)">
+            <el-popconfirm v-role="['superadmin', 'admin']" title="确认删除该版本记录？" @confirm="deleteVersion(row.id)">
               <template #reference>
                 <el-button size="small" type="danger" icon="Delete" />
               </template>
