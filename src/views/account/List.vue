@@ -236,6 +236,19 @@
           <el-switch v-model="form.statusActive" active-text="正常" inactive-text="禁用" />
         </el-form-item>
 
+        <!-- ── 用户管理操作权限（动态展示） ── -->
+        <el-form-item
+          v-if="form.permissions.includes('user') || form.role === 'superadmin'"
+          label="操作权限"
+        >
+          <el-checkbox-group v-model="form.permissions" :disabled="form.role === 'superadmin'">
+            <el-checkbox value="user:query" border size="small">查询</el-checkbox>
+            <el-checkbox value="user:add" border size="small">新增</el-checkbox>
+            <el-checkbox value="user:edit" border size="small">修改</el-checkbox>
+            <el-checkbox value="user:delete" border size="small">删除</el-checkbox>
+          </el-checkbox-group>
+        </el-form-item>
+
         <el-form-item label="备注">
           <el-input v-model="form.remark" type="textarea" :rows="2" placeholder="可选备注" />
         </el-form-item>
@@ -338,7 +351,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { adminApi, type ApiAdminAccount } from '@/api/admin'
 import { useMenuStore } from '@/store/menu'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -382,13 +395,6 @@ const allPermissions = computed(() => {
           key: firstSegment,
           label: label
         })
-
-        if (firstSegment === 'user') {
-          list.push({ key: 'user:query', label: '用户管理 - 查询' })
-          list.push({ key: 'user:add', label: '用户管理 - 新增/导入' })
-          list.push({ key: 'user:edit', label: '用户管理 - 修改/禁用' })
-          list.push({ key: 'user:delete', label: '用户管理 - 删除/批量操作' })
-        }
       }
     }
     if (node.children && node.children.length > 0) {
@@ -676,11 +682,25 @@ const onRoleChange = (role: AdminRole) => {
 
 // ── Select-all logic ──────────────────────────────────────
 const allPermKeys = computed(() => allPermissions.value.map(p => p.key))
-const isAllSelected = computed(() => form.permissions.length === allPermKeys.value.length)
-const isIndeterminate = computed(() => form.permissions.length > 0 && form.permissions.length < allPermKeys.value.length)
+const isAllSelected = computed(() => allPermKeys.value.every(k => form.permissions.includes(k)))
+const isIndeterminate = computed(() => {
+  const hasSome = allPermKeys.value.some(k => form.permissions.includes(k))
+  return hasSome && !isAllSelected.value
+})
 const handleSelectAll = (val: boolean) => {
-  form.permissions = val ? [...allPermKeys.value] : []
+  if (val) {
+    form.permissions = [...allPermKeys.value, 'user:query', 'user:add', 'user:edit', 'user:delete']
+  } else {
+    form.permissions = []
+  }
 }
+
+// ── Watcher: Clean up User sub-permissions if User Management module is unchecked ──
+watch(() => form.permissions, (newVal) => {
+  if (!newVal.includes('user')) {
+    form.permissions = newVal.filter(p => !p.startsWith('user:'))
+  }
+}, { deep: true })
 
 const openAddDialog = () => {
   isEdit.value = false
