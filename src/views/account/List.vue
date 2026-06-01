@@ -698,7 +698,10 @@ const handleSelectAll = (val: boolean) => {
 // ── Watcher: Clean up User sub-permissions if User Management module is unchecked ──
 watch(() => form.permissions, (newVal) => {
   if (!newVal.includes('user')) {
-    form.permissions = newVal.filter(p => !p.startsWith('user:'))
+    const hasSubPerms = newVal.some(p => p.startsWith('user:'))
+    if (hasSubPerms) {
+      form.permissions = newVal.filter(p => !p.startsWith('user:'))
+    }
   }
 }, { deep: true })
 
