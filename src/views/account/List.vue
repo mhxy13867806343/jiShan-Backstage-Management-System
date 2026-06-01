@@ -638,7 +638,7 @@ const blankForm = () => ({
   email: '',
   phone: '',
   role: 'admin' as AdminRole,
-  permissions: roleDefaultPerms.value ? [...roleDefaultPerms.value['admin']] : [],
+  permissions: (roleDefaultPerms.value && roleDefaultPerms.value['admin']) ? [...roleDefaultPerms.value['admin']] : [],
   statusActive: true,
   remark: '',
 })
