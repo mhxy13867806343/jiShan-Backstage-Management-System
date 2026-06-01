@@ -247,7 +247,10 @@
       <el-main class="layout-main">
         <router-view v-slot="{ Component }">
           <transition name="fade-transform" mode="out-in">
-            <component :is="Component" />
+            <!-- keep-alive 缓存已访问过的页面，避免页签切换时重复 mount 导致接口被重复调用 -->
+            <keep-alive :max="10">
+              <component :is="Component" />
+            </keep-alive>
           </transition>
         </router-view>
       </el-main>

@@ -383,26 +383,7 @@ const ENABLE_MOCK = false
 
 service.interceptors.response.use(
   async (response) => {
-    // 对于 isMockRoute 路由，如果后端返回了 200 但数据是空/无效，也尝试 fallback 到 mock
-    const url = response.config?.url || ''
-    const isMockRoute = (
-      url.includes('/api/admin/announcements') ||
-      url.includes('/api/admin/versions') ||
-      url.includes('/api/admin/accounts')
-    )
-    if (isMockRoute) {
-      const body = response.data
-      // 后端返回的 data 字段为空或 list 为空时，fallback 到 mock
-      const dataPayload = body?.data
-      const isEmpty = !dataPayload || (dataPayload.list !== undefined && dataPayload.list === null)
-      if (isEmpty || body?.code !== 200) {
-        try {
-          await delay(100)
-          const mockResult = await handleMockRequest(response.config as any)
-          if (mockResult.code === 200) return mockResult
-        } catch (_) { /* 忽略 mock 错误，继续用后端数据 */ }
-      }
-    }
+    // 成功响应直接返回 response.data，mock fallback 只在 error interceptor 里处理
     return response.data
   },
   async (error) => {
