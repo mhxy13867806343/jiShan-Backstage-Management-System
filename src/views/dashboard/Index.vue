@@ -119,7 +119,7 @@
       </template>
       
       <!-- Interactive SVG Line and Bar Chart representation -->
-      <div class="chart-viewport-box animate-chart">
+      <div class="chart-viewport-box animate-chart" v-loading="isTrendLoading">
         <div class="svg-chart-container">
           <svg viewBox="0 0 1000 280" class="svg-vector-graph">
             <!-- Grid Lines -->
@@ -129,104 +129,90 @@
             <line x1="50" y1="210" x2="950" y2="210" stroke="#f5f5f5" stroke-dasharray="4" />
             <line x1="50" y1="250" x2="950" y2="250" stroke="#e8e8e8" stroke-width="2" />
 
-            <!-- X Axis Labels -->
-            <text x="50" y="270" fill="#999" font-size="12" text-anchor="middle">02:00</text>
-            <text x="200" y="270" fill="#999" font-size="12" text-anchor="middle">06:00</text>
-            <text x="350" y="270" fill="#999" font-size="12" text-anchor="middle">10:00</text>
-            <text x="500" y="270" fill="#999" font-size="12" text-anchor="middle">14:00</text>
-            <text x="650" y="270" fill="#999" font-size="12" text-anchor="middle">18:00</text>
-            <text x="800" y="270" fill="#999" font-size="12" text-anchor="middle">22:00</text>
-            <text x="950" y="270" fill="#999" font-size="12" text-anchor="middle">今日汇总</text>
-
-            <!-- Chart 1: Traffic & Content -->
-            <g v-if="activeChartType === 'traffic'">
-              <!-- Area gradient under path -->
-              <path 
-                d="M 50,220 C 150,180 200,90 350,110 C 500,130 550,50 650,70 C 750,90 800,180 950,120 L 950,250 L 50,250 Z" 
-                fill="rgba(24, 144, 255, 0.08)"
-              />
-              <!-- Vector Line - active user visits (blue line) -->
-              <path 
-                d="M 50,220 C 150,180 200,90 350,110 C 500,130 550,50 650,70 C 750,90 800,180 950,120" 
-                fill="none" 
-                stroke="#1890ff" 
-                stroke-width="3.5" 
-                stroke-linecap="round"
-              />
-              <!-- Dots on peaks -->
-              <circle cx="350" cy="110" r="5" fill="#ffffff" stroke="#1890ff" stroke-width="2" />
-              <circle cx="650" cy="70" r="5" fill="#ffffff" stroke="#1890ff" stroke-width="2" />
-              <circle cx="950" cy="120" r="5" fill="#ffffff" stroke="#1890ff" stroke-width="2" />
-
-              <!-- Vector Bar - content publishing count (green bars) -->
-              <rect x="185" y="160" width="30" height="90" fill="#2fc25b" rx="2" opacity="0.85" />
-              <rect x="335" y="120" width="30" height="130" fill="#2fc25b" rx="2" opacity="0.85" />
-              <rect x="485" y="190" width="30" height="60" fill="#2fc25b" rx="2" opacity="0.85" />
-              <rect x="635" y="80" width="30" height="170" fill="#2fc25b" rx="2" opacity="0.85" />
-              <rect x="785" y="150" width="30" height="100" fill="#2fc25b" rx="2" opacity="0.85" />
+            <!-- Dynamic X Axis Labels -->
+            <g v-if="trendData.labels && trendData.labels.length > 0">
+              <text 
+                v-for="(label, index) in trendData.labels" 
+                :key="index"
+                v-show="shouldShowLabel(index, trendData.labels.length)"
+                :x="getX(index, trendData.labels.length)" 
+                y="270" 
+                fill="#999" 
+                font-size="12" 
+                text-anchor="middle"
+              >
+                {{ label }}
+              </text>
+            </g>
+            <g v-else>
+              <text x="50" y="270" fill="#ccc" font-size="12" text-anchor="middle">--:--</text>
+              <text x="500" y="270" fill="#ccc" font-size="12" text-anchor="middle">加载中...</text>
+              <text x="950" y="270" fill="#ccc" font-size="12" text-anchor="middle">--:--</text>
             </g>
 
-            <!-- Chart 2: User Growth & Active -->
-            <g v-else>
-              <!-- Total registered users line (purple line) -->
-              <path 
-                d="M 50,200 C 150,190 200,160 350,140 C 500,120 550,100 650,80 C 750,70 800,60 950,45 L 950,250 L 50,250 Z" 
-                fill="rgba(114, 46, 209, 0.06)"
-              />
-              <path 
-                d="M 50,200 C 150,190 200,160 350,140 C 500,120 550,100 650,80 C 750,70 800,60 950,45" 
-                fill="none" 
-                stroke="#722ed1" 
-                stroke-width="3.5" 
-                stroke-linecap="round"
-              />
-              <!-- Dots on peaks -->
-              <circle cx="350" cy="140" r="5" fill="#ffffff" stroke="#722ed1" stroke-width="2" />
-              <circle cx="650" cy="80" r="5" fill="#ffffff" stroke="#722ed1" stroke-width="2" />
-              <circle cx="950" cy="45" r="5" fill="#ffffff" stroke="#722ed1" stroke-width="2" />
+            <!-- Dynamic Series Rendering -->
+            <g v-for="(s, sIdx) in trendData.series" :key="s.key || sIdx">
+              <!-- Line Chart Rendering -->
+              <g v-if="s.type === 'line' && s.data && s.data.length > 0">
+                <!-- Smooth Curve Area Fill -->
+                <path 
+                  :d="getAreaPath(s.data)" 
+                  :fill="getSeriesColorConfig(s.key, sIdx).fill"
+                />
+                <!-- Smooth Curve Vector Line -->
+                <path 
+                  :d="getBezierPath(s.data)" 
+                  fill="none" 
+                  :stroke="getSeriesColorConfig(s.key, sIdx).stroke" 
+                  stroke-width="3.5" 
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+                <!-- Dots on specific data peaks/indices for premium visuals -->
+                <g v-for="(val, valIdx) in s.data" :key="valIdx">
+                  <circle 
+                    v-if="s.data.length <= 10 || valIdx % Math.ceil(s.data.length / 8) === 0 || valIdx === s.data.length - 1"
+                    :cx="getX(valIdx, s.data.length)" 
+                    :cy="getY(val)" 
+                    r="5" 
+                    fill="#ffffff" 
+                    :stroke="getSeriesColorConfig(s.key, sIdx).stroke" 
+                    stroke-width="2" 
+                  />
+                </g>
+              </g>
 
-              <!-- Active users line (orange/amber line) -->
-              <path 
-                d="M 50,210 C 150,160 200,200 350,170 C 500,180 550,130 650,150 C 750,160 800,200 950,165 L 950,250 L 50,250 Z" 
-                fill="rgba(250, 140, 22, 0.06)"
-              />
-              <path 
-                d="M 50,210 C 150,160 200,200 350,170 C 500,180 550,130 650,150 C 750,160 800,200 950,165" 
-                fill="none" 
-                stroke="#fa8c16" 
-                stroke-width="3.5" 
-                stroke-linecap="round"
-              />
-              <!-- Dots on peaks -->
-              <circle cx="350" cy="170" r="5" fill="#ffffff" stroke="#fa8c16" stroke-width="2" />
-              <circle cx="650" cy="150" r="5" fill="#ffffff" stroke="#fa8c16" stroke-width="2" />
-              <circle cx="950" cy="165" r="5" fill="#ffffff" stroke="#fa8c16" stroke-width="2" />
+              <!-- Bar Chart Rendering -->
+              <g v-else-if="s.type === 'bar' && s.data && s.data.length > 0">
+                <rect 
+                  v-for="(val, valIdx) in s.data" 
+                  :key="valIdx"
+                  :x="getX(valIdx, s.data.length) - getBarWidth(s.data.length) / 2" 
+                  :y="getY(val)" 
+                  :width="getBarWidth(s.data.length)" 
+                  :height="Math.max(0, (val / maxVal) * 200)" 
+                  :fill="getSeriesColorConfig(s.key, sIdx).stroke" 
+                  rx="2" 
+                  opacity="0.85" 
+                />
+              </g>
             </g>
           </svg>
         </div>
 
-        <!-- Chart Legend -->
-        <div class="chart-legend-box">
-          <template v-if="activeChartType === 'traffic'">
-            <div class="legend-item">
-              <span class="legend-color-dot blue-dot"></span>
-              <span>活跃流量趋势 (Visits)</span>
-            </div>
-            <div class="legend-item">
-              <span class="legend-color-dot green-dot"></span>
-              <span>内容发布量统计 (Posts)</span>
-            </div>
-          </template>
-          <template v-else>
-            <div class="legend-item">
-              <span class="legend-color-dot purple-dot"></span>
-              <span>注册用户总量增长 (Total Users)</span>
-            </div>
-            <div class="legend-item">
-              <span class="legend-color-dot orange-dot"></span>
-              <span>周活跃人数统计 (Weekly Active)</span>
-            </div>
-          </template>
+        <!-- Dynamic Chart Legend -->
+        <div class="chart-legend-box" v-if="trendData.series && trendData.series.length > 0">
+          <div 
+            v-for="(s, sIdx) in trendData.series" 
+            :key="s.key || sIdx" 
+            class="legend-item"
+          >
+            <span 
+              class="legend-color-dot" 
+              :class="getSeriesColorConfig(s.key, sIdx).dotClass"
+            ></span>
+            <span>{{ s.name }}</span>
+          </div>
         </div>
       </div>
     </el-card>
@@ -298,17 +284,30 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { adminApi } from '@/api/admin'
 import { useMenuStore } from '@/store/menu'
 import { Calendar } from '@element-plus/icons-vue'
+
+interface TrendSeries {
+  key: string
+  name: string
+  type: 'line' | 'bar'
+  data: number[]
+}
+
+interface TrendDataPayload {
+  labels: string[]
+  series: TrendSeries[]
+}
 
 const router = useRouter()
 const menuStore = useMenuStore()
 const chartTimeTab = ref('today')
 const activeChartType = ref('traffic')
 const currentTimeString = ref('')
+const isTrendLoading = ref(false)
 
 const metrics = ref<any>({
   totalUsers: 0,
@@ -321,6 +320,11 @@ const metrics = ref<any>({
 })
 
 const hotContents = ref<any[]>([])
+
+const trendData = ref<TrendDataPayload>({
+  labels: [],
+  series: []
+})
 
 const fetchDashboardData = async () => {
   try {
@@ -339,6 +343,149 @@ const fetchDashboardData = async () => {
   } catch (err) {
     console.error('Failed to fetch dashboard data', err)
   }
+}
+
+const fetchTrendData = async () => {
+  isTrendLoading.value = true
+  try {
+    const apiType = activeChartType.value === 'traffic' ? 'traffic_content' : 'user_growth'
+    const apiPeriod = chartTimeTab.value as 'today' | 'week' | 'month'
+    const data = await adminApi.getDashboardTrends(apiType, apiPeriod)
+    if (data) {
+      trendData.value = {
+        labels: data.labels || [],
+        series: data.series || []
+      }
+    }
+  } catch (err) {
+    console.error('Failed to fetch dashboard trend data', err)
+  } finally {
+    isTrendLoading.value = false
+  }
+}
+
+// Watch active type and time period to reload trend data
+watch([activeChartType, chartTimeTab], () => {
+  fetchTrendData()
+})
+
+// Max value across all active series to compute scale factor
+const maxVal = computed(() => {
+  let max = 0
+  if (trendData.value?.series) {
+    for (const s of trendData.value.series) {
+      if (s.data && s.data.length > 0) {
+        const localMax = Math.max(...s.data)
+        if (localMax > max) {
+          max = localMax
+        }
+      }
+    }
+  }
+  return max > 0 ? max : 10
+})
+
+// Map data index to SVG viewport coordinates (X: 50 to 950)
+const getX = (index: number, total: number) => {
+  if (total <= 1) return 50
+  return 50 + (index / (total - 1)) * 900
+}
+
+// Map value to SVG viewport coordinates (Y: 250 (baseline) to 50 (peak scaled))
+const getY = (val: number) => {
+  const height = (val / maxVal.value) * 200
+  return 250 - height
+}
+
+// Generate smooth cubic bezier line path
+const getBezierPath = (data: number[]) => {
+  if (!data || data.length === 0) return ''
+  const total = data.length
+  if (total === 1) {
+    return `M 50,${getY(data[0])}`
+  }
+  
+  const points = data.map((val, idx) => ({
+    x: getX(idx, total),
+    y: getY(val)
+  }))
+  
+  let d = `M ${points[0].x},${points[0].y}`
+  for (let i = 0; i < points.length - 1; i++) {
+    const p0 = points[i]
+    const p1 = points[i + 1]
+    const cpX1 = p0.x + (p1.x - p0.x) / 3
+    const cpY1 = p0.y
+    const cpX2 = p0.x + 2 * (p1.x - p0.x) / 3
+    const cpY2 = p1.y
+    d += ` C ${cpX1},${cpY1} ${cpX2},${cpY2} ${p1.x},${p1.y}`
+  }
+  return d
+}
+
+// Generate filled area under curve
+const getAreaPath = (data: number[]) => {
+  const linePath = getBezierPath(data)
+  if (!linePath || data.length === 0) return ''
+  const total = data.length
+  const firstX = getX(0, total)
+  const lastX = getX(total - 1, total)
+  return `${linePath} L ${lastX},250 L ${firstX},250 Z`
+}
+
+// Keep X Axis text clean by showing fewer labels under high density
+const shouldShowLabel = (index: number, total: number) => {
+  if (total <= 10) return true
+  if (total <= 16) return index % 2 === 0
+  return index % 5 === 0 || index === total - 1
+}
+
+// Dynamically scale bar widths to fit neatly on screen
+const getBarWidth = (total: number) => {
+  if (total <= 7) return 30
+  if (total <= 15) return 18
+  return 8
+}
+
+// Define dynamic colors based on series key/preset
+const getSeriesColorConfig = (key: string, index: number) => {
+  const normKey = key.toLowerCase()
+  if (normKey.includes('visit') || normKey.includes('traffic')) {
+    return {
+      stroke: '#1890ff',
+      fill: 'rgba(24, 144, 255, 0.08)',
+      dotClass: 'blue-dot'
+    }
+  }
+  if (normKey.includes('post') || normKey.includes('content')) {
+    return {
+      stroke: '#2fc25b',
+      fill: 'rgba(47, 194, 91, 0.08)',
+      dotClass: 'green-dot'
+    }
+  }
+  if (normKey.includes('user') || normKey.includes('growth')) {
+    return {
+      stroke: '#722ed1',
+      fill: 'rgba(114, 46, 209, 0.06)',
+      dotClass: 'purple-dot'
+    }
+  }
+  if (normKey.includes('active') || normKey.includes('weekly')) {
+    return {
+      stroke: '#fa8c16',
+      fill: 'rgba(250, 140, 22, 0.06)',
+      dotClass: 'orange-dot'
+    }
+  }
+  // Fallback defaults
+  const presets = [
+    { stroke: '#1890ff', fill: 'rgba(24, 144, 255, 0.08)', dotClass: 'blue-dot' },
+    { stroke: '#2fc25b', fill: 'rgba(47, 194, 91, 0.08)', dotClass: 'green-dot' },
+    { stroke: '#722ed1', fill: 'rgba(114, 46, 209, 0.06)', dotClass: 'purple-dot' },
+    { stroke: '#fa8c16', fill: 'rgba(250, 140, 22, 0.06)', dotClass: 'orange-dot' }
+  ]
+  return presets[index % presets.length]
 }
 
 // Format current date
@@ -376,6 +523,7 @@ const hasAgreementRoute = computed(() => hasRoute('/agreement/privacy') || hasRo
 onMounted(() => {
   updateCurrentTime()
   fetchDashboardData()
+  fetchTrendData()
 })
 </script>
 

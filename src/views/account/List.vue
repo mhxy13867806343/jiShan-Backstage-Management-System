@@ -509,7 +509,8 @@ const roleRules = {
   label: [{ required: true, message: '请输入角色显示名称', trigger: 'blur' }]
 }
 
-const openRoleDialog = () => {
+const openRoleDialog = async () => {
+  await fetchRoles()
   roleDialogVisible.value = true
   showAddRoleForm.value = false
 }

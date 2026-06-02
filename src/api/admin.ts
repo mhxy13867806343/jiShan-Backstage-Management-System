@@ -226,6 +226,10 @@ export const adminApi = {
     const res = await request.get<DashboardMetrics>('/api/admin/dashboard/metrics')
     return res.data
   },
+  async getDashboardTrends(type: 'traffic_content' | 'user_growth', period: 'today' | 'week' | 'month') {
+    const res = await request.get<any>('/api/admin/dashboard/trends', { type, period })
+    return res.data
+  },
 
   // ── User Management ──
   async getUsers(params: {
