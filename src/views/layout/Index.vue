@@ -133,15 +133,15 @@
             <div class="admin-profile">
               <el-avatar 
                 :size="28" 
-                src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80" 
+                :src="authStore.avatar || 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80'" 
               />
               <span class="admin-name">{{ adminName }}</span>
               <el-icon class="el-icon--right"><ArrowDown /></el-icon>
             </div>
             <template #dropdown>
               <el-dropdown-menu>
-                <el-dropdown-item command="profile" disabled>个人信息</el-dropdown-item>
-                <el-dropdown-item command="settings" disabled>安全设置</el-dropdown-item>
+                <el-dropdown-item command="profile">个人信息</el-dropdown-item>
+                <el-dropdown-item command="settings">安全设置</el-dropdown-item>
                 <el-dropdown-item divided command="logout">
                   <el-icon><SwitchButton /></el-icon>退出登录
                 </el-dropdown-item>
@@ -318,6 +318,10 @@ const handleCommand = (command: string) => {
       ElMessage.success('已成功退出登录')
       router.push('/login')
     }).catch(() => {})
+  } else if (command === 'profile') {
+    router.push('/account/profile')
+  } else if (command === 'settings') {
+    router.push('/account/settings')
   }
 }
 
@@ -391,8 +395,22 @@ const fetchNotifications = async () => {
   }
 }
 
+const fetchAdminProfile = async () => {
+  try {
+    const list = await adminApi.getAdminAccounts()
+    const current = list.find((acc: any) => acc.username === authStore.adminName)
+    if (current && current.avatar) {
+      authStore.avatar = current.avatar
+      localStorage.setItem('admin_avatar', current.avatar)
+    }
+  } catch (e) {
+    console.error('Failed to fetch admin avatar:', e)
+  }
+}
+
 onMounted(() => {
   fetchNotifications()
+  fetchAdminProfile()
 })
 
 const msgDialogVisible = ref(false)

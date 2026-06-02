@@ -15,7 +15,20 @@ const routes: Array<RouteRecordRaw> = [
     name: 'Layout',
     component: () => import('@/views/layout/Index.vue'),
     redirect: '/dashboard',
-    children: []
+    children: [
+      {
+        path: 'account/profile',
+        name: 'AccountProfile',
+        component: () => import('@/views/account/Profile.vue'),
+        meta: { title: '个人信息', breadcrumbs: ['个人中心', '个人信息'] }
+      },
+      {
+        path: 'account/settings',
+        name: 'AccountSettings',
+        component: () => import('@/views/account/Settings.vue'),
+        meta: { title: '安全设置', breadcrumbs: ['个人中心', '安全设置'] }
+      }
+    ]
   }
 ]
 
