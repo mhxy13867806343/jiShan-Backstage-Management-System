@@ -515,6 +515,11 @@ const openRoleDialog = () => {
 }
 
 const handleOpenAddRole = () => {
+  const customRoleCount = rolesList.value.filter(r => !r.isDefault).length
+  if (customRoleCount >= 3) {
+    ElMessage.warning('最多只能新增 3 个自定义角色！')
+    return
+  }
   showAddRoleForm.value = true
   newRoleForm.value = {
     key: '',
@@ -524,6 +529,11 @@ const handleOpenAddRole = () => {
 }
 
 const submitAddRole = () => {
+  const customRoleCount = rolesList.value.filter(r => !r.isDefault).length
+  if (customRoleCount >= 3) {
+    ElMessage.warning('最多只能新增 3 个自定义角色！')
+    return
+  }
   newRoleFormRef.value?.validate(async (valid: boolean) => {
     if (valid) {
       try {
