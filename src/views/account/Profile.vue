@@ -201,17 +201,16 @@ const getRoleTagType = (role: string) => {
 const fetchProfile = async () => {
   loading.value = true
   try {
-    const list = await adminApi.getAdminAccounts()
-    const current = list.find((acc: any) => acc.username === authStore.adminName)
+    const current = await adminApi.getPersonalProfile()
     if (current) {
       profileForm.value = {
-        account_id: current.account_id,
-        username: current.username,
-        nickname: current.nickname,
-        phone: current.phone,
-        email: current.email,
+        account_id: current.accountId || current.account_id || '',
+        username: current.username || '',
+        nickname: current.nickname || '',
+        phone: current.phone || '',
+        email: current.email || '',
         avatar: current.avatar || presetAvatars[0],
-        role: current.role,
+        role: current.role || '',
         remark: current.remark || '无备注',
         createTime: current.createTime ? current.createTime.replace('T', ' ').substring(0, 19) : '--',
         lastLogin: current.lastLogin ? current.lastLogin.replace('T', ' ').substring(0, 19) : '--'
@@ -252,7 +251,7 @@ const submitSave = async () => {
     if (valid) {
       loading.value = true
       try {
-        const res = await adminApi.updateAdminAccount(profileForm.value.account_id, {
+        const res = await adminApi.updatePersonalProfile({
           nickname: profileForm.value.nickname,
           phone: profileForm.value.phone,
           email: profileForm.value.email,

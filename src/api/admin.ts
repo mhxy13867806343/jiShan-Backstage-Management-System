@@ -935,6 +935,41 @@ export const adminApi = {
 
   deleteRole(id: string) {
     return request.delete<any>(`/api/admin/roles/${id}`)
+  },
+
+  // ── Personal Account & Logs ──
+  async getPersonalProfile() {
+    const res = await request.get<any>('/api/admin/account/profile')
+    return res.data
+  },
+
+  updatePersonalProfile(data: { nickname?: string; avatar?: string; phone?: string; email?: string }) {
+    return request.put<any>('/api/admin/account/profile', data)
+  },
+
+  async getPersonalLoginLogs() {
+    const res = await request.get<any>('/api/admin/security/login-logs')
+    return res.data?.list || res.data
+  },
+
+  // ── System Operation Logs ──
+  async getSystemLogs(params: {
+    operator?: string
+    module?: string
+    status?: string
+    page?: number
+    limit?: number
+  }) {
+    const res = await request.get<any>('/api/admin/logs', params)
+    return res.data
+  },
+
+  deleteSystemLog(id: string) {
+    return request.delete<any>(`/api/admin/logs/${id}`)
+  },
+
+  batchDeleteSystemLogs(ids: string[]) {
+    return request.post<any>('/api/admin/logs/batch-delete', { ids })
   }
 }
 

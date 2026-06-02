@@ -180,6 +180,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Refresh, Delete, Warning, Download } from '@element-plus/icons-vue'
+import { adminApi } from '@/api/admin'
 
 const activeTab = ref('operation')
 const loading = ref(false)
@@ -196,9 +197,42 @@ const queryParams = ref({
 const opPagination = ref({ page: 1, limit: 10 })
 const loginPagination = ref({ page: 1, limit: 10 })
 
-// In-Memory database for dynamic logs management
+const totalOpCount = ref(0)
+const totalLoginCount = ref(0)
+
 const opLogs = ref<any[]>([])
 const loginLogs = ref<any[]>([])
+
+const moduleToCategoryMap: Record<string, string> = {
+  '用户管理': 'user',
+  '内容管理': 'post',
+  '评论管理': 'comment',
+  '系统公告': 'announcement',
+  '版本管理': 'version',
+  '推送中心': 'push',
+  '字典配置': 'dictionary',
+  '地区管理': 'region',
+  '标签管理': 'tag',
+  '账号管理': 'account',
+  '菜单管理': 'menu',
+  '安全验证': 'security'
+}
+
+const categoryToModuleMap: Record<string, string> = {
+  'user': '用户管理',
+  'post': '内容管理',
+  'comment': '评论管理',
+  'announcement': '系统公告',
+  'version': '版本管理',
+  'push': '推送中心',
+  'dictionary': '字典配置',
+  'region': '地区管理',
+  'tag': '标签管理',
+  'account': '账号管理',
+  'menu': '菜单管理',
+  'security': '安全验证',
+  'login': '登录/认证'
+}
 
 const getRoleName = (role: string) => {
   const map: Record<string, string> = {
@@ -218,160 +252,112 @@ const getRoleTag = (role: string) => {
   return map[role] || 'info'
 }
 
-// Generate premium mock audit data
-const generateMockLogs = () => {
-  const opData = [
-    { id: 'OP20261021', operator: 'superadmin', role: 'superadmin', module: '字典配置', action: '新增字典项 "user_status" 中的 "静默用户"', ip: '182.92.112.5', location: '北京市', status: 'success', time: '2026-06-02 11:24:02' },
-    { id: 'OP20261022', operator: 'admin', role: 'admin', module: '用户管理', action: '禁用业务用户 "用户_8721"（永久封禁）', ip: '124.205.76.10', location: '上海市', status: 'success', time: '2026-06-02 10:50:33' },
-    { id: 'OP20261023', operator: 'admin', role: 'admin', module: '内容管理', action: '将敏感动态 "深夜食堂集合"（P90812）下架', ip: '124.205.76.10', location: '上海市', status: 'success', time: '2026-06-02 10:48:12' },
-    { id: 'OP20261024', operator: 'superadmin', role: 'superadmin', module: '账号管理', action: '重置管理员 "operator02" 的登录密码', ip: '182.92.112.5', location: '北京市', status: 'success', time: '2026-06-02 09:12:44' },
-    { id: 'OP20261025', operator: 'operator01', role: 'operator', module: '推送中心', action: '发布推送公告《即闪 App 服务协议升级公告》', ip: '115.196.220.12', location: '杭州市', status: 'success', time: '2026-06-02 08:30:15' },
-    { id: 'OP20261026', operator: 'operator01', role: 'operator', module: '系统公告', action: '修改公告《防范刷单诈骗安全预警》置顶状态为：是', ip: '115.196.220.12', location: '杭州市', status: 'success', time: '2026-06-01 17:40:00' },
-    { id: 'OP20261027', operator: 'admin', role: 'admin', module: '标签管理', action: '新增标签配置 "探店"', ip: '124.205.76.10', location: '上海市', status: 'success', time: '2026-06-01 16:32:15' },
-    { id: 'OP20261028', operator: 'operator02', role: 'operator', module: '地区管理', action: '删除服务地区 "深圳·万象天地"', ip: '223.73.125.4', location: '深圳市', status: 'failure', time: '2026-06-01 15:22:04' },
-    { id: 'OP20261029', operator: 'operator02', role: 'operator', module: '评论管理', action: '删除动态 P12093 下的违规回复评论', ip: '223.73.125.4', location: '深圳市', status: 'success', time: '2026-06-01 15:10:44' },
-    { id: 'OP20261030', operator: 'admin', role: 'admin', module: '安全验证', action: '更新隐私政策服务协议内容', ip: '124.205.76.10', location: '上海市', status: 'success', time: '2026-06-01 14:02:11' },
-    { id: 'OP20261031', operator: 'operator01', role: 'operator', module: '内容管理', action: '驳回违规动态 (P2019) 恢复上架申请', ip: '115.196.220.12', location: '杭州市', status: 'success', time: '2026-05-31 16:20:10' },
-    { id: 'OP20261032', operator: 'superadmin', role: 'superadmin', module: '菜单管理', action: '修改系统菜单结构：新增二级路由 "日志管理"', ip: '182.92.112.5', location: '北京市', status: 'success', time: '2026-05-31 15:10:45' },
-    { id: 'OP20261033', operator: 'operator02', role: 'operator', module: '版本管理', action: '新增发布 iOS V2.0.4（Build 119）版本', ip: '223.73.125.4', location: '深圳市', status: 'success', time: '2026-05-31 10:20:30' },
-    { id: 'OP20261034', operator: 'superadmin', role: 'superadmin', module: '账号管理', action: '修改管理员 "admin" 的角色权限组', ip: '182.92.112.5', location: '北京市', status: 'success', time: '2026-05-30 16:32:00' },
-    { id: 'OP20261035', operator: 'admin', role: 'admin', module: '地区管理', action: '添加营业网点地区 "广州·天河"', ip: '124.205.76.10', location: '上海市', status: 'success', time: '2026-05-30 14:22:15' }
-  ]
+const fetchLogs = async () => {
+  loading.value = true
+  try {
+    const params: any = {
+      page: activeTab.value === 'operation' ? opPagination.value.page : loginPagination.value.page,
+      limit: activeTab.value === 'operation' ? opPagination.value.limit : loginPagination.value.limit
+    }
 
-  const loginData = [
-    { id: 'LG20268021', username: 'superadmin', ip: '182.92.112.5', location: '北京市 &bull; 联通', agent: 'Mozilla/5.0 (macOS; Chrome/124.0.0.0)', status: 'success', time: '2026-06-02 11:20:00' },
-    { id: 'LG20268022', username: 'admin', ip: '124.205.76.10', location: '上海市 &bull; 电信', agent: 'Mozilla/5.0 (Windows NT 10.0; Edge/123.0.0.0)', status: 'success', time: '2026-06-02 10:45:15' },
-    { id: 'LG20268023', username: 'operator01', ip: '115.196.220.12', location: '杭州市 &bull; 移动', agent: 'Mozilla/5.0 (macOS; Safari/605.1.15)', status: 'success', time: '2026-06-02 08:24:11' },
-    { id: 'LG20268024', username: 'operator02', ip: '223.73.125.4', location: '深圳市 &bull; 电信', agent: 'Mozilla/5.0 (Windows NT 10.0; Chrome/124.0.0.0)', status: 'success', time: '2026-06-01 15:05:32' },
-    { id: 'LG20268025', username: 'admin', ip: '124.205.76.10', location: '上海市 &bull; 电信', agent: 'Mozilla/5.0 (Windows NT 10.0; Edge/123.0.0.0)', status: 'failure', time: '2026-06-01 09:12:30' },
-    { id: 'LG20268026', username: 'operator01', ip: '115.196.220.12', location: '杭州市 &bull; 移动', agent: 'Mozilla/5.0 (macOS; Safari/605.1.15)', status: 'success', time: '2026-05-31 16:04:12' },
-    { id: 'LG20268027', username: 'superadmin', ip: '182.92.112.5', location: '北京市 &bull; 联通', agent: 'Mozilla/5.0 (macOS; Chrome/124.0.0.0)', status: 'success', time: '2026-05-31 14:50:33' },
-    { id: 'LG20268028', username: 'operator02', ip: '223.73.125.4', location: '深圳市 &bull; 电信', agent: 'Mozilla/5.0 (Windows NT 10.0; Chrome/124.0.0.0)', status: 'success', time: '2026-05-31 10:15:00' },
-    { id: 'LG20268029', username: 'admin', ip: '124.205.76.10', location: '上海市 &bull; 电信', agent: 'Mozilla/5.0 (Windows NT 10.0; Edge/123.0.0.0)', status: 'success', time: '2026-05-30 14:15:22' },
-    { id: 'LG20268030', username: 'superadmin', ip: '182.92.112.5', location: '北京市 &bull; 联通', agent: 'Mozilla/5.0 (macOS; Chrome/124.0.0.0)', status: 'failure', time: '2026-05-30 08:30:12' }
-  ]
-  
-  opLogs.value = opData
-  loginLogs.value = loginData
+    if (queryParams.value.operator.trim()) {
+      params.username = queryParams.value.operator.trim()
+    }
+
+    if (queryParams.value.status) {
+      params.status = queryParams.value.status === 'failure' ? 'error' : queryParams.value.status
+    }
+
+    if (activeTab.value === 'login') {
+      params.category = 'login'
+    } else {
+      if (queryParams.value.module) {
+        params.category = moduleToCategoryMap[queryParams.value.module] || queryParams.value.module
+      }
+    }
+
+    const res = await adminApi.getSystemLogs(params)
+    if (res) {
+      const rawList = res.list || []
+      const formattedList = rawList.map((log: any) => {
+        return {
+          id: log.logId,
+          operator: log.username || 'unknown',
+          role: log.username === 'superadmin' ? 'superadmin' : (log.username === 'admin' ? 'admin' : 'operator'),
+          module: categoryToModuleMap[log.category] || log.category || '系统模块',
+          action: log.content || log.action || log.title || '',
+          ip: log.ip || '',
+          location: log.location || '',
+          status: log.status === 'success' ? 'success' : 'failure',
+          time: log.createdAt || log.time || '',
+          agent: log.userAgent || '',
+          username: log.username || ''
+        }
+      })
+
+      if (activeTab.value === 'operation') {
+        let list = formattedList
+        // If no module is selected, filter out login logs client-side to keep tabs separate
+        if (!queryParams.value.module) {
+          list = list.filter((log: any) => {
+            const rawItem = rawList.find((l: any) => l.logId === log.id)
+            return rawItem && rawItem.category !== 'login'
+          })
+        }
+
+        // Apply time range filter client-side if active
+        if (queryParams.value.timeRange && queryParams.value.timeRange.length === 2) {
+          const start = new Date(queryParams.value.timeRange[0] + ' 00:00:00').getTime()
+          const end = new Date(queryParams.value.timeRange[1] + ' 23:59:59').getTime()
+          list = list.filter((log: any) => {
+            const t = new Date(log.time).getTime()
+            return t >= start && t <= end
+          })
+        }
+
+        opLogs.value = list
+        totalOpCount.value = res.total || list.length
+      } else {
+        let list = formattedList
+        // Apply time range filter client-side if active
+        if (queryParams.value.timeRange && queryParams.value.timeRange.length === 2) {
+          const start = new Date(queryParams.value.timeRange[0] + ' 00:00:00').getTime()
+          const end = new Date(queryParams.value.timeRange[1] + ' 23:59:59').getTime()
+          list = list.filter((log: any) => {
+            const t = new Date(log.time).getTime()
+            return t >= start && t <= end
+          })
+        }
+
+        loginLogs.value = list
+        totalLoginCount.value = res.total || list.length
+      }
+    }
+  } catch (err) {
+    console.error('Failed to fetch system logs:', err)
+  } finally {
+    loading.value = false
+  }
 }
 
 onMounted(() => {
-  generateMockLogs()
+  fetchLogs()
 })
 
-// Tab changes resets selections
 const handleTabChange = () => {
   selectedRowKeys.value = []
+  fetchLogs()
 }
 
-// Fetch Selection
 const handleSelectionChange = (selection: any[]) => {
   selectedRowKeys.value = selection.map(row => row.id)
 }
 
-// Interactively filter operation logs in frontend
-const filteredOpLogs = computed(() => {
-  let list = [...opLogs.value]
-  
-  // Apply query parameters
-  if (queryParams.value.operator.trim()) {
-    const term = queryParams.value.operator.toLowerCase().trim()
-    list = list.filter(l => l.operator.toLowerCase().includes(term))
-  }
-  if (queryParams.value.module) {
-    list = list.filter(l => l.module === queryParams.value.module)
-  }
-  if (queryParams.value.status) {
-    list = list.filter(l => l.status === queryParams.value.status)
-  }
-  if (queryParams.value.timeRange && queryParams.value.timeRange.length === 2) {
-    const start = new Date(queryParams.value.timeRange[0] + ' 00:00:00').getTime()
-    const end = new Date(queryParams.value.timeRange[1] + ' 23:59:59').getTime()
-    list = list.filter(l => {
-      const t = new Date(l.time).getTime()
-      return t >= start && t <= end
-    })
-  }
-
-  // Client side pagination
-  const startIdx = (opPagination.value.page - 1) * opPagination.value.limit
-  return list.slice(startIdx, startIdx + opPagination.value.limit)
-})
-
-const totalOpCount = computed(() => {
-  let list = [...opLogs.value]
-  if (queryParams.value.operator.trim()) {
-    const term = queryParams.value.operator.toLowerCase().trim()
-    list = list.filter(l => l.operator.toLowerCase().includes(term))
-  }
-  if (queryParams.value.module) {
-    list = list.filter(l => l.module === queryParams.value.module)
-  }
-  if (queryParams.value.status) {
-    list = list.filter(l => l.status === queryParams.value.status)
-  }
-  if (queryParams.value.timeRange && queryParams.value.timeRange.length === 2) {
-    const start = new Date(queryParams.value.timeRange[0] + ' 00:00:00').getTime()
-    const end = new Date(queryParams.value.timeRange[1] + ' 23:59:59').getTime()
-    list = list.filter(l => {
-      const t = new Date(l.time).getTime()
-      return t >= start && t <= end
-    })
-  }
-  return list.length
-})
-
-// Interactively filter login logs in frontend
-const filteredLoginLogs = computed(() => {
-  let list = [...loginLogs.value]
-  
-  // Apply query parameters (operator binds to login username)
-  if (queryParams.value.operator.trim()) {
-    const term = queryParams.value.operator.toLowerCase().trim()
-    list = list.filter(l => l.username.toLowerCase().includes(term))
-  }
-  if (queryParams.value.status) {
-    list = list.filter(l => l.status === queryParams.value.status)
-  }
-  if (queryParams.value.timeRange && queryParams.value.timeRange.length === 2) {
-    const start = new Date(queryParams.value.timeRange[0] + ' 00:00:00').getTime()
-    const end = new Date(queryParams.value.timeRange[1] + ' 23:59:59').getTime()
-    list = list.filter(l => {
-      const t = new Date(l.time).getTime()
-      return t >= start && t <= end
-    })
-  }
-
-  // Client side pagination
-  const startIdx = (loginPagination.value.page - 1) * loginPagination.value.limit
-  return list.slice(startIdx, startIdx + loginPagination.value.limit)
-})
-
-const totalLoginCount = computed(() => {
-  let list = [...loginLogs.value]
-  if (queryParams.value.operator.trim()) {
-    const term = queryParams.value.operator.toLowerCase().trim()
-    list = list.filter(l => l.username.toLowerCase().includes(term))
-  }
-  if (queryParams.value.status) {
-    list = list.filter(l => l.status === queryParams.value.status)
-  }
-  if (queryParams.value.timeRange && queryParams.value.timeRange.length === 2) {
-    const start = new Date(queryParams.value.timeRange[0] + ' 00:00:00').getTime()
-    const end = new Date(queryParams.value.timeRange[1] + ' 23:59:59').getTime()
-    list = list.filter(l => {
-      const t = new Date(l.time).getTime()
-      return t >= start && t <= end
-    })
-  }
-  return list.length
-})
+const filteredOpLogs = computed(() => opLogs.value)
+const filteredLoginLogs = computed(() => loginLogs.value)
 
 const handleQuery = () => {
-  loading.value = true
-  setTimeout(() => {
-    loading.value = false
-  }, 300)
+  fetchLogs()
 }
 
 const resetQuery = () => {
@@ -383,7 +369,7 @@ const resetQuery = () => {
   }
   opPagination.value.page = 1
   loginPagination.value.page = 1
-  handleQuery()
+  fetchLogs()
 }
 
 // Batch deletion handler
@@ -396,18 +382,18 @@ const handleBatchDelete = () => {
       cancelButtonText: '取消',
       type: 'warning'
     }
-  ).then(() => {
+  ).then(async () => {
     loading.value = true
-    setTimeout(() => {
-      if (activeTab.value === 'operation') {
-        opLogs.value = opLogs.value.filter(l => !selectedRowKeys.value.includes(l.id))
-      } else {
-        loginLogs.value = loginLogs.value.filter(l => !selectedRowKeys.value.includes(l.id))
-      }
-      selectedRowKeys.value = []
-      loading.value = false
+    try {
+      await adminApi.batchDeleteSystemLogs(selectedRowKeys.value)
       ElMessage.success('批量删除日志成功')
-    }, 400)
+      selectedRowKeys.value = []
+      await fetchLogs()
+    } catch (err) {
+      console.error('Failed to batch delete logs:', err)
+    } finally {
+      loading.value = false
+    }
   }).catch(() => {})
 }
 
@@ -421,22 +407,37 @@ const handleClearAll = () => {
       cancelButtonText: '取消',
       type: 'error'
     }
-  ).then(() => {
+  ).then(async () => {
     loading.value = true
-    setTimeout(() => {
-      if (activeTab.value === 'operation') {
-        opLogs.value = []
-      } else {
-        loginLogs.value = []
+    try {
+      const params: any = { page: 1, limit: 1000 }
+      if (activeTab.value === 'login') {
+        params.category = 'login'
       }
-      selectedRowKeys.value = []
-      loading.value = false
+      const res = await adminApi.getSystemLogs(params)
+      let idsToDelete: string[] = []
+      if (res && res.list) {
+        if (activeTab.value === 'login') {
+          idsToDelete = res.list.map((l: any) => l.logId)
+        } else {
+          idsToDelete = res.list.filter((l: any) => l.category !== 'login').map((l: any) => l.logId)
+        }
+      }
+      if (idsToDelete.length > 0) {
+        await adminApi.batchDeleteSystemLogs(idsToDelete)
+      }
       ElMessage.success('安全审计日志已全部清空')
-    }, 400)
+      selectedRowKeys.value = []
+      await fetchLogs()
+    } catch (err) {
+      console.error('Failed to clear logs:', err)
+      ElMessage.error('清空日志失败')
+    } finally {
+      loading.value = false
+    }
   }).catch(() => {})
 }
 
-// Mock export handler
 const handleExport = () => {
   exportLoading.value = true
   setTimeout(() => {
