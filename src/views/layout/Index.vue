@@ -241,8 +241,26 @@ const isCollapse = ref(false)
 const adminName = computed(() => authStore.adminName || '管理员')
 
 // Active menu path matching current route
+// Active menu path matching current route (normalizes leading slash differences to ensure active sidebar highlighting)
 const activeMenu = computed(() => {
-  return route.path
+  const path = route.path
+  const findActivePath = (nodes: any[]): string => {
+    for (const node of nodes) {
+      const p1 = node.path || ''
+      const normP1 = p1.startsWith('/') ? p1 : '/' + p1
+      const normP2 = path.startsWith('/') ? path : '/' + path
+      if (normP1 === normP2) {
+        return p1
+      }
+      if (node.children && node.children.length > 0) {
+        const subMatch = findActivePath(node.children)
+        if (subMatch) return subMatch
+      }
+    }
+    return ''
+  }
+  const match = findActivePath(menuStore.menuTree)
+  return match || path
 })
 
 // Dynamic breadcrumbs based on route metadata
