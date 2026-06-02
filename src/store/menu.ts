@@ -152,6 +152,62 @@ export const useMenuStore = defineStore('menu', () => {
             console.log('--- [debug] Auto-injected Log Management as top-level menu')
           }
         }
+
+        // Auto-inject Package Management node
+        const hasPackageNode = (nodes: ApiMenuItem[]): boolean => {
+          for (const node of nodes) {
+            if (node.path === '/package/list' || node.path === 'package/list' || node.path?.endsWith('/package/list')) {
+              return true
+            }
+            if (node.children && node.children.length > 0) {
+              if (hasPackageNode(node.children)) return true
+            }
+          }
+          return false
+        }
+
+        if (!hasPackageNode(menuTree.value)) {
+          let systemNode: ApiMenuItem | null = null
+          const findSystemNode = (nodes: ApiMenuItem[]) => {
+            for (const node of nodes) {
+              if (node.path === '/system' || node.path === 'system' || node.path?.endsWith('/system')) {
+                systemNode = node
+                return
+              }
+              if (node.children && node.children.length > 0) {
+                findSystemNode(node.children)
+                if (systemNode) return
+              }
+            }
+          }
+          
+          findSystemNode(menuTree.value)
+
+          const packageNode: ApiMenuItem = {
+            menuId: 'menu_package_management',
+            parentId: systemNode ? (systemNode as any).menuId : null,
+            title: '安装包管理',
+            name: 'PackageList',
+            path: '/package/list',
+            component: 'package/List.vue',
+            icon: 'UploadFilled',
+            sort: 101,
+            status: 'active',
+            breadcrumbs: ['系统配置', '安装包管理'],
+            children: []
+          }
+
+          if (systemNode) {
+            if (!(systemNode as any).children) {
+              (systemNode as any).children = []
+            }
+            (systemNode as any).children.push(packageNode)
+            console.log('--- [debug] Auto-injected Package Management under System Config')
+          } else {
+            menuTree.value.push(packageNode)
+            console.log('--- [debug] Auto-injected Package Management as top-level menu')
+          }
+        }
       }
 
       // Cache the result in localStorage
