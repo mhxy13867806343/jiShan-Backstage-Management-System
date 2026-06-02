@@ -27,6 +27,12 @@ const routes: Array<RouteRecordRaw> = [
         name: 'AccountSettings',
         component: () => import('@/views/account/Settings.vue'),
         meta: { title: '安全设置', breadcrumbs: ['个人中心', '安全设置'] }
+      },
+      {
+        path: 'log/list',
+        name: 'LogList',
+        component: () => import('@/views/log/List.vue'),
+        meta: { title: '日志管理', breadcrumbs: ['系统配置', '日志管理'] }
       }
     ]
   }

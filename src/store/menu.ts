@@ -96,6 +96,62 @@ export const useMenuStore = defineStore('menu', () => {
             console.log('--- [debug] Auto-injected Menu Management as top-level menu')
           }
         }
+
+        // Auto-inject Log Management node
+        const hasLogNode = (nodes: ApiMenuItem[]): boolean => {
+          for (const node of nodes) {
+            if (node.path === '/log/list' || node.path === 'log/list' || node.path?.endsWith('/log/list')) {
+              return true
+            }
+            if (node.children && node.children.length > 0) {
+              if (hasLogNode(node.children)) return true
+            }
+          }
+          return false
+        }
+
+        if (!hasLogNode(menuTree.value)) {
+          let systemNode: ApiMenuItem | null = null
+          const findSystemNode = (nodes: ApiMenuItem[]) => {
+            for (const node of nodes) {
+              if (node.path === '/system' || node.path === 'system' || node.path?.endsWith('/system')) {
+                systemNode = node
+                return
+              }
+              if (node.children && node.children.length > 0) {
+                findSystemNode(node.children)
+                if (systemNode) return
+              }
+            }
+          }
+          
+          findSystemNode(menuTree.value)
+
+          const logManagerNode: ApiMenuItem = {
+            menuId: 'menu_log_management',
+            parentId: systemNode ? (systemNode as any).menuId : null,
+            title: '日志管理',
+            name: 'LogList',
+            path: '/log/list',
+            component: 'log/List.vue',
+            icon: 'DocumentCopy',
+            sort: 100,
+            status: 'active',
+            breadcrumbs: ['系统配置', '日志管理'],
+            children: []
+          }
+
+          if (systemNode) {
+            if (!(systemNode as any).children) {
+              (systemNode as any).children = []
+            }
+            (systemNode as any).children.push(logManagerNode)
+            console.log('--- [debug] Auto-injected Log Management under System Config')
+          } else {
+            menuTree.value.push(logManagerNode)
+            console.log('--- [debug] Auto-injected Log Management as top-level menu')
+          }
+        }
       }
 
       // Cache the result in localStorage
