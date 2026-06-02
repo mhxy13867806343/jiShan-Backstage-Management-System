@@ -213,6 +213,12 @@ export const useMenuStore = defineStore('menu', () => {
               guessedComp = 'agreement/User.vue'
             } else if (p === '/announcement/single') {
               guessedComp = 'announcement/Single.vue'
+            } else if (p === '/account/profile' || p === 'account/profile') {
+              guessedComp = 'account/Profile.vue'
+            } else if (p === '/account/settings' || p === 'account/settings') {
+              guessedComp = 'account/Settings.vue'
+            } else if (p === '/log/list' || p === 'log/list') {
+              guessedComp = 'log/List.vue'
             } else {
               // E.g. "/region" or "/region/list" -> "region/List.vue"
               const segments = p.split('/').filter(Boolean)
