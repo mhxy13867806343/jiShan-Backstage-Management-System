@@ -45,7 +45,7 @@
             v-permission="'user:add'"
             v-role="['superadmin', 'admin']"
             :show-file-list="false"
-            accept=".json"
+            accept=".json,.xlsx,.xls"
             :before-upload="handleImport"
           >
             <el-button icon="Upload">导入用户</el-button>
@@ -188,6 +188,27 @@
         </div>
       </div>
     </el-drawer>
+
+    <!-- Export Formats Dialog -->
+    <el-dialog v-model="exportDialogVisible" title="导出用户数据" width="450px" destroy-on-close>
+      <div class="export-options-container">
+        <p class="export-desc">请选择您希望导出的数据文件格式：</p>
+        <div class="export-option-card" @click="triggerExport('xlsx')">
+          <el-icon class="export-icon xlsx-color"><Document /></el-icon>
+          <div class="option-info">
+            <h4>导出为 Excel 工作表 (.xlsx)</h4>
+            <p>含有中文表头，适合使用 Excel 或 WPS 等软件人工查看、分析与编辑。</p>
+          </div>
+        </div>
+        <div class="export-option-card" @click="triggerExport('json')">
+          <el-icon class="export-icon json-color"><MessageBox /></el-icon>
+          <div class="option-info">
+            <h4>导出为 JSON 纯文本 (.json)</h4>
+            <p>标准的结构化数据，适合用于系统备份、迁移恢复或数据集成开发。</p>
+          </div>
+        </div>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
@@ -198,11 +219,46 @@ import { useMockDataStore } from '@/store/mockData'
 import { useMenuStore } from '@/store/menu'
 import { adminApi } from '@/api/admin'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import * as XLSX from 'xlsx'
 
 import { GLOBAL_PAGE_SIZE, GLOBAL_PAGE_SIZES } from '@/hooks/usePagination'
 
 const router = useRouter()
 const menuStore = useMenuStore()
+
+const exportDialogVisible = ref(false)
+
+const headerMapping: Record<string, string> = {
+  'user_id': 'user_id',
+  'nickname': 'nickname',
+  'phone': 'phone',
+  'newPhone': 'newPhone',
+  'status': 'status',
+  'regTime': 'regTime',
+  'postCount': 'postCount',
+  'commentCount': 'commentCount',
+  'likesReceived': 'likesReceived',
+  'bio': 'bio',
+  '用户ID': 'user_id',
+  '用户id': 'user_id',
+  '昵称': 'nickname',
+  '用户昵称': 'nickname',
+  '手机号码': 'phone',
+  '手机号': 'phone',
+  '新手机号': 'newPhone',
+  '新手机号码': 'newPhone',
+  '账号状态': 'status',
+  '状态': 'status',
+  '注册时间': 'regTime',
+  '发布内容数': 'postCount',
+  '发布数': 'postCount',
+  '发表评论数': 'commentCount',
+  '评论数': 'commentCount',
+  '获得点赞数': 'likesReceived',
+  '点赞数': 'likesReceived',
+  '个人简介': 'bio',
+  '简介': 'bio'
+}
 
 const hasRoute = (path: string) => {
   const check = (nodes: any[]): boolean => {
@@ -311,80 +367,166 @@ const handleBatchUnban = () => {
   }).catch(() => {})
 }
 
-// ── Export users as JSON ─────────────────────────────────────────
-const handleExport = async () => {
+// ── Export users with format selection ───────────────────────────
+const handleExport = () => {
+  exportDialogVisible.value = true
+}
+
+const triggerExport = async (format: 'xlsx' | 'json') => {
+  exportDialogVisible.value = false
   try {
     const all = await adminApi.getUsers({ page: 1, limit: 99999 })
-    const exportData = all.list.map(u => ({
-      user_id: u.user_id,
-      nickname: u.nickname,
-      phone: u.phone,
-      newPhone: u.newPhone || '',
-      status: u.status,
-      regTime: u.regTime,
-      postCount: u.postCount,
-      commentCount: u.commentCount,
-      likesReceived: u.likesReceived,
-      bio: u.bio,
-    }))
-    const blob = new Blob(
-      [JSON.stringify(exportData, null, 2)],
-      { type: 'application/json' }
-    )
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `users_export_${new Date().toISOString().slice(0, 10)}.json`
-    a.click()
-    URL.revokeObjectURL(url)
-    ElMessage.success(`已导出 ${exportData.length} 条用户数据`)
+    
+    if (format === 'json') {
+      const exportData = all.list.map(u => ({
+        user_id: u.user_id,
+        nickname: u.nickname,
+        phone: u.phone,
+        newPhone: u.newPhone || '',
+        status: u.status,
+        regTime: u.regTime,
+        postCount: u.postCount,
+        commentCount: u.commentCount,
+        likesReceived: u.likesReceived,
+        bio: u.bio,
+      }))
+      const blob = new Blob(
+        [JSON.stringify(exportData, null, 2)],
+        { type: 'application/json' }
+      )
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `users_export_${new Date().toISOString().slice(0, 10)}.json`
+      a.click()
+      URL.revokeObjectURL(url)
+      ElMessage.success(`已导出 ${exportData.length} 条 JSON 用户数据`)
+    } else if (format === 'xlsx') {
+      const exportData = all.list.map(u => ({
+        '用户ID': u.user_id,
+        '用户昵称': u.nickname,
+        '手机号码': u.phone,
+        '新手机号': u.newPhone || '',
+        '账号状态': u.status === 'normal' ? '正常' : '已禁用',
+        '注册时间': u.regTime,
+        '发布内容数': u.postCount,
+        '发表评论数': u.commentCount,
+        '获得点赞数': u.likesReceived,
+        '个人简介': u.bio || ''
+      }))
+      
+      const worksheet = XLSX.utils.json_to_sheet(exportData)
+      const workbook = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(workbook, worksheet, '用户列表')
+      const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' })
+      const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `users_export_${new Date().toISOString().slice(0, 10)}.xlsx`
+      a.click()
+      URL.revokeObjectURL(url)
+      ElMessage.success(`已导出 ${exportData.length} 条 Excel 用户数据`)
+    }
   } catch (err) {
     console.error('Export failed', err)
+    ElMessage.error('导出用户数据失败，请检查网络或控制台日志')
   }
 }
 
-// ── Import users from JSON ───────────────────────────────────────
+// ── Import users supporting both JSON and Excel ────────────────
 const handleImport = (file: File) => {
-  const reader = new FileReader()
-  reader.onload = (e) => {
-    try {
-      const data = JSON.parse(e.target?.result as string)
-      if (!Array.isArray(data)) throw new Error('格式错误')
+  const isJson = file.name.endsWith('.json')
+  const isExcel = file.name.endsWith('.xlsx') || file.name.endsWith('.xls')
 
-      ElMessageBox.confirm(
-        `解析到 <b>${data.length}</b> 条用户数据，确认导入？<br/><span style="color:#909399;font-size:12px;">已存在的用户ID将跳过，仅新增不存在的用户。</span>`,
-        '导入确认',
-        { confirmButtonText: '确认导入', cancelButtonText: '取消', type: 'info', dangerouslyUseHTMLString: true }
-      ).then(() => {
-        let added = 0
-        const existingIds = new Set(mockStore.users.map(u => u.user_id))
-        for (const u of data) {
-          if (!existingIds.has(u.user_id) && u.user_id && u.nickname) {
-            mockStore.users.push({
-              user_id: u.user_id,
-              nickname: u.nickname,
-              avatar: u.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${u.nickname}`,
-              phone: u.phone || '--',
-              newPhone: u.newPhone || undefined,
-              status: u.status || 'normal',
-              regTime: u.regTime || new Date().toISOString().slice(0, 10),
-              postCount: u.postCount || 0,
-              commentCount: u.commentCount || 0,
-              likesReceived: u.likesReceived || 0,
-              bio: u.bio || '',
-            })
-            added++
-          }
-        }
-        fetchUsers()
-        ElMessage.success(`导入完成，新增 ${added} 位用户，跳过 ${data.length - added} 条重复数据`)
-      }).catch(() => {})
-    } catch {
-      ElMessage.error('文件格式错误，请上传正确的 JSON 文件')
-    }
+  if (!isJson && !isExcel) {
+    ElMessage.error('不支持的文件格式，请上传 JSON 或 Excel (.xlsx/.xls) 文件')
+    return false
   }
-  reader.readAsText(file)
-  return false // 阻止自动上传
+
+  const reader = new FileReader()
+
+  if (isJson) {
+    reader.onload = (e) => {
+      try {
+        const data = JSON.parse(e.target?.result as string)
+        processImportedData(data)
+      } catch (err) {
+        ElMessage.error('JSON 文件格式错误，解析失败')
+      }
+    }
+    reader.readAsText(file)
+  } else if (isExcel) {
+    reader.onload = (e) => {
+      try {
+        const data = e.target?.result
+        const workbook = XLSX.read(data, { type: 'array' })
+        const firstSheetName = workbook.SheetNames[0]
+        const worksheet = workbook.Sheets[firstSheetName]
+        const rawRows = XLSX.utils.sheet_to_json<any>(worksheet)
+        
+        // Map Excel headers to database properties
+        const formattedRows = rawRows.map(row => {
+          const mappedRow: any = {}
+          for (const key in row) {
+            const normalizedKey = key.trim()
+            const targetKey = headerMapping[normalizedKey] || normalizedKey
+            
+            if (targetKey === 'status') {
+              const val = String(row[key]).trim()
+              mappedRow[targetKey] = (val === '正常' || val === 'normal') ? 'normal' : 'banned'
+            } else {
+              mappedRow[targetKey] = row[key]
+            }
+          }
+          return mappedRow
+        })
+
+        processImportedData(formattedRows)
+      } catch (err) {
+        console.error('Excel parse failed', err)
+        ElMessage.error('Excel 文件解析失败，请确认模版列头是否正确')
+      }
+    }
+    reader.readAsArrayBuffer(file)
+  }
+  return false
+}
+
+const processImportedData = (data: any[]) => {
+  if (!Array.isArray(data)) {
+    ElMessage.error('导入的数据列表格式错误')
+    return
+  }
+
+  ElMessageBox.confirm(
+    `解析到 <b>${data.length}</b> 条用户数据，确认导入？<br/><span style="color:#909399;font-size:12px;">已存在的用户ID将跳过，仅新增不存在的用户。</span>`,
+    '导入确认',
+    { confirmButtonText: '确认导入', cancelButtonText: '取消', type: 'info', dangerouslyUseHTMLString: true }
+  ).then(() => {
+    let added = 0
+    const existingIds = new Set(mockStore.users.map(u => u.user_id))
+    for (const u of data) {
+      if (!existingIds.has(u.user_id) && u.user_id && u.nickname) {
+        mockStore.users.push({
+          user_id: String(u.user_id).trim(),
+          nickname: String(u.nickname).trim(),
+          avatar: u.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${u.nickname}`,
+          phone: u.phone ? String(u.phone).trim() : '--',
+          newPhone: u.newPhone ? String(u.newPhone).trim() : undefined,
+          status: u.status || 'normal',
+          regTime: u.regTime || new Date().toISOString().slice(0, 10),
+          postCount: Number(u.postCount || 0),
+          commentCount: Number(u.commentCount || 0),
+          likesReceived: Number(u.likesReceived || 0),
+          bio: u.bio || '',
+        })
+        added++
+      }
+    }
+    fetchUsers()
+    ElMessage.success(`导入完成，新增 ${added} 位用户，跳过 ${data.length - added} 条重复数据`)
+  }).catch(() => {})
 }
 
 // ── Data Fetch ───────────────────────────────────────────────────
@@ -659,4 +801,64 @@ onMounted(() => { fetchUsers() })
 }
 
 .empty-placeholder { color: #c0c4cc; }
+
+/* ── Export Dialog ── */
+.export-options-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 10px 0;
+}
+
+.export-desc {
+  font-size: 13px;
+  color: #606266;
+  margin-bottom: 8px;
+}
+
+.export-option-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 18px;
+  border: 1px solid #e4e7ed;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  background-color: #ffffff;
+}
+
+.export-option-card:hover {
+  border-color: var(--primary, #5856d6);
+  background-color: #f9f9ff;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(88, 86, 214, 0.08);
+}
+
+.export-icon {
+  font-size: 32px;
+  flex-shrink: 0;
+}
+
+.xlsx-color {
+  color: #1f7246;
+}
+
+.json-color {
+  color: #007acc;
+}
+
+.option-info h4 {
+  font-size: 14px;
+  font-weight: 600;
+  color: #303133;
+  margin: 0 0 4px 0;
+}
+
+.option-info p {
+  font-size: 11px;
+  color: #909399;
+  margin: 0;
+  line-height: 1.4;
+}
 </style>
