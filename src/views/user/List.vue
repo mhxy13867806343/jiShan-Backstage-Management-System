@@ -45,13 +45,14 @@
             v-permission="'user:add'"
             v-role="['superadmin', 'admin']"
             :show-file-list="false"
-            accept=".json,.xlsx,.xls"
+            accept=".xlsx,.xls"
             :before-upload="handleImport"
+            :disabled="importLoading"
           >
-            <el-button icon="Upload">导入用户</el-button>
+            <el-button icon="Upload" :loading="importLoading">导入用户</el-button>
           </el-upload>
           <!-- Export -->
-          <el-button v-permission="'user:query'" icon="Download" @click="handleExport">导出用户</el-button>
+          <el-button v-permission="'user:query'" icon="Download" :loading="exportLoading" @click="handleExport">导出用户</el-button>
         </div>
       </div>
 
@@ -200,6 +201,13 @@
             <p>含有中文表头，适合使用 Excel 或 WPS 等软件人工查看、分析与编辑。</p>
           </div>
         </div>
+        <div class="export-option-card" @click="triggerExport('xls')">
+          <el-icon class="export-icon xlsx-color"><Document /></el-icon>
+          <div class="option-info">
+            <h4>导出为 Excel 兼容表 (.xls)</h4>
+            <p>较旧版本的 Excel 格式，具有较好的兼容性。</p>
+          </div>
+        </div>
         <div class="export-option-card" @click="triggerExport('json')">
           <el-icon class="export-icon json-color"><MessageBox /></el-icon>
           <div class="option-info">
@@ -215,11 +223,9 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { useMockDataStore } from '@/store/mockData'
 import { useMenuStore } from '@/store/menu'
 import { adminApi } from '@/api/admin'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import * as XLSX from 'xlsx'
 
 import { GLOBAL_PAGE_SIZE, GLOBAL_PAGE_SIZES } from '@/hooks/usePagination'
 
@@ -227,38 +233,8 @@ const router = useRouter()
 const menuStore = useMenuStore()
 
 const exportDialogVisible = ref(false)
-
-const headerMapping: Record<string, string> = {
-  'user_id': 'user_id',
-  'nickname': 'nickname',
-  'phone': 'phone',
-  'newPhone': 'newPhone',
-  'status': 'status',
-  'regTime': 'regTime',
-  'postCount': 'postCount',
-  'commentCount': 'commentCount',
-  'likesReceived': 'likesReceived',
-  'bio': 'bio',
-  '用户ID': 'user_id',
-  '用户id': 'user_id',
-  '昵称': 'nickname',
-  '用户昵称': 'nickname',
-  '手机号码': 'phone',
-  '手机号': 'phone',
-  '新手机号': 'newPhone',
-  '新手机号码': 'newPhone',
-  '账号状态': 'status',
-  '状态': 'status',
-  '注册时间': 'regTime',
-  '发布内容数': 'postCount',
-  '发布数': 'postCount',
-  '发表评论数': 'commentCount',
-  '评论数': 'commentCount',
-  '获得点赞数': 'likesReceived',
-  '点赞数': 'likesReceived',
-  '个人简介': 'bio',
-  '简介': 'bio'
-}
+const exportLoading = ref(false)
+const importLoading = ref(false)
 
 const hasRoute = (path: string) => {
   const check = (nodes: any[]): boolean => {
@@ -278,7 +254,6 @@ const hasRoute = (path: string) => {
 }
 
 const hasContentRoute = computed(() => hasRoute('/content'))
-const mockStore = useMockDataStore()
 const tableData = ref<any[]>([])
 const totalCount = ref(0)
 const currentPage = ref(1)
@@ -372,12 +347,12 @@ const handleExport = () => {
   exportDialogVisible.value = true
 }
 
-const triggerExport = async (format: 'xlsx' | 'json') => {
+const triggerExport = async (format: 'xlsx' | 'xls' | 'json') => {
   exportDialogVisible.value = false
+  exportLoading.value = true
   try {
-    const all = await adminApi.getUsers({ page: 1, limit: 99999 })
-    
     if (format === 'json') {
+      const all = await adminApi.getUsers({ page: 1, limit: 99999 })
       const exportData = all.list.map(u => ({
         user_id: u.user_id,
         nickname: u.nickname,
@@ -401,132 +376,62 @@ const triggerExport = async (format: 'xlsx' | 'json') => {
       a.click()
       URL.revokeObjectURL(url)
       ElMessage.success(`已导出 ${exportData.length} 条 JSON 用户数据`)
-    } else if (format === 'xlsx') {
-      const exportData = all.list.map(u => ({
-        '用户ID': u.user_id,
-        '用户昵称': u.nickname,
-        '手机号码': u.phone,
-        '新手机号': u.newPhone || '',
-        '账号状态': u.status === 'normal' ? '正常' : '已禁用',
-        '注册时间': u.regTime,
-        '发布内容数': u.postCount,
-        '发表评论数': u.commentCount,
-        '获得点赞数': u.likesReceived,
-        '个人简介': u.bio || ''
-      }))
-      
-      const worksheet = XLSX.utils.json_to_sheet(exportData)
-      const workbook = XLSX.utils.book_new()
-      XLSX.utils.book_append_sheet(workbook, worksheet, '用户列表')
-      const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' })
-      const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+    } else {
+      const blob = await adminApi.exportUsers({
+        format,
+        nickname: searchForm.nickname || undefined,
+        phone: searchForm.phone || undefined,
+        status: searchForm.status || undefined
+      })
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `users_export_${new Date().toISOString().slice(0, 10)}.xlsx`
+      a.download = `users_export_${new Date().toISOString().slice(0, 10)}.${format}`
       a.click()
       URL.revokeObjectURL(url)
-      ElMessage.success(`已导出 ${exportData.length} 条 Excel 用户数据`)
+      ElMessage.success(`已导出 Excel 用户数据 (.${format})`)
     }
   } catch (err) {
     console.error('Export failed', err)
     ElMessage.error('导出用户数据失败，请检查网络或控制台日志')
+  } finally {
+    exportLoading.value = false
   }
 }
 
 // ── Import users supporting both JSON and Excel ────────────────
 const handleImport = (file: File) => {
-  const isJson = file.name.endsWith('.json')
   const isExcel = file.name.endsWith('.xlsx') || file.name.endsWith('.xls')
 
-  if (!isJson && !isExcel) {
-    ElMessage.error('不支持的文件格式，请上传 JSON 或 Excel (.xlsx/.xls) 文件')
+  if (!isExcel) {
+    ElMessage.error('不支持的文件格式，请上传 Excel (.xlsx/.xls) 文件')
     return false
   }
 
-  const reader = new FileReader()
-
-  if (isJson) {
-    reader.onload = (e) => {
-      try {
-        const data = JSON.parse(e.target?.result as string)
-        processImportedData(data)
-      } catch (err) {
-        ElMessage.error('JSON 文件格式错误，解析失败')
-      }
-    }
-    reader.readAsText(file)
-  } else if (isExcel) {
-    reader.onload = (e) => {
-      try {
-        const data = e.target?.result
-        const workbook = XLSX.read(data, { type: 'array' })
-        const firstSheetName = workbook.SheetNames[0]
-        const worksheet = workbook.Sheets[firstSheetName]
-        const rawRows = XLSX.utils.sheet_to_json<any>(worksheet)
-        
-        // Map Excel headers to database properties
-        const formattedRows = rawRows.map(row => {
-          const mappedRow: any = {}
-          for (const key in row) {
-            const normalizedKey = key.trim()
-            const targetKey = headerMapping[normalizedKey] || normalizedKey
-            
-            if (targetKey === 'status') {
-              const val = String(row[key]).trim()
-              mappedRow[targetKey] = (val === '正常' || val === 'normal') ? 'normal' : 'banned'
-            } else {
-              mappedRow[targetKey] = row[key]
-            }
-          }
-          return mappedRow
-        })
-
-        processImportedData(formattedRows)
-      } catch (err) {
-        console.error('Excel parse failed', err)
-        ElMessage.error('Excel 文件解析失败，请确认模版列头是否正确')
-      }
-    }
-    reader.readAsArrayBuffer(file)
-  }
-  return false
-}
-
-const processImportedData = (data: any[]) => {
-  if (!Array.isArray(data)) {
-    ElMessage.error('导入的数据列表格式错误')
-    return
-  }
-
   ElMessageBox.confirm(
-    `解析到 <b>${data.length}</b> 条用户数据，确认导入？<br/><span style="color:#909399;font-size:12px;">已存在的用户ID将跳过，仅新增不存在的用户。</span>`,
+    `确认上传并导入文件 "<b>${file.name}</b>" 吗？`,
     '导入确认',
     { confirmButtonText: '确认导入', cancelButtonText: '取消', type: 'info', dangerouslyUseHTMLString: true }
-  ).then(() => {
-    let added = 0
-    const existingIds = new Set(mockStore.users.map(u => u.user_id))
-    for (const u of data) {
-      if (!existingIds.has(u.user_id) && u.user_id && u.nickname) {
-        mockStore.users.push({
-          user_id: String(u.user_id).trim(),
-          nickname: String(u.nickname).trim(),
-          avatar: u.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${u.nickname}`,
-          phone: u.phone ? String(u.phone).trim() : '--',
-          newPhone: u.newPhone ? String(u.newPhone).trim() : undefined,
-          status: u.status || 'normal',
-          regTime: u.regTime || new Date().toISOString().slice(0, 10),
-          postCount: Number(u.postCount || 0),
-          commentCount: Number(u.commentCount || 0),
-          likesReceived: Number(u.likesReceived || 0),
-          bio: u.bio || '',
-        })
-        added++
+  ).then(async () => {
+    importLoading.value = true
+    try {
+      const res = await adminApi.importUsers(file)
+      if (res.code === 200) {
+        const stats = res.data || {}
+        ElMessage.success(`导入成功！共处理 ${stats.total || 0} 条，新增 ${stats.created || 0} 条，更新 ${stats.updated || 0} 条`)
+        fetchUsers()
+      } else {
+        ElMessage.error(res.message || '导入失败')
       }
+    } catch (err: any) {
+      console.error('Import failed', err)
+      const errMsg = err.response?.data?.message || err.response?.data?.msg || '导入失败，请检查文件格式或控制台日志'
+      ElMessage.error(errMsg)
+    } finally {
+      importLoading.value = false
     }
-    fetchUsers()
-    ElMessage.success(`导入完成，新增 ${added} 位用户，跳过 ${data.length - added} 条重复数据`)
   }).catch(() => {})
+  return false
 }
 
 // ── Data Fetch ───────────────────────────────────────────────────

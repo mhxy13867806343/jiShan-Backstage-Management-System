@@ -1,4 +1,4 @@
-import { request } from '@/utils/request'
+import service, { request } from '@/utils/request'
 import { GLOBAL_PAGE_SIZE } from '@/hooks/usePagination'
 
 // ─────────────────────────────────────────────────────────────────
@@ -295,6 +295,28 @@ export const adminApi = {
 
   updateUserStatus(userId: string, status: 'normal' | 'banned') {
     return request.put<any>(`/api/admin/users/${userId}`, { status })
+  },
+
+  exportUsers(params: {
+    format: 'xls' | 'xlsx'
+    nickname?: string
+    phone?: string
+    status?: string
+  }) {
+    return service.get('/api/admin/users/export', {
+      params,
+      responseType: 'blob'
+    }) as Promise<Blob>
+  },
+
+  importUsers(file: File) {
+    const formData = new FormData()
+    formData.append('file', file)
+    return service.post('/api/admin/users/import', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    }) as Promise<{ code: number; message: string; data?: any }>
   },
 
   // ── Content Management (Posts) ──
