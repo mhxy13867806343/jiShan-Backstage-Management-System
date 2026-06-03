@@ -2,31 +2,30 @@
   <div class="blacklist-container animate-fade-in">
     <!-- Header -->
     <div class="blacklist-header-bar">
-      <h2>黑名单管理 (Blacklist Settings)</h2>
-      <p class="subtitle-text">管理系统中的封禁 IP 列表、账号黑名单与设备物理识别码封禁记录。</p>
+      <h2>黑白名单安全管理 (Access Control Rules)</h2>
+      <p class="subtitle-text">管理接口请求限流的黑白名单规则。白名单命中跳过限流，黑名单命中直接拦截访问。</p>
     </div>
 
     <!-- Filter Panel -->
     <div class="filter-panel premium-card">
       <el-form :inline="true" :model="searchForm" class="demo-form-inline">
-        <el-form-item label="封禁类型">
+        <el-form-item label="规则类型">
           <el-select v-model="searchForm.type" placeholder="全部类型" clearable style="width: 140px;">
             <el-option label="全部" value="" />
-            <el-option label="IP地址" value="ip" />
-            <el-option label="用户账号" value="user" />
-            <el-option label="设备标识" value="device" />
+            <el-option label="黑名单 (Blacklist)" value="blacklist" />
+            <el-option label="白名单 (Whitelist)" value="whitelist" />
           </el-select>
         </el-form-item>
 
-        <el-form-item label="封禁目标">
-          <el-input v-model="searchForm.target" placeholder="IP / 账号ID / 设备ID" clearable style="width: 220px;" />
+        <el-form-item label="检索关键词">
+          <el-input v-model="searchForm.keyword" placeholder="IP / 接口路径 / 备注" clearable style="width: 240px;" />
         </el-form-item>
 
         <el-form-item label="状态">
           <el-select v-model="searchForm.status" placeholder="选择状态" clearable style="width: 130px;">
             <el-option label="全部" value="" />
-            <el-option label="生效中" value="active" />
-            <el-option label="已解封" value="unbanned" />
+            <el-option label="启用" value="enabled" />
+            <el-option label="禁用" value="disabled" />
           </el-select>
         </el-form-item>
 
@@ -41,63 +40,69 @@
     <div class="table-card premium-card">
       <div class="table-toolbar">
         <div class="toolbar-left">
-          <el-button type="primary" :icon="Plus" @click="openAddDialog">新增封禁</el-button>
+          <el-button type="primary" :icon="Plus" @click="openAddDialog">新增规则</el-button>
         </div>
         <div class="toolbar-right">
           <span class="stats-text">
-            当前共有 <b>{{ totalCount }}</b> 条封禁记录 (生效中 <b>{{ activeCount }}</b>)
+            系统当前共有 <b>{{ totalCount }}</b> 条访问规则记录
           </span>
         </div>
       </div>
 
-      <el-table :data="pagedData" style="width: 100%" v-loading="loading">
-        <el-table-column label="类型" width="120" align="center">
+      <el-table :data="tableData" style="width: 100%" v-loading="loading">
+        <el-table-column label="名单类型" width="130" align="center">
           <template #default="{ row }">
-            <el-tag :type="getTypeTag(row.type)">
-              {{ getTypeLabel(row.type) }}
+            <el-tag :type="row.type === 'blacklist' ? 'danger' : 'success'" effect="dark">
+              {{ row.typeText || (row.type === 'blacklist' ? '黑名单' : '白名单') }}
             </el-tag>
           </template>
         </el-table-column>
 
-        <el-table-column prop="target" label="封禁目标" min-width="180">
+        <el-table-column label="IP 地址限制" min-width="150">
           <template #default="{ row }">
-            <code class="target-code font-mono">{{ row.target }}</code>
+            <code class="target-code font-mono" v-if="row.ip">{{ row.ip }}</code>
+            <span class="empty-text" v-else>全部 IP (*)</span>
           </template>
         </el-table-column>
 
-        <el-table-column prop="reason" label="封禁原因" min-width="220" show-overflow-tooltip />
-
-        <el-table-column prop="operator" label="操作人" width="110" align="center" />
-
-        <el-table-column prop="time" label="封禁时间" width="160" align="center" />
-
-        <el-table-column label="有效期至" width="160" align="center">
+        <el-table-column label="接口限制 (方法 / 路径)" min-width="200">
           <template #default="{ row }">
-            <span v-if="row.expiry === 'Permanent'" class="permanent-text">永久有效</span>
-            <span v-else>{{ row.expiry }}</span>
+            <div class="api-target-cell">
+              <el-tag size="small" type="info" class="method-tag font-mono">
+                {{ row.method || 'ALL' }}
+              </el-tag>
+              <code class="path-code font-mono">{{ row.path || '全部路径 (*)' }}</code>
+            </div>
           </template>
         </el-table-column>
+
+        <el-table-column prop="remark" label="备注/封禁原因" min-width="220" show-overflow-tooltip>
+          <template #default="{ row }">
+            <span>{{ row.remark || '--' }}</span>
+          </template>
+        </el-table-column>
+
+        <el-table-column prop="createdAt" label="创建时间" width="170" align="center" />
 
         <el-table-column label="状态" width="110" align="center">
           <template #default="{ row }">
-            <el-tag :type="row.status === 'active' ? 'danger' : 'info'" effect="light">
-              <span class="status-dot" :class="row.status === 'active' ? 'danger' : 'info'"></span>
-              {{ row.status === 'active' ? '生效中' : '已解封' }}
+            <el-tag :type="row.status === 'enabled' ? 'success' : 'info'" effect="light">
+              <span class="status-dot" :class="row.status === 'enabled' ? 'active' : 'info'"></span>
+              {{ row.statusText || (row.status === 'enabled' ? '启用' : '禁用') }}
             </el-tag>
           </template>
         </el-table-column>
 
-        <el-table-column label="操作" width="160" align="center" fixed="right">
+        <el-table-column label="操作" width="180" align="center" fixed="right">
           <template #default="{ row }">
             <el-button 
-              v-if="row.status === 'active'" 
               size="small" 
-              type="success" 
+              :type="row.status === 'enabled' ? 'warning' : 'success'" 
               plain 
               :icon="Unlock" 
-              @click="handleLiftBlock(row)"
+              @click="toggleStatus(row)"
             >
-              解封
+              {{ row.status === 'enabled' ? '禁用' : '启用' }}
             </el-button>
             <el-button 
               size="small" 
@@ -116,7 +121,7 @@
       <el-pagination
         v-model:current-page="currentPage"
         v-model:page-size="pageSize"
-        :page-sizes="[5, 10, 20, 50]"
+        :page-sizes="[10, 20, 50, 100]"
         layout="total, sizes, prev, pager, next, jumper"
         :total="totalCount"
         background
@@ -126,61 +131,62 @@
     </div>
 
     <!-- Add Block Modal Dialog -->
-    <el-dialog v-model="dialogVisible" title="新增系统封禁记录" width="480px" destroy-on-close>
+    <el-dialog v-model="dialogVisible" title="新增访问限制规则" width="500px" destroy-on-close>
       <el-form :model="addForm" :rules="addRules" ref="addFormRef" label-width="100px" label-position="left">
-        <el-form-item label="封禁类型" prop="type">
+        <el-form-item label="名单类型" prop="type">
           <el-radio-group v-model="addForm.type">
-            <el-radio label="ip">IP地址</el-radio>
-            <el-radio label="user">用户账号</el-radio>
-            <el-radio label="device">设备标识</el-radio>
+            <el-radio label="blacklist">黑名单 (拦截访问)</el-radio>
+            <el-radio label="whitelist">白名单 (绕过限流)</el-radio>
           </el-radio-group>
         </el-form-item>
 
-        <el-form-item label="封禁目标" prop="target">
+        <el-form-item label="IP 地址" prop="ip">
           <el-input 
-            v-model="addForm.target" 
-            :placeholder="getTargetPlaceholder(addForm.type)"
+            v-model="addForm.ip" 
+            placeholder="支持输入完整IP，或用*匹配(如 192.168.1.*)；留空表示全部"
             clearable
           />
         </el-form-item>
 
-        <el-form-item label="有效期限" prop="expiryType">
-          <el-radio-group v-model="addForm.expiryType">
-            <el-radio label="7d">7天</el-radio>
-            <el-radio label="30d">30天</el-radio>
-            <el-radio label="permanent">永久</el-radio>
-            <el-radio label="custom">自定义</el-radio>
-          </el-radio-group>
+        <el-form-item label="请求方法" prop="method">
+          <el-select v-model="addForm.method" placeholder="选择请求方法" style="width: 100%;">
+            <el-option label="ALL (全部方法)" value="ALL" />
+            <el-option label="GET" value="GET" />
+            <el-option label="POST" value="POST" />
+            <el-option label="PUT" value="PUT" />
+            <el-option label="DELETE" value="DELETE" />
+            <el-option label="PATCH" value="PATCH" />
+          </el-select>
         </el-form-item>
 
-        <el-form-item 
-          label="过期时间" 
-          prop="customExpiry" 
-          v-if="addForm.expiryType === 'custom'"
-        >
-          <el-date-picker
-            v-model="addForm.customExpiry"
-            type="datetime"
-            placeholder="选择过期时间"
-            format="YYYY-MM-DD HH:mm:ss"
-            value-format="YYYY-MM-DD HH:mm:ss"
-            style="width: 100%;"
+        <el-form-item label="接口路径" prop="path">
+          <el-input 
+            v-model="addForm.path" 
+            placeholder="输入接口前缀(如 /api/posts/*)；留空表示全部接口"
+            clearable
           />
         </el-form-item>
 
-        <el-form-item label="封禁原因" prop="reason">
+        <el-form-item label="启用状态" prop="status">
+          <el-radio-group v-model="addForm.status">
+            <el-radio label="enabled">启用 (立刻生效)</el-radio>
+            <el-radio label="disabled">禁用 (暂不生效)</el-radio>
+          </el-radio-group>
+        </el-form-item>
+
+        <el-form-item label="备注原因" prop="remark">
           <el-input 
-            v-model="addForm.reason" 
+            v-model="addForm.remark" 
             type="textarea" 
             :rows="3" 
-            placeholder="请输入添加此封禁记录的具体原因，以作为安全审计凭证" 
+            placeholder="请输入规则备注，例如：限制某恶意采集IP、测试免限流等，作为安全审计凭证" 
           />
         </el-form-item>
       </el-form>
       <template #footer>
         <span class="dialog-footer">
           <el-button @click="dialogVisible = false">取消</el-button>
-          <el-button type="primary" @click="submitAddForm">确定封禁</el-button>
+          <el-button type="primary" @click="submitAddForm">确定创建</el-button>
         </span>
       </template>
     </el-dialog>
@@ -188,9 +194,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox, type FormInstance } from 'element-plus'
 import { Plus, Search, Refresh, Unlock, Delete } from '@element-plus/icons-vue'
+import { adminApi } from '@/api/admin'
 
 const loading = ref(false)
 const dialogVisible = ref(false)
@@ -198,226 +205,172 @@ const addFormRef = ref<FormInstance>()
 
 const searchForm = reactive({
   type: '',
-  target: '',
+  keyword: '',
   status: ''
 })
 
 const addForm = ref({
-  type: 'ip',
-  target: '',
-  expiryType: 'permanent',
-  customExpiry: '',
-  reason: ''
+  type: 'blacklist',
+  ip: '',
+  method: 'ALL',
+  path: '',
+  status: 'enabled',
+  remark: ''
 })
 
-const validateTarget = (_rule: any, value: any, callback: any) => {
+const validateIp = (_rule: any, value: any, callback: any) => {
   if (!value) {
-    return callback(new Error('请输入需要封禁的目标值'))
+    return callback()
   }
-  if (addForm.value.type === 'ip') {
-    const ipPattern = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/
-    if (!ipPattern.test(value)) {
-      return callback(new Error('请输入格式正确的 IPv4 地址'))
-    }
+  // IP validation supporting wildcard asterisk '*' e.g., 192.168.1.* or *
+  if (value === '*') {
+    return callback()
+  }
+  const cleanIp = value.replace(/\*/g, '1') // Temporarily replace wildcard to check standard format
+  const ipPattern = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/
+  if (!ipPattern.test(cleanIp)) {
+    return callback(new Error('请输入格式正确的 IP 地址或包含通配符 * 的网段'))
   }
   callback()
 }
 
 const addRules = {
-  type: [{ required: true, message: '请选择封禁类型', trigger: 'change' }],
-  target: [{ required: true, validator: validateTarget, trigger: 'blur' }],
-  expiryType: [{ required: true, message: '请选择有效期限', trigger: 'change' }],
-  customExpiry: [{ required: true, message: '请选择自定义过期时间', trigger: 'change' }],
-  reason: [{ required: true, message: '请输入封禁原因', trigger: 'blur' }]
+  type: [{ required: true, message: '请选择名单类型', trigger: 'change' }],
+  ip: [{ validator: validateIp, trigger: 'blur' }],
+  method: [{ required: true, message: '请选择方法类型', trigger: 'change' }],
+  status: [{ required: true, message: '请选择状态', trigger: 'change' }],
+  remark: [{ required: true, message: '请输入备注原因', trigger: 'blur' }]
 }
 
-const allRecords = ref<any[]>([])
+const tableData = ref<any[]>([])
+const totalCount = ref(0)
 const currentPage = ref(1)
 const pageSize = ref(10)
 
-// Seed standard professional mock records
-const seedMockData = () => {
-  const localData = localStorage.getItem('admin_blacklist_records')
-  if (localData) {
-    try {
-      allRecords.value = JSON.parse(localData)
-      return
-    } catch (e) {
-      console.error('Failed to parse blacklists localStorage data', e)
+const fetchAccessRules = async () => {
+  loading.value = true
+  try {
+    const res = await adminApi.getAccessRules({
+      type: searchForm.type || undefined,
+      keyword: searchForm.keyword || undefined,
+      status: searchForm.status || undefined,
+      page: currentPage.value,
+      limit: pageSize.value
+    })
+    if (res) {
+      tableData.value = res.list || []
+      totalCount.value = res.total || 0
     }
+  } catch (err) {
+    console.error('fetchAccessRules failed:', err)
+  } finally {
+    loading.value = false
   }
-
-  const mocks = [
-    {
-      id: 'bl_1',
-      type: 'ip',
-      target: '192.168.10.45',
-      reason: '频发灌水发贴，内容涉嫌垃圾广告投放',
-      operator: 'admin',
-      time: '2026-06-02 10:00:00',
-      expiry: 'Permanent',
-      status: 'active'
-    },
-    {
-      id: 'bl_2',
-      type: 'ip',
-      target: '203.0.113.195',
-      reason: '频发接口请求，涉嫌恶意扫描端口和爆破漏洞',
-      operator: 'admin',
-      time: '2026-06-02 12:45:00',
-      expiry: '2026-06-09 12:45:00',
-      status: 'active'
-    },
-    {
-      id: 'bl_3',
-      type: 'user',
-      target: 'usr_log_check',
-      reason: '违规发布侵权与敏感有害政治信息',
-      operator: 'system',
-      time: '2026-06-01 16:30:00',
-      expiry: 'Permanent',
-      status: 'active'
-    },
-    {
-      id: 'bl_4',
-      type: 'device',
-      target: 'DEV_7c8d9e2b10a',
-      reason: '检测到同一物理硬件下存在批量恶意注册行为',
-      operator: 'admin',
-      time: '2026-05-30 08:15:00',
-      expiry: '2026-06-30 08:15:00',
-      status: 'active'
-    },
-    {
-      id: 'bl_5',
-      type: 'ip',
-      target: '198.51.100.8',
-      reason: '多次尝试爆破管理员登录密码失败',
-      operator: 'admin',
-      time: '2026-05-25 14:00:00',
-      expiry: '2026-06-25 14:00:00',
-      status: 'unbanned'
-    }
-  ]
-  allRecords.value = mocks
-  saveToLocalStorage()
 }
-
-const saveToLocalStorage = () => {
-  localStorage.setItem('admin_blacklist_records', JSON.stringify(allRecords.value))
-}
-
-const filteredData = computed(() => {
-  return allRecords.value.filter(item => {
-    // Type Filter
-    if (searchForm.type && item.type !== searchForm.type) return false
-    // Target Filter
-    if (searchForm.target && !item.target.toLowerCase().includes(searchForm.target.toLowerCase())) return false
-    // Status Filter
-    if (searchForm.status && item.status !== searchForm.status) return false
-    return true
-  }).sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
-})
-
-const pagedData = computed(() => {
-  const start = (currentPage.value - 1) * pageSize.value
-  const end = start + pageSize.value
-  return filteredData.value.slice(start, end)
-})
-
-const totalCount = computed(() => filteredData.value.length)
-const activeCount = computed(() => allRecords.value.filter(x => x.status === 'active').length)
 
 const handleSearch = () => {
   currentPage.value = 1
+  fetchAccessRules()
 }
 
 const handleReset = () => {
   searchForm.type = ''
-  searchForm.target = ''
+  searchForm.keyword = ''
   searchForm.status = ''
   currentPage.value = 1
+  fetchAccessRules()
 }
 
 const handleSizeChange = (val: number) => {
   pageSize.value = val
   currentPage.value = 1
+  fetchAccessRules()
 }
 
 const handleCurrentChange = (val: number) => {
   currentPage.value = val
+  fetchAccessRules()
 }
 
 const openAddDialog = () => {
   addForm.value = {
-    type: 'ip',
-    target: '',
-    expiryType: 'permanent',
-    customExpiry: '',
-    reason: ''
+    type: 'blacklist',
+    ip: '',
+    method: 'ALL',
+    path: '',
+    status: 'enabled',
+    remark: ''
   }
   dialogVisible.value = true
 }
 
 const submitAddForm = async () => {
   if (!addFormRef.value) return
-  await addFormRef.value.validate((valid) => {
+  await addFormRef.value.validate(async (valid) => {
     if (valid) {
-      let expiryStr = 'Permanent'
-      if (addForm.value.expiryType === '7d') {
-        const d = new Date()
-        d.setDate(d.getDate() + 7)
-        expiryStr = d.toISOString().replace('T', ' ').substring(0, 19)
-      } else if (addForm.value.expiryType === '30d') {
-        const d = new Date()
-        d.setDate(d.getDate() + 30)
-        expiryStr = d.toISOString().replace('T', ' ').substring(0, 19)
-      } else if (addForm.value.expiryType === 'custom') {
-        expiryStr = addForm.value.customExpiry
-      }
+      try {
+        const payload = {
+          type: addForm.value.type as 'blacklist' | 'whitelist',
+          ip: addForm.value.ip.trim() || null,
+          method: addForm.value.method || null,
+          path: addForm.value.path.trim() || null,
+          status: addForm.value.status as 'enabled' | 'disabled',
+          remark: addForm.value.remark.trim() || null
+        }
 
-      const newRecord = {
-        id: 'bl_' + Date.now(),
-        type: addForm.value.type,
-        target: addForm.value.target.trim(),
-        reason: addForm.value.reason.trim(),
-        operator: 'admin',
-        time: new Date().toISOString().replace('T', ' ').substring(0, 19),
-        expiry: expiryStr,
-        status: 'active'
+        const res = await adminApi.addAccessRule(payload)
+        if (res.code === 200) {
+          ElMessage.success('规则创建成功')
+          dialogVisible.value = false
+          fetchAccessRules()
+        } else {
+          ElMessage.error(res.message || '规则创建失败')
+        }
+      } catch (err) {
+        console.error('Create access rule failed:', err)
       }
-
-      allRecords.value.unshift(newRecord)
-      saveToLocalStorage()
-      dialogVisible.value = false
-      ElMessage.success('封禁成功，已加入黑名单')
     }
   })
 }
 
-const handleLiftBlock = (row: any) => {
+const toggleStatus = (row: any) => {
+  const targetState = row.status === 'enabled' ? 'disabled' : 'enabled'
+  const actionText = targetState === 'enabled' ? '启用' : '禁用'
+
   ElMessageBox.confirm(
-    `确定要<b>解封</b>封禁目标为 "<b>${row.target}</b>" 的记录吗？`,
-    '解封提示',
+    `确定要<b>${actionText}</b>此条限制规则吗？`,
+    '提示',
     {
-      confirmButtonText: '确定解封',
+      confirmButtonText: '确定',
       cancelButtonText: '取消',
       type: 'warning',
       dangerouslyUseHTMLString: true
     }
-  ).then(() => {
-    const item = allRecords.value.find(x => x.id === row.id)
-    if (item) {
-      item.status = 'unbanned'
-      saveToLocalStorage()
-      ElMessage.success('目标解封成功')
+  ).then(async () => {
+    try {
+      const res = await adminApi.updateAccessRule(row.ruleId, {
+        type: row.type,
+        ip: row.ip,
+        method: row.method,
+        path: row.path,
+        status: targetState,
+        remark: row.remark
+      })
+      if (res.code === 200) {
+        ElMessage.success(`规则已成功${actionText}`)
+        fetchAccessRules()
+      } else {
+        ElMessage.error(res.message || '操作失败')
+      }
+    } catch (err) {
+      console.error('Toggle rule status failed:', err)
     }
   }).catch(() => {})
 }
 
 const handleDelete = (row: any) => {
   ElMessageBox.confirm(
-    `确定要<b>彻底删除</b>此条封禁审计记录吗？<br/><span style="color:#f56c6c;font-size:12px;">此操作将永久移除安全记录，不可逆。</span>`,
+    `确定要<b>彻底删除</b>此条规则审计记录吗？<br/><span style="color:#f56c6c;font-size:12px;">此操作将永久移除接口安全限制，不可逆。</span>`,
     '危险警告',
     {
       confirmButtonText: '确认删除',
@@ -425,33 +378,23 @@ const handleDelete = (row: any) => {
       type: 'error',
       dangerouslyUseHTMLString: true
     }
-  ).then(() => {
-    allRecords.value = allRecords.value.filter(x => x.id !== row.id)
-    saveToLocalStorage()
-    ElMessage.success('记录删除成功')
+  ).then(async () => {
+    try {
+      const res = await adminApi.deleteAccessRule(row.ruleId)
+      if (res.code === 200) {
+        ElMessage.success('规则删除成功')
+        fetchAccessRules()
+      } else {
+        ElMessage.error(res.message || '删除失败')
+      }
+    } catch (err) {
+      console.error('Delete rule failed:', err)
+    }
   }).catch(() => {})
 }
 
-const getTypeTag = (type: string) => {
-  if (type === 'ip') return 'success'
-  if (type === 'user') return 'primary'
-  return 'warning'
-}
-
-const getTypeLabel = (type: string) => {
-  if (type === 'ip') return 'IP地址'
-  if (type === 'user') return '用户账号'
-  return '设备标识'
-}
-
-const getTargetPlaceholder = (type: string) => {
-  if (type === 'ip') return '例如 192.168.1.1'
-  if (type === 'user') return '请输入受限用户账号 ID'
-  return '请输入封禁设备物理标识码(UUID/IMEI)'
-}
-
 onMounted(() => {
-  seedMockData()
+  fetchAccessRules()
 })
 </script>
 
@@ -514,17 +457,37 @@ onMounted(() => {
 }
 
 .target-code {
+  background-color: #fff1f0;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 12px;
+  border: 1px solid #ffa39e;
+  color: #cf1322;
+}
+
+.path-code {
   background-color: #f5f5f5;
   padding: 2px 6px;
   border-radius: 3px;
   font-size: 12px;
   border: 1px solid #e8e8e8;
-  color: #f5222d;
+  color: rgba(0, 0, 0, 0.65);
 }
 
-.permanent-text {
-  font-weight: 600;
-  color: #cf1322;
+.api-target-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.method-tag {
+  font-weight: 700;
+}
+
+.empty-text {
+  color: #bfbfbf;
+  font-style: italic;
+  font-size: 13px;
 }
 
 .status-dot {
@@ -536,9 +499,9 @@ onMounted(() => {
   vertical-align: middle;
 }
 
-.status-dot.danger {
-  background-color: #ff4d4f;
-  box-shadow: 0 0 4px #ff4d4f;
+.status-dot.active {
+  background-color: #52c41a;
+  box-shadow: 0 0 4px #52c41a;
 }
 
 .status-dot.info {

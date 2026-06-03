@@ -988,6 +988,46 @@ export const adminApi = {
     return res.data
   },
 
+  async getAccessRules(params?: {
+    keyword?: string
+    type?: string
+    status?: string
+    page?: number
+    limit?: number
+  }) {
+    const res = await request.get<any>('/api/admin/access-rules', params)
+    return res.data
+  },
+
+  addAccessRule(payload: {
+    type: 'blacklist' | 'whitelist'
+    ip?: string | null
+    method?: string | null
+    path?: string | null
+    status?: 'enabled' | 'disabled'
+    remark?: string | null
+  }) {
+    return request.post<any>('/api/admin/access-rules', payload)
+  },
+
+  updateAccessRule(
+    ruleId: string,
+    payload: {
+      type: 'blacklist' | 'whitelist'
+      ip?: string | null
+      method?: string | null
+      path?: string | null
+      status?: 'enabled' | 'disabled'
+      remark?: string | null
+    }
+  ) {
+    return request.put<any>(`/api/admin/access-rules/${ruleId}`, payload)
+  },
+
+  deleteAccessRule(ruleId: string) {
+    return request.delete<any>(`/api/admin/access-rules/${ruleId}`)
+  },
+
   // ── System Operation Logs ──
   async getSystemLogs(params: {
     operator?: string
