@@ -974,6 +974,20 @@ export const adminApi = {
     return res.data?.list || res.data
   },
 
+  async getSecurityOverview() {
+    const res = await request.get<any>('/api/admin/security/overview')
+    return res.data
+  },
+
+  updateSecuritySettings(data: { mfaEnabled?: boolean; passwordPolicyEnabled?: boolean }) {
+    return request.put<any>('/api/admin/security/settings', data)
+  },
+
+  async getSecurityLoginLogs(params?: { page?: number; limit?: number }) {
+    const res = await request.get<any>('/api/admin/security/login-logs', params)
+    return res.data
+  },
+
   // ── System Operation Logs ──
   async getSystemLogs(params: {
     operator?: string

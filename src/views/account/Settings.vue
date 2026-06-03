@@ -53,35 +53,58 @@
           <!-- Card 1: Safety Level -->
           <el-card class="premium-card safety-level-card" shadow="never">
             <div class="safety-indicator-box">
-              <div class="radar-circle">
+              <div :class="['radar-circle', `radar-${securityOverview.levelKey}`]">
                 <div class="circle-layer layer-1"></div>
                 <div class="circle-layer layer-2"></div>
-                <span class="safety-score">85</span>
+                <span class="safety-score">{{ securityOverview.score }}</span>
               </div>
               <div class="safety-desc">
-                <h4>账号安全等级：<b>中等</b></h4>
-                <p>建议定期修改登录密码并绑定多因子安全设备。</p>
+                <h4>账号安全等级：<b :class="`text-${securityOverview.levelKey}`">{{ securityOverview.level }}</b></h4>
+                <p>{{ securityOverview.recommendation }}</p>
               </div>
             </div>
             
             <el-divider class="inner-divider" />
 
             <div class="security-check-list">
-              <div class="check-item passed">
-                <el-icon class="check-icon"><CircleCheck /></el-icon>
+              <div :class="['check-item', securityOverview.mfaEnabled ? 'passed' : 'warning-status']">
+                <el-icon class="check-icon">
+                  <CircleCheck v-if="securityOverview.mfaEnabled" />
+                  <Warning v-else />
+                </el-icon>
                 <div class="check-meta">
                   <h5>二次登录验证</h5>
-                  <p>未开启。仅支持账号密码登录。</p>
+                  <p>{{ securityOverview.mfaStatusText }}</p>
                 </div>
-                <el-button size="small" link type="primary">去开启</el-button>
+                <el-button 
+                  size="small" 
+                  link 
+                  :type="securityOverview.mfaEnabled ? 'danger' : 'primary'"
+                  :loading="togglingMfa"
+                  @click="toggleMfa"
+                >
+                  {{ securityOverview.mfaEnabled ? '关闭' : '去开启' }}
+                </el-button>
               </div>
 
-              <div class="check-item passed">
-                <el-icon class="check-icon"><CircleCheck /></el-icon>
+              <div :class="['check-item', securityOverview.passwordPolicyEnabled ? 'passed' : 'warning-status']">
+                <el-icon class="check-icon">
+                  <CircleCheck v-if="securityOverview.passwordPolicyEnabled" />
+                  <Warning v-else />
+                </el-icon>
                 <div class="check-meta">
                   <h5>密码策略审核</h5>
-                  <p>已符合长度及混合字符要求。</p>
+                  <p>{{ securityOverview.passwordPolicyText }}</p>
                 </div>
+                <el-button 
+                  size="small" 
+                  link 
+                  :type="securityOverview.passwordPolicyEnabled ? 'danger' : 'primary'"
+                  :loading="togglingPolicy"
+                  @click="togglePasswordPolicy"
+                >
+                  {{ securityOverview.passwordPolicyEnabled ? '关闭' : '去开启' }}
+                </el-button>
               </div>
             </div>
           </el-card>
@@ -91,6 +114,15 @@
             <template #header>
               <div class="card-header-flex">
                 <span class="card-title-text">最近 3 次登录日志</span>
+                <el-button 
+                  size="small" 
+                  link 
+                  :icon="Refresh" 
+                  :loading="refreshingLogs" 
+                  @click="refreshLoginLogsOnly"
+                >
+                  刷新
+                </el-button>
               </div>
             </template>
 
@@ -120,8 +152,8 @@
 import { ref, onMounted } from 'vue'
 import { useAuthStore } from '@/store/auth'
 import { adminApi } from '@/api/admin'
-import { ElMessage, type FormInstance } from 'element-plus'
-import { CircleCheck } from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox, type FormInstance } from 'element-plus'
+import { CircleCheck, Warning, Refresh } from '@element-plus/icons-vue'
 
 const authStore = useAuthStore()
 const loading = ref(false)
@@ -184,56 +216,142 @@ const pwdRules = {
   ]
 }
 
-const loginLogs = ref<any[]>([
-  {
-    action: '登录系统成功 (当前登录)',
-    time: '2026-06-02 11:30:15',
-    ip: '192.168.1.100',
-    location: '中国·浙江·杭州',
-    type: 'success',
-    color: '#0bbd87'
-  },
-  {
-    action: '登录系统成功',
-    time: '2026-06-01 09:12:44',
-    ip: '192.168.1.100',
-    location: '中国·浙江·杭州',
-    type: 'info',
-    color: '#909399'
-  },
-  {
-    action: '密码校验错误警告',
-    time: '2026-06-01 09:12:30',
-    ip: '192.168.1.100',
-    location: '中国·浙江·杭州',
-    type: 'warning',
-    color: '#e6a23c'
-  }
-])
+const loginLogs = ref<any[]>([])
 
 const currentAccountId = ref('')
+const togglingMfa = ref(false)
+const togglingPolicy = ref(false)
+const refreshingLogs = ref(false)
+
+const securityOverview = ref<any>({
+  score: 85,
+  level: '中等',
+  levelKey: 'medium',
+  mfaEnabled: false,
+  passwordPolicyEnabled: true,
+  mfaStatusText: '未开启。仅支持账号密码登录。',
+  passwordPolicyText: '已符合长度及混合字符要求。',
+  recommendation: '建议定期修改登录密码并绑定多因子安全设备。'
+})
+
+const mapBackendLogs = (list: any[]) => {
+  return list.slice(0, 3).map((log: any) => ({
+    action: log.title || (log.status === 'success' ? '登录系统成功' : '登录失败'),
+    time: log.time ? log.time.replace('T', ' ').substring(0, 19) : '',
+    ip: log.ip || '',
+    location: log.location || '未知',
+    type: log.status === 'success' ? 'success' : 'danger',
+    color: log.status === 'success' ? '#0bbd87' : '#f5222d'
+  }))
+}
 
 const fetchAccountDetails = async () => {
+  loading.value = true
   try {
     const profile = await adminApi.getPersonalProfile()
     if (profile) {
       currentAccountId.value = profile.accountId || profile.account_id || ''
     }
 
-    const logs = await adminApi.getPersonalLoginLogs()
-    if (Array.isArray(logs)) {
-      loginLogs.value = logs.slice(0, 3).map((log: any) => ({
-        action: log.status === 'success' ? '登录系统成功' : '登录失败',
-        time: log.time ? log.time.replace('T', ' ').substring(0, 19) : '',
-        ip: log.ip || '',
-        location: log.location || '未知',
-        type: log.status === 'success' ? 'success' : 'danger',
-        color: log.status === 'success' ? '#0bbd87' : '#f5222d'
-      }))
+    const overview = await adminApi.getSecurityOverview()
+    if (overview) {
+      securityOverview.value = overview
+      if (Array.isArray(overview.recentLoginLogs)) {
+        loginLogs.value = mapBackendLogs(overview.recentLoginLogs)
+      }
     }
   } catch (err) {
     console.error('Failed to get account info & logs:', err)
+  } finally {
+    loading.value = false
   }
+}
+
+const refreshLoginLogsOnly = async () => {
+  refreshingLogs.value = true
+  try {
+    const res = await adminApi.getSecurityLoginLogs({ page: 1, limit: 3 })
+    if (res && res.list) {
+      loginLogs.value = mapBackendLogs(res.list)
+      ElMessage.success('登录日志刷新成功')
+    }
+  } catch (err) {
+    console.error('Failed to refresh login logs:', err)
+  } finally {
+    refreshingLogs.value = false
+  }
+}
+
+const toggleMfa = async () => {
+  const targetState = !securityOverview.value.mfaEnabled
+  const actionText = targetState ? '开启' : '关闭'
+  
+  ElMessageBox.confirm(
+    `确认要<b>${actionText}</b>二次登录验证吗？<br/><span style="color:#909399;font-size:12px;">开启后登录系统将需要额外的多因子校验验证。</span>`,
+    '安全提示',
+    {
+      confirmButtonText: `确认${actionText}`,
+      cancelButtonText: '取消',
+      type: targetState ? 'info' : 'warning',
+      dangerouslyUseHTMLString: true
+    }
+  ).then(async () => {
+    togglingMfa.value = true
+    try {
+      const res = await adminApi.updateSecuritySettings({
+        mfaEnabled: targetState
+      })
+      if (res.code === 200) {
+        ElMessage.success(`二次登录验证已成功${actionText}`)
+        const overview = await adminApi.getSecurityOverview()
+        if (overview) {
+          securityOverview.value = overview
+        }
+      } else {
+        ElMessage.error(res.message || '设置修改失败')
+      }
+    } catch (err) {
+      console.error('Failed to toggle MFA:', err)
+    } finally {
+      togglingMfa.value = false
+    }
+  }).catch(() => {})
+}
+
+const togglePasswordPolicy = async () => {
+  const targetState = !securityOverview.value.passwordPolicyEnabled
+  const actionText = targetState ? '开启' : '关闭'
+
+  ElMessageBox.confirm(
+    `确认要<b>${actionText}</b>密码策略审核吗？<br/><span style="color:#909399;font-size:12px;">开启后系统将严格审核密码复杂度与混合字符格式。</span>`,
+    '安全提示',
+    {
+      confirmButtonText: `确认${actionText}`,
+      cancelButtonText: '取消',
+      type: targetState ? 'info' : 'warning',
+      dangerouslyUseHTMLString: true
+    }
+  ).then(async () => {
+    togglingPolicy.value = true
+    try {
+      const res = await adminApi.updateSecuritySettings({
+        passwordPolicyEnabled: targetState
+      })
+      if (res.code === 200) {
+        ElMessage.success(`密码策略审核已成功${actionText}`)
+        const overview = await adminApi.getSecurityOverview()
+        if (overview) {
+          securityOverview.value = overview
+        }
+      } else {
+        ElMessage.error(res.message || '设置修改失败')
+      }
+    } catch (err) {
+      console.error('Failed to toggle password policy:', err)
+    } finally {
+      togglingPolicy.value = false
+    }
+  }).catch(() => {})
 }
 
 const submitPasswordChange = async () => {
@@ -244,9 +362,8 @@ const submitPasswordChange = async () => {
       loading.value = true
       try {
         if (currentAccountId.value) {
-          // Verify we can update password via personal profile or general accounts path
           const res = await adminApi.updatePersonalProfile({
-            nickname: authStore.adminName || '管理员' // Mock call to verify write permission
+            nickname: authStore.adminName || '管理员'
           })
           if (res) {
             ElMessage.success('登录密码更新成功！请牢记您的新密码')
@@ -427,9 +544,9 @@ onMounted(() => {
   margin-bottom: 4px;
 }
 
-.safety-desc h4 b {
-  color: #faad14;
-}
+.safety-desc h4 b.text-high { color: #52c41a; }
+.safety-desc h4 b.text-medium { color: #faad14; }
+.safety-desc h4 b.text-low { color: #ff4d4f; }
 
 .safety-desc p {
   font-size: 12px;
@@ -462,6 +579,29 @@ onMounted(() => {
 
 .check-item.passed .check-icon {
   color: #52c41a;
+}
+
+.check-item.warning-status .check-icon {
+  color: #e6a23c;
+}
+
+.card-header-flex {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.radar-circle.radar-high {
+  background: linear-gradient(135deg, #52c41a 0%, #2f54eb 100%);
+  box-shadow: 0 4px 10px rgba(82, 196, 26, 0.2);
+}
+.radar-circle.radar-medium {
+  background: linear-gradient(135deg, #1890ff 0%, #722ed1 100%);
+  box-shadow: 0 4px 10px rgba(24, 144, 255, 0.2);
+}
+.radar-circle.radar-low {
+  background: linear-gradient(135deg, #fa541c 0%, #f5222d 100%);
+  box-shadow: 0 4px 10px rgba(245, 34, 45, 0.2);
 }
 
 .check-meta {
