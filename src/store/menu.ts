@@ -266,6 +266,72 @@ export const useMenuStore = defineStore('menu', () => {
         }
       }
 
+      // ─────────────────────────────────────────────────────────────────
+      // Dynamic Grouping of Operations Menus
+      // ─────────────────────────────────────────────────────────────────
+      const operationsChildrenKeys = ['menu_user', 'menu_simulator', 'menu_like', 'menu_share']
+      const operationsChildrenPaths = ['/user', '/simulator', '/like', '/share', '/like/list', '/share/list']
+
+      let operationsNode: ApiMenuItem | null = null
+      
+      const findOperationsNode = (nodes: ApiMenuItem[]): ApiMenuItem | null => {
+        for (const node of nodes) {
+          if (node.path === '/operations' || node.title === '运营管理' || node.menuId === 'menu_operations') {
+            return node
+          }
+          if (node.children && node.children.length > 0) {
+            const found = findOperationsNode(node.children)
+            if (found) return found
+          }
+        }
+        return null
+      }
+      
+      operationsNode = findOperationsNode(menuTree.value)
+      
+      if (!operationsNode) {
+        operationsNode = {
+          menuId: 'menu_operations',
+          parentId: null,
+          title: '运营管理',
+          name: 'Operations',
+          path: '/operations',
+          component: '',
+          icon: 'Share',
+          sort: 2,
+          status: 'active',
+          breadcrumbs: ['运营管理'],
+          children: []
+        }
+      }
+      
+      const childrenToNest: ApiMenuItem[] = []
+      const remainingRootNodes: ApiMenuItem[] = []
+      
+      menuTree.value.forEach(node => {
+        const shouldNest = operationsChildrenKeys.includes(node.menuId) || 
+                           operationsChildrenPaths.includes(node.path || '') ||
+                           node.title === '点赞管理' || node.title === '分享管理'
+        
+        if (shouldNest) {
+          node.parentId = 'menu_operations'
+          node.breadcrumbs = ['运营管理', node.title]
+          childrenToNest.push(node)
+        } else {
+          remainingRootNodes.push(node)
+        }
+      })
+      
+      if (childrenToNest.length > 0) {
+        childrenToNest.sort((a, b) => (a.sort || 0) - (b.sort || 0))
+        operationsNode.children = childrenToNest
+        
+        remainingRootNodes.push(operationsNode)
+        remainingRootNodes.sort((a, b) => (a.sort || 0) - (b.sort || 0))
+        menuTree.value = remainingRootNodes
+      }
+
+
       // Cache the result in localStorage
       localStorage.setItem('admin_menu_tree', JSON.stringify(menuTree.value))
       console.log('--- [debug] Cached fetched menu tree in localStorage')

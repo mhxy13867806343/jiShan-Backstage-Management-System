@@ -1046,6 +1046,40 @@ export const adminApi = {
 
   batchDeleteSystemLogs(ids: string[]) {
     return request.post<any>('/api/admin/logs/batch-delete', { ids })
+  },
+
+  // ── Likes Management ──
+  async getLikes(params?: {
+    postId?: string
+    userId?: string
+    keyword?: string
+    page?: number
+    limit?: number
+  }) {
+    const res = await request.get<any>('/api/admin/likes', params)
+    return res.data
+  },
+
+  deleteLike(likeId: string | number) {
+    return request.delete<any>(`/api/admin/likes/${likeId}`)
+  },
+
+  // ── Shares Management ──
+  async getShares(params?: {
+    postId?: string
+    userId?: string
+    platform?: string
+    scene?: string
+    keyword?: string
+    page?: number
+    limit?: number
+  }) {
+    const res = await request.get<any>('/api/admin/shares', params)
+    return res.data
+  },
+
+  deleteShare(shareId: string | number) {
+    return request.delete<any>(`/api/admin/shares/${shareId}`)
   }
 }
 
