@@ -1,6 +1,6 @@
 import axios from 'axios'
 import { useAuthStore } from '@/store/auth'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 
 // Create axios instance
 const service = axios.create({
@@ -27,8 +27,21 @@ service.interceptors.response.use(
     return response.data
   },
   (error) => {
-    const msg = error.response?.data?.message || error.response?.data?.msg || error.message || '网络请求错误'
-    ElMessage.error(msg)
+    const status = error.response?.status
+    if (status === 502) {
+      ElMessageBox.alert(
+        '系统服务暂时不可用，可能是后端服务正在升级或发生网关错误 (502 Bad Gateway)。请稍后重试。',
+        '服务异常提示',
+        {
+          confirmButtonText: '确定',
+          type: 'error',
+          dangerouslyUseHTMLString: true
+        }
+      )
+    } else {
+      const msg = error.response?.data?.message || error.response?.data?.msg || error.message || '网络请求错误'
+      ElMessage.error(msg)
+    }
     return Promise.reject(error)
   }
 )

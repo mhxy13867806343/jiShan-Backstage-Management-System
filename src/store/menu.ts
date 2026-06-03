@@ -208,6 +208,62 @@ export const useMenuStore = defineStore('menu', () => {
             console.log('--- [debug] Auto-injected Package Management as top-level menu')
           }
         }
+
+        // Auto-inject Blacklist Management node
+        const hasBlacklistNode = (nodes: ApiMenuItem[]): boolean => {
+          for (const node of nodes) {
+            if (node.path === '/blacklist/list' || node.path === 'blacklist/list' || node.path?.endsWith('/blacklist/list')) {
+              return true
+            }
+            if (node.children && node.children.length > 0) {
+              if (hasBlacklistNode(node.children)) return true
+            }
+          }
+          return false
+        }
+
+        if (!hasBlacklistNode(menuTree.value)) {
+          let systemNode: ApiMenuItem | null = null
+          const findSystemNode = (nodes: ApiMenuItem[]) => {
+            for (const node of nodes) {
+              if (node.path === '/system' || node.path === 'system' || node.path?.endsWith('/system')) {
+                systemNode = node
+                return
+              }
+              if (node.children && node.children.length > 0) {
+                findSystemNode(node.children)
+                if (systemNode) return
+              }
+            }
+          }
+          
+          findSystemNode(menuTree.value)
+
+          const blacklistNode: ApiMenuItem = {
+            menuId: 'menu_blacklist_management',
+            parentId: systemNode ? (systemNode as any).menuId : null,
+            title: '黑名单管理',
+            name: 'BlacklistList',
+            path: '/blacklist/list',
+            component: 'blacklist/List.vue',
+            icon: 'CircleCloseFilled',
+            sort: 102,
+            status: 'active',
+            breadcrumbs: ['系统配置', '黑名单管理'],
+            children: []
+          }
+
+          if (systemNode) {
+            if (!(systemNode as any).children) {
+              (systemNode as any).children = []
+            }
+            (systemNode as any).children.push(blacklistNode)
+            console.log('--- [debug] Auto-injected Blacklist Management under System Config')
+          } else {
+            menuTree.value.push(blacklistNode)
+            console.log('--- [debug] Auto-injected Blacklist Management as top-level menu')
+          }
+        }
       }
 
       // Cache the result in localStorage
