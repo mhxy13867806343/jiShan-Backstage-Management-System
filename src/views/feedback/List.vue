@@ -306,6 +306,7 @@
             <el-form-item>
               <el-button type="primary" icon="Search" @click="handleSearch">搜索</el-button>
               <el-button icon="Refresh" @click="handleReset">重置</el-button>
+              <el-button type="info" icon="RefreshRight" @click="loadSubmissionsFromBackend">刷新</el-button>
             </el-form-item>
           </el-form>
         </div>
@@ -473,7 +474,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { ElMessage, ElMessageBox, ElLoading, type FormInstance } from 'element-plus'
 import { adminApi } from '@/api/admin'
 import { request } from '@/utils/request'
@@ -655,7 +656,14 @@ const loadFieldsFromBackend = async () => {
 
 const loadSubmissionsFromBackend = async () => {
   try {
-    const res = await adminApi.getFeedbackSubmissions({ limit: 100 })
+    const params: Record<string, any> = { limit: 100 }
+    if (searchQuery.phone) {
+      params.keyword = searchQuery.phone
+    }
+    if (searchQuery.status) {
+      params.status = searchQuery.status
+    }
+    const res = await adminApi.getFeedbackSubmissions(params)
     if (res && res.list) {
       submissions.value = res.list.map(mapSubmissionFromBackend)
     }
@@ -736,6 +744,14 @@ onMounted(async () => {
   await loadFieldsFromBackend()
   await loadSubmissionsFromBackend()
   resetPreviewForm()
+})
+
+watch(activeTab, (newTab) => {
+  if (newTab === 'submissions') {
+    loadSubmissionsFromBackend()
+  } else if (newTab === 'configurator') {
+    loadFieldsFromBackend()
+  }
 })
 
 const resetPreviewForm = () => {
@@ -996,13 +1012,14 @@ const submitMockFeedback = async () => {
 
 // ── Submissions Table actions ──
 const handleSearch = () => {
-  // Computed property handles search query reactively
+  loadSubmissionsFromBackend()
 }
 
 const handleReset = () => {
   searchQuery.phone = ''
   searchQuery.category = ''
   searchQuery.status = ''
+  loadSubmissionsFromBackend()
 }
 
 const getCategoryTag = (cat: string) => {
