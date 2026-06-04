@@ -1,5 +1,6 @@
 import service, { request } from '@/utils/request'
 import { GLOBAL_PAGE_SIZE } from '@/hooks/usePagination'
+import { getFullUrl } from '@/utils/url'
 
 // ─────────────────────────────────────────────────────────────────
 // 1. Data Models Interfaces (snake_case match frontend expectations)
@@ -149,6 +150,8 @@ export interface ApiAdminRole {
   updatedAt?: string
 }
 
+// (getFullUrl is imported from '@/utils/url')
+
 // ─────────────────────────────────────────────────────────────────
 // 2. Data Adapters (Adapting camelCase backend -> snake_case frontend)
 // ─────────────────────────────────────────────────────────────────
@@ -158,7 +161,7 @@ export const mapUserFromBackend = (item: any): AdaptedUser => {
   return {
     user_id: item.userId || item.user_id || '',
     nickname: item.nickname || '即闪用户',
-    avatar: item.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${item.nickname || item.userId || 'user'}`,
+    avatar: item.avatar ? getFullUrl(item.avatar) : `https://api.dicebear.com/7.x/avataaars/svg?seed=${item.nickname || item.userId || 'user'}`,
     phone: item.phone || '--',
     newPhone: item.newPhone || undefined,
     status: item.isActive === false ? 'banned' : (item.status || 'normal'),
@@ -177,9 +180,15 @@ export const mapPostFromBackend = (item: any): AdaptedPost => {
     post_id: item.postId || item.post_id || '',
     user_id: item.userId || item.user_id || '',
     nickname: item.nickname || '即闪用户',
-    avatar: item.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${item.nickname || item.userId || 'post'}`,
+    avatar: item.avatar ? getFullUrl(item.avatar) : `https://api.dicebear.com/7.x/avataaars/svg?seed=${item.nickname || item.userId || 'post'}`,
     content: item.content || '',
-    images: item.images || [],
+    images: Array.isArray(item.images)
+      ? item.images.map((img: any) => {
+          if (!img) return ''
+          const urlStr = typeof img === 'object' ? (img.url || img.uri || '') : img
+          return getFullUrl(urlStr)
+        }).filter(Boolean)
+      : [],
     likes: item.likeCount !== undefined ? item.likeCount : (item.likes || 0),
     comments: item.commentCount !== undefined ? item.commentCount : (item.comments || 0),
     shares: item.shareCount !== undefined ? item.shareCount : (item.shares || 0),
@@ -196,7 +205,7 @@ export const mapCommentFromBackend = (item: any): AdaptedComment => {
     post_id: item.postId || item.post_id || '',
     user_id: item.userId || item.user_id || '',
     nickname,
-    avatar: item.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${nickname}`,
+    avatar: item.avatar ? getFullUrl(item.avatar) : `https://api.dicebear.com/7.x/avataaars/svg?seed=${nickname}`,
     content: item.content || '',
     pubTime: item.pubTime || (item.createdAt ? item.createdAt.replace('T', ' ').substring(0, 19) : ''),
     reply_to_user_id: item.replyToUserId || item.reply_to_user_id || null,
@@ -337,10 +346,10 @@ export const adminApi = {
     if (params.status) queryParams.status = params.status
     if (params.content) queryParams.content = params.content
 
-    const res = await request.get<{ items: any[]; total: number }>('/api/admin/posts', queryParams)
+    const res = await request.get<{ list?: any[]; items?: any[]; total: number }>('/api/admin/posts', queryParams)
     
-    // Backend returns list under "items"
-    const items = res.data?.items || []
+    // Backend returns list under "list" (fallback to "items")
+    const items = res.data?.list || res.data?.items || []
     const total = res.data?.total || 0
 
     return {
@@ -878,7 +887,11 @@ export const adminApi = {
 
   async getAdminAccounts(params?: { keyword?: string; role?: string; status?: string }) {
     const res = await request.get<ApiAdminAccount[]>('/api/admin/accounts', params)
-    return res.data
+    const list = res.data || []
+    return list.map((item: any) => ({
+      ...item,
+      avatar: item.avatar ? getFullUrl(item.avatar) : `https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80`
+    }))
   },
 
   addAdminAccount(acc: Omit<ApiAdminAccount, 'account_id' | 'createTime' | 'lastLogin'>) {
@@ -962,7 +975,11 @@ export const adminApi = {
   // ── Personal Account & Logs ──
   async getPersonalProfile() {
     const res = await request.get<any>('/api/admin/account/profile')
-    return res.data
+    const data = res.data
+    if (data && data.avatar) {
+      data.avatar = getFullUrl(data.avatar)
+    }
+    return data
   },
 
   updatePersonalProfile(data: { nickname?: string; avatar?: string; phone?: string; email?: string }) {
