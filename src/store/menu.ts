@@ -208,6 +208,61 @@ export const useMenuStore = defineStore('menu', () => {
             console.log('--- [debug] Auto-injected Package Management as top-level menu')
           }
         }
+        // Auto-inject Feedback Management node
+        const hasFeedbackNode = (nodes: ApiMenuItem[]): boolean => {
+          for (const node of nodes) {
+            if (node.path === '/feedback' || node.path === 'feedback' || node.path?.endsWith('/feedback')) {
+              return true
+            }
+            if (node.children && node.children.length > 0) {
+              if (hasFeedbackNode(node.children)) return true
+            }
+          }
+          return false
+        }
+
+        if (!hasFeedbackNode(menuTree.value)) {
+          let systemNode: ApiMenuItem | null = null
+          const findSystemNode = (nodes: ApiMenuItem[]) => {
+            for (const node of nodes) {
+              if (node.path === '/system' || node.path === 'system' || node.path?.endsWith('/system')) {
+                systemNode = node
+                return
+              }
+              if (node.children && node.children.length > 0) {
+                findSystemNode(node.children)
+                if (systemNode) return
+              }
+            }
+          }
+          
+          findSystemNode(menuTree.value)
+
+          const feedbackNode: ApiMenuItem = {
+            menuId: 'menu_feedback_management',
+            parentId: systemNode ? (systemNode as any).menuId : null,
+            title: '反馈管理',
+            name: 'FeedbackManage',
+            path: '/feedback',
+            component: 'feedback/List.vue',
+            icon: 'Message',
+            sort: 102,
+            status: 'active',
+            breadcrumbs: ['系统配置', '反馈管理'],
+            children: []
+          }
+
+          if (systemNode) {
+            if (!(systemNode as any).children) {
+              (systemNode as any).children = []
+            }
+            (systemNode as any).children.push(feedbackNode)
+            console.log('--- [debug] Auto-injected Feedback Management under System Config')
+          } else {
+            menuTree.value.push(feedbackNode)
+            console.log('--- [debug] Auto-injected Feedback Management as top-level menu')
+          }
+        }
 
       }
 
