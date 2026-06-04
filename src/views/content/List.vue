@@ -92,6 +92,8 @@
           <template #default="{ row }">
             <div class="content-snippet-container">
               <p class="content-snippet">{{ row.content }}</p>
+              
+              <!-- Images Grid -->
               <div v-if="row.images && row.images.length" class="image-thumbnail-list">
                 <el-image
                   v-for="(img, idx) in row.images"
@@ -103,6 +105,22 @@
                   fit="cover"
                   preview-teleported
                 />
+              </div>
+
+              <!-- Videos Grid -->
+              <div v-if="row.videos && row.videos.length" class="video-thumbnail-list" style="margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap;">
+                <div 
+                  v-for="(vid, idx) in row.videos" 
+                  :key="idx" 
+                  class="video-thumbnail-wrapper" 
+                  style="position: relative; width: 50px; height: 50px; border-radius: 6px; overflow: hidden; border: 1px solid var(--border-color); background: #000; cursor: pointer; transition: all 0.2s ease;" 
+                  @click.stop="playVideo(vid)"
+                >
+                  <video :src="vid" style="width: 100%; height: 100%; object-fit: cover;" preload="metadata" />
+                  <div class="play-overlay" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.35); color: #fff;">
+                    <el-icon :size="16"><VideoPlay /></el-icon>
+                  </div>
+                </div>
               </div>
             </div>
           </template>
@@ -212,6 +230,19 @@
           </el-carousel>
         </div>
 
+        <div v-if="selectedPost.videos && selectedPost.videos.length" class="drawer-video-card premium-card">
+          <div class="card-label-heading">附带视频 ({{ selectedPost.videos.length }}个)</div>
+          <div class="drawer-video-list" style="display: flex; flex-direction: column; gap: 12px; margin-top: 8px;">
+            <video
+              v-for="(vid, idx) in selectedPost.videos"
+              :key="idx"
+              class="drawer-video-player"
+              :src="vid"
+              controls
+            />
+          </div>
+        </div>
+
         <div class="drawer-stats-row">
           <div class="stats-item"><span class="stats-label">点赞数</span><span class="stats-value font-mono">{{ selectedPost.likes }}</span></div>
           <div class="stats-item"><span class="stats-label">评论数</span><span class="stats-value font-mono">{{ selectedPost.comments }}</span></div>
@@ -231,6 +262,13 @@
         </div>
       </div>
     </el-drawer>
+
+    <!-- Video Preview Dialog -->
+    <el-dialog v-model="videoDialogVisible" title="视频预览播放" width="680px" destroy-on-close align-center>
+      <div class="video-preview-wrapper" style="width: 100%; display: flex; justify-content: center; background: #000; border-radius: 8px; overflow: hidden; padding: 10px 0;">
+        <video :src="previewVideoUrl" autoplay controls style="max-width: 100%; max-height: 480px;"></video>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
@@ -243,6 +281,14 @@ import { adminApi } from '@/api/admin'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 import { GLOBAL_PAGE_SIZE, GLOBAL_PAGE_SIZES } from '@/hooks/usePagination'
+
+const videoDialogVisible = ref(false)
+const previewVideoUrl = ref('')
+
+const playVideo = (url: string) => {
+  previewVideoUrl.value = url
+  videoDialogVisible.value = true
+}
 
 const route = useRoute()
 const router = useRouter()
@@ -658,6 +704,22 @@ watch(
   height: 100%;
   border-radius: 8px;
   cursor: zoom-in;
+}
+
+.video-thumbnail-wrapper:hover {
+  transform: scale(1.05);
+}
+
+.drawer-video-card {
+  padding: 20px;
+}
+
+.drawer-video-player {
+  width: 100%;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background: #000;
+  max-height: 240px;
 }
 
 .drawer-stats-row {

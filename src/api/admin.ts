@@ -28,6 +28,7 @@ export interface AdaptedPost {
   avatar: string
   content: string
   images: string[]
+  videos?: string[]
   likes: number
   comments: number
   shares: number
@@ -186,6 +187,13 @@ export const mapPostFromBackend = (item: any): AdaptedPost => {
       ? item.images.map((img: any) => {
           if (!img) return ''
           const urlStr = typeof img === 'object' ? (img.url || img.uri || '') : img
+          return getFullUrl(urlStr)
+        }).filter(Boolean)
+      : [],
+    videos: Array.isArray(item.videos)
+      ? item.videos.map((vid: any) => {
+          if (!vid) return ''
+          const urlStr = typeof vid === 'object' ? (vid.url || vid.uri || '') : vid
           return getFullUrl(urlStr)
         }).filter(Boolean)
       : [],
