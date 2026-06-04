@@ -1080,6 +1080,18 @@ export const adminApi = {
 
   deleteShare(shareId: string | number) {
     return request.delete<any>(`/api/admin/shares/${shareId}`)
+  },
+
+  // ── User Online Status ──
+  async getUserOnline(params?: {
+    status?: 'all' | 'online' | 'offline'
+    keyword?: string
+    userId?: string
+    page?: number
+    limit?: number
+  }) {
+    const res = await request.get<any>('/api/admin/user-online', params)
+    return res.data
   }
 }
 
