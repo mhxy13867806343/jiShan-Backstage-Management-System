@@ -1117,6 +1117,38 @@ export const adminApi = {
   }) {
     const res = await request.get<any>('/api/admin/user-online', params)
     return res.data
+  },
+
+  // ── Feedback Management ──
+  async getFeedbackConfig() {
+    const res = await request.get<any>('/api/admin/feedback/config')
+    return res.data
+  },
+  updateFeedbackConfig(payload: { title: string; menuTitle: string; description?: string; submitButtonText: string; successMessage: string; status: 'enabled' | 'disabled'; remark?: string }) {
+    return request.put<any>('/api/admin/feedback/config', payload)
+  },
+  async getFeedbackFields(status?: 'enabled' | 'disabled') {
+    const res = await request.get<any>('/api/admin/feedback/fields', { status })
+    return res.data
+  },
+  createFeedbackField(payload: { fieldKey: string; label: string; type: string; placeholder?: string; required: boolean; options?: any[]; sort: number; status: 'enabled' | 'disabled'; remark?: string }) {
+    return request.post<any>('/api/admin/feedback/fields', payload)
+  },
+  updateFeedbackField(fieldId: string, payload: { fieldKey: string; label: string; type: string; placeholder?: string; required: boolean; options?: any[]; sort: number; status: 'enabled' | 'disabled'; remark?: string }) {
+    return request.put<any>(`/api/admin/feedback/fields/${fieldId}`, payload)
+  },
+  deleteFeedbackField(fieldId: string) {
+    return request.delete<any>(`/api/admin/feedback/fields/${fieldId}`)
+  },
+  async getFeedbackSubmissions(params?: { keyword?: string; status?: string; page?: number; limit?: number }) {
+    const res = await request.get<any>('/api/admin/feedback/submissions', params)
+    return res.data
+  },
+  updateFeedbackSubmissionStatus(feedbackId: string, payload: { status: 'pending' | 'processing' | 'resolved' | 'rejected'; reply?: string; remark?: string }) {
+    return request.put<any>(`/api/admin/feedback/submissions/${feedbackId}/status`, payload)
+  },
+  deleteFeedbackSubmission(feedbackId: string) {
+    return request.delete<any>(`/api/admin/feedback/submissions/${feedbackId}`)
   }
 }
 

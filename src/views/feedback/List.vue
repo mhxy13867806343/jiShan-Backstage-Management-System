@@ -77,6 +77,13 @@
                 </div>
               </div>
             </div>
+
+            <!-- Save config to backend button bar -->
+            <div class="field-designer-submit-bar" style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #f0f0f0; display: flex; justify-content: flex-end;">
+              <el-button type="success" icon="Check" @click="saveFormSchemaToBackend">
+                保存表单配置并同步至后端
+              </el-button>
+            </div>
           </div>
 
           <!-- Right Column: iOS Smartphone Mockup Viewer -->
@@ -140,6 +147,25 @@
                         class="sim-textarea"
                       />
 
+                      <!-- Render TYPE: autocomplete -->
+                      <el-autocomplete
+                        v-else-if="field.type === 'autocomplete'"
+                        v-model="previewForm[field.key]"
+                        :fetch-suggestions="handleAutocompleteFetch(field.options)"
+                        :placeholder="field.placeholder || '输入关键字补全'"
+                        style="width: 100%;"
+                        class="sim-autocomplete"
+                      />
+
+                      <!-- Render TYPE: input_number -->
+                      <el-input-number
+                        v-else-if="field.type === 'input_number'"
+                        v-model="previewForm[field.key]"
+                        :min="0"
+                        style="width: 100%;"
+                        class="sim-input-number"
+                      />
+
                       <!-- Render TYPE: select -->
                       <el-select 
                         v-else-if="field.type === 'select'" 
@@ -151,19 +177,33 @@
                         <el-option v-for="opt in field.options" :key="opt" :label="opt" :value="opt" />
                       </el-select>
 
-                      <!-- Render TYPE: rate -->
-                      <el-rate 
-                        v-else-if="field.type === 'rate'" 
-                        v-model="previewForm[field.key]" 
-                        class="sim-rate"
+                      <!-- Render TYPE: cascader -->
+                      <el-cascader
+                        v-else-if="field.type === 'cascader'"
+                        v-model="previewForm[field.key]"
+                        :options="getCascaderOptions(field)"
+                        :placeholder="field.placeholder || '请选择'"
+                        style="width: 100%;"
+                        class="sim-cascader"
                       />
 
-                      <!-- Render TYPE: switch -->
-                      <el-switch 
-                        v-else-if="field.type === 'switch'" 
-                        v-model="previewForm[field.key]" 
-                        class="sim-switch"
-                      />
+                      <!-- Render TYPE: checkbox -->
+                      <el-checkbox-group
+                        v-else-if="field.type === 'checkbox'"
+                        v-model="previewForm[field.key]"
+                        class="sim-checkbox-group"
+                        style="display: flex; flex-direction: column; gap: 4px;"
+                      >
+                        <el-checkbox
+                          v-for="opt in field.options"
+                          :key="opt"
+                          :label="opt"
+                          :value="opt"
+                          style="font-size: 12px; margin-right: 0;"
+                        >
+                          {{ opt }}
+                        </el-checkbox>
+                      </el-checkbox-group>
 
                       <!-- Render TYPE: radio -->
                       <el-radio-group 
@@ -173,6 +213,56 @@
                       >
                         <el-radio v-for="opt in field.options" :key="opt" :value="opt">{{ opt }}</el-radio>
                       </el-radio-group>
+
+                      <!-- Render TYPE: switch -->
+                      <el-switch 
+                        v-else-if="field.type === 'switch'" 
+                        v-model="previewForm[field.key]" 
+                        class="sim-switch"
+                      />
+
+                      <!-- Render TYPE: rate -->
+                      <el-rate 
+                        v-else-if="field.type === 'rate'" 
+                        v-model="previewForm[field.key]" 
+                        class="sim-rate"
+                      />
+
+                      <!-- Render TYPE: color -->
+                      <el-color-picker
+                        v-else-if="field.type === 'color'"
+                        v-model="previewForm[field.key]"
+                        class="sim-color"
+                      />
+
+                      <!-- Render TYPE: date -->
+                      <el-date-picker
+                        v-else-if="field.type === 'date'"
+                        v-model="previewForm[field.key]"
+                        type="date"
+                        :placeholder="field.placeholder || '选择日期'"
+                        style="width: 100%;"
+                        class="sim-date"
+                      />
+
+                      <!-- Render TYPE: datetime -->
+                      <el-date-picker
+                        v-else-if="field.type === 'datetime'"
+                        v-model="previewForm[field.key]"
+                        type="datetime"
+                        :placeholder="field.placeholder || '选择日期时间'"
+                        style="width: 100%;"
+                        class="sim-datetime"
+                      />
+
+                      <!-- Render TYPE: time -->
+                      <el-time-picker
+                        v-else-if="field.type === 'time'"
+                        v-model="previewForm[field.key]"
+                        :placeholder="field.placeholder || '选择时间'"
+                        style="width: 100%;"
+                        class="sim-time"
+                      />
                     </el-form-item>
 
                     <div style="margin-top: 24px; padding-bottom: 20px;">
@@ -295,10 +385,18 @@
           <el-select v-model="fieldForm.type" placeholder="请选择字段类型" style="width: 100%;">
             <el-option label="单行文本输入 (Input)" value="input" />
             <el-option label="多行文本区域 (Textarea)" value="textarea" />
+            <el-option label="自动补全输入框 (Autocomplete)" value="autocomplete" />
+            <el-option label="数字输入框 (Input Number)" value="input_number" />
             <el-option label="下拉选择框 (Select)" value="select" />
-            <el-option label="数字星级评分 (Rate)" value="rate" />
-            <el-option label="开关按钮 (Switch)" value="switch" />
+            <el-option label="级联选择器 (Cascader)" value="cascader" />
+            <el-option label="多选框组合 (Checkbox)" value="checkbox" />
             <el-option label="单选框组合 (Radio)" value="radio" />
+            <el-option label="开关按钮 (Switch)" value="switch" />
+            <el-option label="数字星级评分 (Rate)" value="rate" />
+            <el-option label="颜色选择器 (Color Picker)" value="color" />
+            <el-option label="日期选择器 (Date Picker)" value="date" />
+            <el-option label="日期时间选择器 (DateTime Picker)" value="datetime" />
+            <el-option label="时间选择器 (Time Picker)" value="time" />
           </el-select>
         </el-form-item>
 
@@ -311,15 +409,15 @@
         </el-form-item>
 
         <el-form-item 
-          v-if="['select', 'radio'].includes(fieldForm.type)" 
-          label="下拉候选项" 
+          v-if="['select', 'radio', 'checkbox', 'autocomplete', 'cascader'].includes(fieldForm.type)" 
+          label="选项/候选项列表" 
           prop="optionsText"
         >
           <el-input 
             v-model="fieldForm.optionsText" 
             type="textarea" 
             :rows="3" 
-            placeholder="请输入可选内容，用英文逗号 ',' 隔开，例如：闪退挂起,UI卡顿,其他" 
+            placeholder="请输入可选内容，用英文逗号 ',' 隔开。如果是级联选择器，支持通过斜杠 '/' 组合层级（如：指南/设计原则,指南/开发原则）。" 
           />
         </el-form-item>
       </el-form>
@@ -376,12 +474,15 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
-import { ElMessage, ElMessageBox, type FormInstance } from 'element-plus'
+import { ElMessage, ElMessageBox, ElLoading, type FormInstance } from 'element-plus'
+import { adminApi } from '@/api/admin'
+import { request } from '@/utils/request'
 
 interface FormField {
+  fieldId?: string
   key: string
   label: string
-  type: 'input' | 'textarea' | 'select' | 'rate' | 'switch' | 'radio'
+  type: 'input' | 'textarea' | 'autocomplete' | 'input_number' | 'select' | 'cascader' | 'checkbox' | 'radio' | 'switch' | 'rate' | 'color' | 'date' | 'datetime' | 'time'
   required: boolean
   placeholder?: string
   options?: string[]
@@ -466,7 +567,7 @@ const fieldForm = ref({
   index: undefined as number | undefined,
   key: '',
   label: '',
-  type: 'input' as 'input' | 'textarea' | 'select' | 'rate' | 'switch' | 'radio',
+  type: 'input' as 'input' | 'textarea' | 'autocomplete' | 'input_number' | 'select' | 'cascader' | 'checkbox' | 'radio' | 'switch' | 'rate' | 'color' | 'date' | 'datetime' | 'time',
   required: false,
   placeholder: '',
   optionsText: ''
@@ -499,55 +600,141 @@ const fieldRules = {
 const detailDialogVisible = ref(false)
 const selectedFeedback = ref<FeedbackSubmission | null>(null)
 
-// ── Lifecycle ──
-onMounted(() => {
-  // Load configuration schema
-  const savedSchema = localStorage.getItem('feedback_form_schema')
-  if (savedSchema) {
-    try {
-      formSchema.value = JSON.parse(savedSchema)
-    } catch {
+// ── Backend API Mappings & Sync ──
+const mapFieldFromBackend = (item: any): FormField => {
+  const parsedOptions = Array.isArray(item.options)
+    ? item.options.map((opt: any) => typeof opt === 'object' && opt !== null ? (opt.value || opt.label) : opt)
+    : []
+  
+  return {
+    fieldId: item.fieldId,
+    key: item.fieldKey,
+    label: item.label,
+    type: item.type,
+    required: item.required,
+    placeholder: item.placeholder || '',
+    options: parsedOptions
+  }
+}
+
+const mapSubmissionFromBackend = (item: any): FeedbackSubmission => {
+  return {
+    id: item.feedbackId,
+    phone: item.phone || '',
+    category: item.payload?.category || '意见反馈',
+    title: item.title || '',
+    content: item.content || '',
+    status: item.status === 'resolved' ? 'resolved' : 'pending',
+    createTime: item.createdAt || '',
+    rawData: item.payload || {}
+  }
+}
+
+const loadFieldsFromBackend = async () => {
+  try {
+    const res = await adminApi.getFeedbackFields()
+    if (res && res.list && res.list.length > 0) {
+      formSchema.value = res.list.map(mapFieldFromBackend)
+    } else {
       formSchema.value = [...defaultSchema]
     }
-  } else {
-    formSchema.value = [...defaultSchema]
-  }
-
-  // Pre-seed mock submissions if empty
-  const savedSubmissions = localStorage.getItem('feedback_submissions')
-  if (savedSubmissions) {
-    try {
-      submissions.value = JSON.parse(savedSubmissions)
-    } catch {
-      submissions.value = []
-    }
-  } else {
-    // Generate pre-seeded mock feedback
-    submissions.value = [
-      {
-        id: 'FB10001',
-        phone: '18072783978',
-        category: '系统故障',
-        title: '用户头像无法上传',
-        content: '每次点击更换头像后，选择图片虽然提示成功了，但刷新后还是展示默认生成的Dicebear头像，希望排查一下缓存写入逻辑。',
-        status: 'pending',
-        createTime: '2026-06-04 15:42:01',
-        rawData: { phone: '18072783978', category: '系统故障', title: '用户头像无法上传', content: '每次点击更换头像后...', satisfaction: 2 }
-      },
-      {
-        id: 'FB10002',
-        phone: '13867806343',
-        category: '功能建议',
-        title: '希望能支持多视频混传',
-        content: '目前前台App发布动态只允许上传一张视频，平时拍探店面包房的时候往往需要混剪上传多段短片，如果能像小红书那样支持发布多段就好了！',
-        status: 'resolved',
-        createTime: '2026-06-03 11:20:00',
-        rawData: { phone: '13867806343', category: '功能建议', title: '希望能支持多视频混传', content: '目前前台App发布动态...', satisfaction: 5 }
+  } catch (err) {
+    console.error('Failed to load fields from backend, falling back to localStorage/defaults', err)
+    const savedSchema = localStorage.getItem('feedback_form_schema')
+    if (savedSchema) {
+      try {
+        formSchema.value = JSON.parse(savedSchema)
+      } catch {
+        formSchema.value = [...defaultSchema]
       }
-    ]
-    localStorage.setItem('feedback_submissions', JSON.stringify(submissions.value))
+    } else {
+      formSchema.value = [...defaultSchema]
+    }
   }
+}
 
+const loadSubmissionsFromBackend = async () => {
+  try {
+    const res = await adminApi.getFeedbackSubmissions({ limit: 100 })
+    if (res && res.list) {
+      submissions.value = res.list.map(mapSubmissionFromBackend)
+    }
+  } catch (err) {
+    console.error('Failed to load submissions from backend, falling back to localStorage', err)
+    const savedSubmissions = localStorage.getItem('feedback_submissions')
+    if (savedSubmissions) {
+      try {
+        submissions.value = JSON.parse(savedSubmissions)
+      } catch {
+        submissions.value = []
+      }
+    }
+  }
+}
+
+const saveFormSchemaToBackend = async () => {
+  try {
+    const loading = ElLoading.service({
+      lock: true,
+      text: '正在保存并同步表单字段配置到服务器...',
+      background: 'rgba(255, 255, 255, 0.7)'
+    })
+    
+    // 1. Fetch current backend fields
+    const backendRes = await adminApi.getFeedbackFields()
+    const backendList = backendRes.list || []
+    
+    // 2. Determine fields to delete (custom fields present on backend but not in local schema)
+    const localKeys = formSchema.value.map(f => f.key)
+    const toDelete = backendList.filter((bf: any) => !bf.isDefault && !localKeys.includes(bf.fieldKey))
+    for (const bf of toDelete) {
+      await adminApi.deleteFeedbackField(bf.fieldId)
+    }
+    
+    // 3. Create or update fields
+    for (let i = 0; i < formSchema.value.length; i++) {
+      const localField = formSchema.value[i]
+      const bf = backendList.find((x: any) => x.fieldKey === localField.key)
+      
+      const payloadOptions = Array.isArray(localField.options)
+        ? localField.options.map(opt => ({ value: opt, label: opt }))
+        : []
+        
+      const fieldPayload = {
+        fieldKey: localField.key,
+        label: localField.label,
+        type: localField.type,
+        placeholder: localField.placeholder || '',
+        required: localField.required,
+        options: payloadOptions,
+        sort: (i + 1) * 10,
+        status: 'enabled' as const
+      }
+      
+      if (bf) {
+        // Update existing field
+        await adminApi.updateFeedbackField(bf.fieldId, fieldPayload)
+      } else {
+        // Create new field
+        await adminApi.createFeedbackField(fieldPayload)
+      }
+    }
+    
+    loading.close()
+    ElMessage.success('表单配置保存并同步成功！')
+    
+    // Reload fields from backend to get correct fieldIds
+    await loadFieldsFromBackend()
+  } catch (err: any) {
+    console.error(err)
+    ElMessage.error('保存失败：' + (err.response?.data?.detail?.message || err.message || '网络请求错误'))
+  }
+}
+
+// ── Lifecycle ──
+onMounted(async () => {
+  await loadFieldsFromBackend()
+  await loadSubmissionsFromBackend()
   resetPreviewForm()
 })
 
@@ -556,13 +743,76 @@ const resetPreviewForm = () => {
   formSchema.value.forEach(f => {
     if (f.type === 'switch') {
       model[f.key] = false
-    } else if (f.type === 'rate') {
+    } else if (f.type === 'rate' || f.type === 'input_number') {
       model[f.key] = 0
+    } else if (f.type === 'checkbox' || f.type === 'cascader') {
+      model[f.key] = []
     } else {
       model[f.key] = ''
     }
   })
   previewForm.value = model
+}
+
+const querySearchAutocomplete = (queryString: string, cb: any, options?: string[]) => {
+  const list = options || []
+  const results = queryString
+    ? list.filter(opt => opt.toLowerCase().includes(queryString.toLowerCase()))
+    : list
+  cb(results.map(item => ({ value: item })))
+}
+
+const handleAutocompleteFetch = (fieldOptions?: string[]) => {
+  return (queryString: string, cb: any) => {
+    querySearchAutocomplete(queryString, cb, fieldOptions)
+  }
+}
+
+const getCascaderOptions = (field: FormField) => {
+  if (field.options && field.options.length) {
+    const list: any[] = []
+    field.options.forEach(o => {
+      const parts = o.split('/')
+      if (parts.length > 1) {
+        // Build nested nodes
+        let currentLevel = list
+        parts.forEach((part, idx) => {
+          let node = currentLevel.find(n => n.value === part)
+          if (!node) {
+            node = { value: part, label: part }
+            if (idx < parts.length - 1) {
+              node.children = []
+            }
+            currentLevel.push(node)
+          }
+          if (idx < parts.length - 1) {
+            currentLevel = node.children
+          }
+        })
+      } else {
+        list.push({ value: o, label: o })
+      }
+    })
+    return list
+  }
+  return [
+    {
+      value: 'gui',
+      label: '系统操作',
+      children: [
+        { value: 'crash', label: 'APP闪退' },
+        { value: 'lag', label: '页面卡顿' }
+      ]
+    },
+    {
+      value: 'content',
+      label: '内容舆情',
+      children: [
+        { value: 'illegal', label: '违规图片' },
+        { value: 'spam', label: '垃圾广告' }
+      ]
+    }
+  ]
 }
 
 // ── Form configuration actions ──
@@ -597,7 +847,7 @@ const saveField = async () => {
   if (!fieldFormRef.value) return
   await fieldFormRef.value.validate((valid) => {
     if (valid) {
-      const opts = ['select', 'radio'].includes(fieldForm.value.type) && fieldForm.value.optionsText
+      const opts = ['select', 'radio', 'checkbox', 'autocomplete', 'cascader'].includes(fieldForm.value.type) && fieldForm.value.optionsText
         ? fieldForm.value.optionsText.split(',').map(s => s.trim()).filter(Boolean)
         : undefined
 
@@ -665,22 +915,31 @@ const resetFormSchema = () => {
 const getFieldTypeName = (type: string) => {
   const map: Record<string, string> = {
     input: '单行文本输入',
-    textarea: '多行文本框',
-    select: '下拉选择器',
-    rate: '星级评分',
-    switch: '开关滑块',
-    radio: '单选按钮组'
+    textarea: '多行文本区域',
+    autocomplete: '自动补全输入框',
+    input_number: '数字输入框',
+    select: '下拉选择框',
+    cascader: '级联选择器',
+    checkbox: '多选框组合',
+    radio: '单选框组合',
+    switch: '开关按钮',
+    rate: '数字星级评分',
+    color: '颜色选择器',
+    date: '日期选择器',
+    datetime: '日期时间选择器',
+    time: '时间选择器'
   }
   return map[type] || type
 }
 
 // ── Front-end Form Submit Simulation ──
-const submitMockFeedback = () => {
+const submitMockFeedback = async () => {
   // Validate constraints
   for (const field of formSchema.value) {
     const val = previewForm.value[field.key]
     if (field.required) {
-      if (val === undefined || val === null || val === '') {
+      const isEmpty = val === undefined || val === null || val === '' || (Array.isArray(val) && val.length === 0)
+      if (isEmpty) {
         ElMessage.error(`前台提交失败：请填写“${field.label}”！`)
         return
       }
@@ -691,9 +950,6 @@ const submitMockFeedback = () => {
   // Map standard keys or fall back to first input/textarea values
   const phoneVal = String(previewForm.value['phone'] || previewForm.value['tel'] || '19900008888')
   
-  // Find category select or use type select
-  const catField = formSchema.value.find(f => f.type === 'select')
-  const categoryVal = catField ? previewForm.value[catField.key] : '意见反馈'
 
   const titleField = formSchema.value.find(f => f.key === 'title' || f.key === 'subject')
   const titleVal = titleField ? previewForm.value[titleField.key] : '前台手机模拟反馈'
@@ -701,28 +957,41 @@ const submitMockFeedback = () => {
   const contentField = formSchema.value.find(f => f.key === 'content' || f.key === 'desc' || f.type === 'textarea')
   const contentVal = contentField ? previewForm.value[contentField.key] : '用户未填写具体反馈描述'
 
-  const newId = 'FB' + (10000 + submissions.value.length + 1)
-  const newSubmit: FeedbackSubmission = {
-    id: newId,
-    phone: phoneVal,
-    category: categoryVal || '其他问题',
-    title: titleVal || '自定义字段反馈',
-    content: contentVal,
-    status: 'pending',
-    createTime: new Date().toISOString().replace('T', ' ').substring(0, 19),
-    rawData: { ...previewForm.value }
+  // Submit to actual server
+  try {
+    const loading = ElLoading.service({
+      lock: true,
+      text: '正在向服务器提交反馈...',
+      background: 'rgba(255, 255, 255, 0.7)'
+    })
+    
+    // Prepare data
+    const dataPayload: Record<string, any> = { ...previewForm.value }
+    
+    // Backend API expects: phone, title, content, data
+    await request.post('/api/feedback', {
+      phone: phoneVal,
+      title: titleVal,
+      content: contentVal,
+      data: dataPayload
+    })
+    
+    loading.close()
+    
+    ElMessage({
+      message: '🎉 恭喜！前台模拟反馈成功提交！请前往第二页【反馈收集列表】查看最新数据。',
+      type: 'success',
+      duration: 5000
+    })
+    
+    resetPreviewForm()
+    
+    // Reload submissions
+    await loadSubmissionsFromBackend()
+  } catch (err: any) {
+    console.error(err)
+    ElMessage.error('前台提交失败：' + (err.response?.data?.detail?.message || err.message))
   }
-
-  submissions.value.unshift(newSubmit)
-  localStorage.setItem('feedback_submissions', JSON.stringify(submissions.value))
-  
-  ElMessage({
-    message: '🎉 恭喜！前台模拟反馈成功提交！请前往第二页【反馈收集列表】查看最新数据。',
-    type: 'success',
-    duration: 5000
-  })
-
-  resetPreviewForm()
 }
 
 // ── Submissions Table actions ──
@@ -751,12 +1020,14 @@ const viewDetail = (row: FeedbackSubmission) => {
   detailDialogVisible.value = true
 }
 
-const resolveFeedback = (id: string) => {
-  const f = submissions.value.find(item => item.id === id)
-  if (f) {
-    f.status = 'resolved'
-    localStorage.setItem('feedback_submissions', JSON.stringify(submissions.value))
+const resolveFeedback = async (id: string) => {
+  try {
+    await adminApi.updateFeedbackSubmissionStatus(id, { status: 'resolved', reply: '已处理并解决' })
     ElMessage.success(`反馈 ID ${id} 处理完毕并已做标记！`)
+    await loadSubmissionsFromBackend()
+  } catch (err: any) {
+    console.error(err)
+    ElMessage.error('更新状态失败：' + (err.message || '网络请求错误'))
   }
 }
 
@@ -765,10 +1036,15 @@ const deleteFeedback = (id: string) => {
     confirmButtonText: '确定删除',
     cancelButtonText: '取消',
     type: 'warning'
-  }).then(() => {
-    submissions.value = submissions.value.filter(item => item.id !== id)
-    localStorage.setItem('feedback_submissions', JSON.stringify(submissions.value))
-    ElMessage.success('该反馈已被永久删除')
+  }).then(async () => {
+    try {
+      await adminApi.deleteFeedbackSubmission(id)
+      ElMessage.success('该反馈已被永久删除')
+      await loadSubmissionsFromBackend()
+    } catch (err: any) {
+      console.error(err)
+      ElMessage.error('删除失败：' + (err.message || '网络请求错误'))
+    }
   }).catch(() => {})
 }
 </script>
